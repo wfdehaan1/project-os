@@ -1,5 +1,12 @@
 # AI Project Workspace
 
+> **⚠️ Superseded (2026-07-28).** This is the original seed document. It predates the product brief and no longer reflects current decisions: it omits Research as a first-class MVP artifact and describes the pre-pivot responsive web/managed-provider direction. The current source of truth is:
+>
+> - `_bmad-output/planning-artifacts/briefs/brief-ProjectOS-2026-07-27/brief.md` (+ addendum)
+> - `_bmad-output/planning-artifacts/research/market-projectos-market-opportunity-research-2026-07-27.md`
+>
+> Retained for historical context only.
+
 ## Vision
 
 Build an AI-first application for managing **complex personal projects**

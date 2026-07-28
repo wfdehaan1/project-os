@@ -2,7 +2,7 @@
 title: "Product Brief: ProjectOS"
 status: final
 created: 2026-07-27
-updated: 2026-07-27
+updated: 2026-07-28
 ---
 
 # Product Brief: ProjectOS
@@ -13,14 +13,13 @@ _Working name._
 
 ProjectOS is a local-first macOS application for AI-experienced individuals managing complex, long-running projects. It solves the continuity failure of AI chat: useful research, decisions, questions, and tasks accumulate across conversations, but the user must reconstruct the project's current state whenever work resumes.
 
-ProjectOS turns conversations into user-reviewed updates to an explicit, versioned project model. It preserves governing decisions and their rationale, keeps research and open work connected, and recommends the next useful action from project state. The MVP is sold once through the Mac App Store and stores canonical project data on the user's Mac. Users configure access to the supported AI provider and pay the provider's usage charges directly.
+ProjectOS turns conversations into user-reviewed updates to an explicit, versioned project model. It preserves governing decisions and their rationale, keeps research and open work connected, and recommends the next useful action from project state. The MVP is sold once through the Mac App Store and stores canonical project data on the user's Mac. Users connect their own OpenAI account and pay its usage charges directly, or run a local model through Ollama at no usage cost.
 
 ## Open Decisions
 
 - Final product name; ProjectOS remains a placeholder.
-- Initial AI provider and supported authentication or credential path.
-- One-time Mac App Store launch price.
-- Quantitative beta thresholds for continuity, trust, project progress, successful resolution, and paid conversion.
+- Recommended and minimum Ollama models, to be settled during development against the extraction-correctness gate. (Provider choice was decided 2026-07-28: OpenAI via API key plus local models via Ollama — see the addendum.)
+- One-time Mac App Store launch price. The market research recommends testing $39.99 / $59.99 / $79.99 with $59.99 as the starting hypothesis.
 
 ## Customer and Problem
 
@@ -42,12 +41,13 @@ Unlike configurable workspaces or chat products with opaque memory, ProjectOS pr
 
 ## MVP Scope
 
-The MVP validates one loop: start a new project, work with AI, review proposed changes to structured knowledge, and resume later from an understandable current state with explainable guidance.
+The MVP validates one loop: start a project — from scratch or from existing material the user brings in — work with AI, review proposed changes to structured knowledge, and resume later from an understandable current state with explainable guidance.
 
 It includes:
 
 - A local-first macOS application with no ProjectOS-hosted project-content backend.
-- One supported AI provider integration. The user supplies access credentials and pays the provider's usage charges; the project model remains provider-neutral.
+- Two AI backends behind one provider-neutral adapter: OpenAI as the cloud default, authenticated with a user-supplied API key, and Ollama for local inference with no credentials, no usage charges, and no project content leaving the Mac. Guided onboarding — validation, plain-language errors, and usage-cost visibility for the cloud path — is a launch requirement, not polish: the beachhead segment is broader than users who routinely configure API keys.
+- Lightweight import of existing project material: the user can paste or drop existing conversations, notes, and documents into a project's first session, and the AI proposes an initial structured state from them. Most target users arrive mid-project; a blank-slate-only start would test a weaker version of the continuity hypothesis and undermine the first-useful-state activation moment.
 - Topics, Conversations, Research, Decisions, Open Questions, and Tasks as the core artifacts.
 - AI-proposed changes with explicit acceptance or rejection; no autonomous changes to project truth.
 - Versioned state with rationale, provenance, relationships, and decision supersession.
@@ -56,17 +56,17 @@ It includes:
 
 It explicitly excludes:
 
-- Importing or reconstructing projects from existing AI conversations.
+- Automated bulk reconstruction of projects from AI-provider conversation exports or account integrations. Import in the MVP is limited to user-supplied pasted or dropped material.
 - Shared projects, collaboration, assignments, roles, and permissions.
 - Web or mobile applications and cross-device synchronization.
-- Additional user-selectable AI providers or local-model configuration.
+- AI providers beyond the two supported backends (OpenAI and Ollama); Anthropic is deferred until its third-party access policy stabilizes.
 - ProjectOS-hosted AI inference, provider billing, or cloud storage of project content.
 - Requirements, Risks, Purchases, Measurements, Files, Photos, and Notes as first-class artifact types.
 - Arbitrary typography, custom logos, or a full theme editor.
 
 ## Business Model and Evolution
 
-The initial product is distributed through the Mac App Store as a one-time purchase. Users supply credentials for the supported AI provider and pay its usage charges separately, so ProjectOS does not carry variable inference costs.
+The initial product is distributed through the Mac App Store as a one-time purchase. Users bring their own AI: an OpenAI account whose usage charges they pay directly, or free local inference through Ollama. Either way, ProjectOS carries no variable inference costs.
 
 If the MVP proves that explicit project state helps individuals make progress and complete complex work, ProjectOS evolves into a managed, multi-surface service. The service removes provider configuration, broadens access, and can fund recurring capabilities such as synchronization, sharing, and collaboration.
 
@@ -85,4 +85,20 @@ The north-star outcome is meaningful project progress followed by successful res
 | Guided action | Explainable recommendations change project state or lead to completed real-world tasks instead of producing more suggestions. |
 | Commercial signal | Target users pay once for the local application and accept separate provider usage costs. |
 
-Quantitative thresholds should be established before a limited beta, once expected project duration and launch pricing are defined.
+### Quantitative Decision Gates
+
+The following thresholds are adopted from the market research (2026-07-28). They are management gates, not external benchmarks; failure on re-entry or price-bearing conversion stops expansion even if users enjoy the AI interaction.
+
+| Gate | Initial threshold |
+| --- | ---: |
+| First useful state reached without assistance | At least 70% of testers within 15 minutes |
+| Users reporting materially easier re-entry than their current workflow | At least 60% |
+| Materially correct accepted decisions and project facts before manual correction | At least 85% |
+| Price-bearing conversion among successfully activated trial users at $59.99 | At least 25% |
+| Users successfully exporting and reopening their project data | At least 95% |
+| Severe silent state corruption or unrecoverable data loss | 0 |
+| Users starting or importing another project within 90 days | Observe first; set threshold from actual project cadence |
+
+### Validation Sequencing
+
+Concierge validation (Phase 1 of the market-entry plan: 20–25 AI-using people with active, high-stakes projects, real material imported, corrections measured, a 7–14 day gap retest, and a price-bearing ask) precedes or runs in parallel with MVP development. It requires no application build and de-risks the three lowest-confidence hypotheses — switching, willingness to pay, and explicit state beating conversational memory — before serious build investment. The PRD should be written after concierge results are in.
