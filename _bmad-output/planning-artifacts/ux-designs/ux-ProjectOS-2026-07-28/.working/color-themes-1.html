@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ProjectOS — Curated Theme Families</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      background: #15171a;
+      color: #f5f6f7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 8% 0%, rgba(255,255,255,.07), transparent 25rem),
+        #15171a;
+    }
+
+    .page {
+      width: min(1880px, 100%);
+      margin: 0 auto;
+      padding: 44px clamp(18px, 3vw, 52px) 64px;
+    }
+
+    .page-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 560px);
+      gap: 32px;
+      align-items: end;
+      margin-bottom: 34px;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: clamp(30px, 4vw, 52px); letter-spacing: -.045em; line-height: 1.02; }
+    .eyebrow { color: #aeb4bd; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 12px; }
+    .intro { color: #c5c9cf; font-size: 15px; line-height: 1.55; max-width: 62ch; }
+
+    .families { display: grid; gap: 34px; }
+    .family {
+      border: 1px solid #34383e;
+      border-radius: 22px;
+      padding: clamp(16px, 2vw, 26px);
+      background: rgba(31, 34, 38, .88);
+      box-shadow: 0 22px 60px rgba(0,0,0,.22);
+    }
+
+    .family-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 20px;
+      margin-bottom: 16px;
+    }
+
+    .family h2 { font-size: 22px; letter-spacing: -.025em; }
+    .register { color: #aeb4bd; font-size: 13px; line-height: 1.4; text-align: right; }
+
+    .tokens {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 18px;
+    }
+
+    .token {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 4px 8px;
+      border: 1px solid #41464d;
+      border-radius: 8px;
+      color: #d9dce0;
+      background: #292d32;
+      font: 600 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .swatch { width: 12px; height: 12px; border-radius: 4px; background: var(--swatch); border: 1px solid rgba(127,127,127,.35); }
+
+    .modes { display: grid; grid-template-columns: repeat(2, minmax(620px, 1fr)); gap: 16px; overflow-x: auto; padding-bottom: 2px; }
+    .mode-wrap { min-width: 620px; }
+    .mode-label { color: #aeb4bd; font-size: 11px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; margin: 0 0 8px 4px; }
+
+    .app {
+      --canvas: #ffffff;
+      --sidebar: #f5f5f5;
+      --surface: #ffffff;
+      --surface-raised: #ffffff;
+      --text: #171717;
+      --muted: #666666;
+      --border: #dddddd;
+      --accent: #295ea7;
+      --accent-text: #ffffff;
+      --selection: #e5eefb;
+      --tint: #f4f7fb;
+      --cover-a: #5377a5;
+      --cover-b: #a9bacd;
+      --success: #216e45;
+      --warning: #925d00;
+      width: 100%;
+      height: 440px;
+      display: grid;
+      grid-template-rows: 34px minmax(0, 1fr);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--canvas);
+      color: var(--text);
+      box-shadow: 0 18px 40px rgba(0,0,0,.16);
+    }
+
+    .titlebar {
+      display: grid;
+      grid-template-columns: 72px 1fr 72px;
+      align-items: center;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--sidebar);
+    }
+
+    .traffic { display: flex; gap: 7px; }
+    .traffic span { width: 10px; height: 10px; border-radius: 50%; }
+    .traffic span:nth-child(1) { background: #ff5f57; }
+    .traffic span:nth-child(2) { background: #febc2e; }
+    .traffic span:nth-child(3) { background: #28c840; }
+    .window-title { text-align: center; color: var(--muted); font-size: 11px; font-weight: 600; }
+
+    .app-body { min-height: 0; display: grid; grid-template-columns: 142px minmax(0, 1fr); }
+    .sidebar { min-height: 0; padding: 10px 9px; border-right: 1px solid var(--border); background: var(--sidebar); }
+    .project-mark { display: flex; align-items: center; gap: 8px; margin: 2px 3px 12px; min-width: 0; }
+    .cover { width: 26px; height: 26px; flex: 0 0 auto; border-radius: 7px; background: linear-gradient(145deg, var(--cover-a), var(--cover-b)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
+    .project-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 700; }
+    nav { display: grid; gap: 2px; }
+    .nav-item { min-height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 7px; color: var(--muted); font-size: 11px; font-weight: 520; }
+    .nav-item::before { content: ""; width: 7px; height: 7px; border: 1.5px solid currentColor; border-radius: 2px; opacity: .72; }
+    .nav-item.selected { color: var(--text); background: var(--selection); font-weight: 680; }
+    .nav-item.selected::before { background: var(--accent); border-color: var(--accent); }
+    .main { min-width: 0; overflow: auto; padding: 18px 20px 22px; background: var(--canvas); }
+    .crumb { color: var(--muted); font-size: 10px; margin-bottom: 5px; }
+    .main h3 { font-size: 22px; letter-spacing: -.035em; line-height: 1.1; }
+    .description { color: var(--muted); font-size: 11px; line-height: 1.45; margin-top: 6px; max-width: 62ch; }
+
+    .recap {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-top: 15px;
+      padding: 12px 13px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--tint);
+    }
+
+    .recap-copy strong { display: block; font-size: 11px; margin-bottom: 3px; }
+    .recap-copy span { display: block; color: var(--muted); font-size: 10px; line-height: 1.35; }
+    button { border: 0; font: inherit; }
+    .primary { flex: 0 0 auto; padding: 7px 10px; border-radius: 7px; color: var(--accent-text); background: var(--accent); font-size: 10px; font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+
+    .overview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 10px; }
+    .panel { min-height: 92px; padding: 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .panel-title { font-size: 10px; font-weight: 750; }
+    .count { color: var(--muted); font-size: 9px; }
+    .item { display: flex; align-items: flex-start; gap: 7px; color: var(--text); font-size: 9.5px; line-height: 1.35; }
+    .item + .item { margin-top: 7px; }
+    .status { width: 7px; height: 7px; flex: 0 0 auto; margin-top: 2px; border-radius: 50%; background: var(--success); }
+    .status.question { background: transparent; border: 1.5px solid var(--warning); }
+    .next { grid-column: 1 / -1; min-height: 86px; display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; background: var(--tint); }
+    .next .item { color: var(--muted); }
+    .text-link { align-self: center; color: var(--accent); background: transparent; padding: 5px; font-size: 10px; font-weight: 750; white-space: nowrap; }
+
+    /* Theme 1 — Studio Paper
+       Light: canvas #FCFBF8, sidebar #F3F0EA, surface #FFFFFF, raised #FFFFFF,
+       text #24211D, muted #686158, border #D8D2C8, accent #6B4E2E,
+       accentText #FFFFFF, selection #E9E1D6, tint #F7F2E9,
+       cover #6B4E2E -> #D6B98B, success #2F6B4F, warning #8A5A00.
+       Dark: canvas #1C1A17, sidebar #24211D, surface #28241F, raised #302B25,
+       text #F3EFE8, muted #BBB2A6, border #4B443B, accent #D6B98B,
+       accentText #20180F, selection #3B3126, tint #29231C,
+       cover #A87A47 -> #E0C99F, success #78C69A, warning #F0BE63. */
+    .paper.light { --canvas:#FCFBF8; --sidebar:#F3F0EA; --surface:#FFFFFF; --surface-raised:#FFFFFF; --text:#24211D; --muted:#686158; --border:#D8D2C8; --accent:#6B4E2E; --accent-text:#FFFFFF; --selection:#E9E1D6; --tint:#F7F2E9; --cover-a:#6B4E2E; --cover-b:#D6B98B; --success:#2F6B4F; --warning:#8A5A00; }
+    .paper.dark { --canvas:#1C1A17; --sidebar:#24211D; --surface:#28241F; --surface-raised:#302B25; --text:#F3EFE8; --muted:#BBB2A6; --border:#4B443B; --accent:#D6B98B; --accent-text:#20180F; --selection:#3B3126; --tint:#29231C; --cover-a:#A87A47; --cover-b:#E0C99F; --success:#78C69A; --warning:#F0BE63; }
+
+    /* Theme 2 — Signal Slate
+       Light: canvas #F7F9FB, sidebar #E9EDF1, surface #FFFFFF, raised #FFFFFF,
+       text #111820, muted #52606D, border #C9D1D9, accent #174D7A,
+       accentText #FFFFFF, selection #D6E4F0, tint #EDF4F8,
+       cover #172B3A -> #4E7188, success #176B45, warning #855800.
+       Dark: canvas #10161C, sidebar #172028, surface #1B252E, raised #202C36,
+       text #F1F5F8, muted #AAB8C3, border #3B4B57, accent #7BB7E0,
+       accentText #09243A, selection #263C4D, tint #172731,
+       cover #294A60 -> #7BB7E0, success #70CE9A, warning #EFC267. */
+    .slate.light { --canvas:#F7F9FB; --sidebar:#E9EDF1; --surface:#FFFFFF; --surface-raised:#FFFFFF; --text:#111820; --muted:#52606D; --border:#C9D1D9; --accent:#174D7A; --accent-text:#FFFFFF; --selection:#D6E4F0; --tint:#EDF4F8; --cover-a:#172B3A; --cover-b:#4E7188; --success:#176B45; --warning:#855800; }
+    .slate.dark { --canvas:#10161C; --sidebar:#172028; --surface:#1B252E; --surface-raised:#202C36; --text:#F1F5F8; --muted:#AAB8C3; --border:#3B4B57; --accent:#7BB7E0; --accent-text:#09243A; --selection:#263C4D; --tint:#172731; --cover-a:#294A60; --cover-b:#7BB7E0; --success:#70CE9A; --warning:#EFC267; }
+
+    /* Theme 3 — Quiet Grove
+       Light: canvas #FAFBF8, sidebar #EDF1E9, surface #FFFFFF, raised #FFFFFF,
+       text #182019, muted #586358, border #CCD4C8, accent #2E6045,
+       accentText #FFFFFF, selection #DCE9DD, tint #EEF5EC,
+       cover #315B45 -> #9BB792, success #236641, warning #825B0B.
+       Dark: canvas #131813, sidebar #1B231C, surface #202921, raised #263128,
+       text #EEF4ED, muted #AFBCAF, border #3D4C3E, accent #8FC59E,
+       accentText #102817, selection #29402F, tint #1B2B20,
+       cover #315B45 -> #8FC59E, success #83D29E, warning #E9C06B. */
+    .grove.light { --canvas:#FAFBF8; --sidebar:#EDF1E9; --surface:#FFFFFF; --surface-raised:#FFFFFF; --text:#182019; --muted:#586358; --border:#CCD4C8; --accent:#2E6045; --accent-text:#FFFFFF; --selection:#DCE9DD; --tint:#EEF5EC; --cover-a:#315B45; --cover-b:#9BB792; --success:#236641; --warning:#825B0B; }
+    .grove.dark { --canvas:#131813; --sidebar:#1B231C; --surface:#202921; --surface-raised:#263128; --text:#EEF4ED; --muted:#AFBCAF; --border:#3D4C3E; --accent:#8FC59E; --accent-text:#102817; --selection:#29402F; --tint:#1B2B20; --cover-a:#315B45; --cover-b:#8FC59E; --success:#83D29E; --warning:#E9C06B; }
+
+    /* Theme 4 — Fjord Air
+       Light: canvas #F9FCFD, sidebar #EEF5F7, surface #FFFFFF, raised #FFFFFF,
+       text #132126, muted #56676D, border #C9D9DD, accent #0B6070,
+       accentText #FFFFFF, selection #D6EDF1, tint #EAF6F7,
+       cover #1B6570 -> #9BC8CF, success #18704A, warning #8B5900.
+       Dark: canvas #0F181B, sidebar #172226, surface #1B292D, raised #213136,
+       text #EDF6F7, muted #ABC0C4, border #3A5055, accent #79CBD4,
+       accentText #082A30, selection #244047, tint #172B30,
+       cover #246E79 -> #79CBD4, success #75D29B, warning #F1BF61. */
+    .fjord.light { --canvas:#F9FCFD; --sidebar:#EEF5F7; --surface:#FFFFFF; --surface-raised:#FFFFFF; --text:#132126; --muted:#56676D; --border:#C9D9DD; --accent:#0B6070; --accent-text:#FFFFFF; --selection:#D6EDF1; --tint:#EAF6F7; --cover-a:#1B6570; --cover-b:#9BC8CF; --success:#18704A; --warning:#8B5900; }
+    .fjord.dark { --canvas:#0F181B; --sidebar:#172226; --surface:#1B292D; --surface-raised:#213136; --text:#EDF6F7; --muted:#ABC0C4; --border:#3A5055; --accent:#79CBD4; --accent-text:#082A30; --selection:#244047; --tint:#172B30; --cover-a:#246E79; --cover-b:#79CBD4; --success:#75D29B; --warning:#F1BF61; }
+
+    /* Theme 5 — Aubergine Ledger
+       Light: canvas #FBF9FC, sidebar #F1EDF3, surface #FFFFFF, raised #FFFFFF,
+       text #241B27, muted #675B6A, border #D8CDD9, accent #67436C,
+       accentText #FFFFFF, selection #E9DDEB, tint #F6EEF6,
+       cover #57375D -> #C0A0C4, success #276848, warning #865900.
+       Dark: canvas #191419, sidebar #231C24, surface #2A222B, raised #322833,
+       text #F5EDF5, muted #C1B1C2, border #4D3E4F, accent #D1A8D3,
+       accentText #29172B, selection #402F42, tint #2C202D,
+       cover #704778 -> #D1A8D3, success #7ACE9B, warning #F0BF65. */
+    .aubergine.light { --canvas:#FBF9FC; --sidebar:#F1EDF3; --surface:#FFFFFF; --surface-raised:#FFFFFF; --text:#241B27; --muted:#675B6A; --border:#D8CDD9; --accent:#67436C; --accent-text:#FFFFFF; --selection:#E9DDEB; --tint:#F6EEF6; --cover-a:#57375D; --cover-b:#C0A0C4; --success:#276848; --warning:#865900; }
+    .aubergine.dark { --canvas:#191419; --sidebar:#231C24; --surface:#2A222B; --surface-raised:#322833; --text:#F5EDF5; --muted:#C1B1C2; --border:#4D3E4F; --accent:#D1A8D3; --accent-text:#29172B; --selection:#402F42; --tint:#2C202D; --cover-a:#704778; --cover-b:#D1A8D3; --success:#7ACE9B; --warning:#F0BF65; }
+
+    @media (max-width: 900px) {
+      .page-head { grid-template-columns: 1fr; gap: 14px; }
+      .family-head { display: block; }
+      .register { text-align: left; margin-top: 5px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="page-head">
+      <div>
+        <p class="eyebrow">ProjectOS · Theme exploration 01</p>
+        <h1>Five ways to feel quietly capable.</h1>
+      </div>
+      <p class="intro">The structure, spacing, typography, component behavior, and status semantics remain shared. Only approved project-identity tokens change. Each family includes coordinated Light and Dark appearances.</p>
+    </header>
+
+    <section class="families">
+      <article class="family">
+        <header class="family-head"><h2>Studio Paper</h2><p class="register">Editorial, warm, and quietly considered — like a well-kept project notebook.</p></header>
+        <div class="tokens" aria-label="Studio Paper semantic identity tokens">
+          <span class="token"><i class="swatch" style="--swatch:#6B4E2E"></i>accent</span><span class="token"><i class="swatch" style="--swatch:#E9E1D6"></i>selected</span><span class="token"><i class="swatch" style="--swatch:#F7F2E9"></i>surface tint</span><span class="token"><i class="swatch" style="--swatch:linear-gradient(145deg,#6B4E2E,#D6B98B)"></i>cover</span>
+        </div>
+        <div class="modes">
+          <div class="mode-wrap"><p class="mode-label">Light</p><div class="app paper light" aria-label="Studio Paper light Project Overview">
+            <div class="titlebar"><div class="traffic"><span></span><span></span><span></span></div><div class="window-title">ProjectOS</div></div>
+            <div class="app-body"><aside class="sidebar"><div class="project-mark"><div class="cover"></div><div class="project-name">ProjectOS UX</div></div><nav><div class="nav-item selected">Overview</div><div class="nav-item">Project Map</div><div class="nav-item">Conversation</div><div class="nav-item">Topics</div><div class="nav-item">Tasks</div><div class="nav-item">Decisions</div><div class="nav-item">Research</div><div class="nav-item">Questions</div></nav></aside><section class="main"><p class="crumb">Project / Overview</p><h3>ProjectOS UX</h3><p class="description">Design a local-first macOS workspace that makes consequential project work easy to resume.</p><div class="recap"><div class="recap-copy"><strong>Recap latest progress</strong><span>Rebuild your context from accepted project history.</span></div><button class="primary">Generate recap</button></div><div class="overview-grid"><div class="panel"><div class="panel-head"><span class="panel-title">What’s settled</span><span class="count">3 decisions</span></div><div class="item"><i class="status"></i><span>Project themes inherit global appearance.</span></div><div class="item"><i class="status"></i><span>Canonical changes require approval.</span></div></div><div class="panel"><div class="panel-head"><span class="panel-title">Unanswered questions</span><span class="count">2 open</span></div><div class="item"><i class="status question"></i><span>Which notifications deserve interruption?</span></div><div class="item"><i class="status question"></i><span>When should Project Map gain prominence?</span></div></div><div class="panel next"><div><div class="panel-head"><span class="panel-title">What’s up next</span></div><div class="item"><span>Resolve the notification model before defining Settings.</span></div></div><button class="text-link">View question →</button></div></div></section></div>
+          </div></div>
+          <div class="mode-wrap"><p class="mode-label">Dark</p><div class="app paper dark" aria-label="Studio Paper dark Project Overview">
+            <div class="titlebar"><div class="traffic"><span></span><span></span><span></span></div><div class="window-title">ProjectOS</div></div>
+            <div class="app-body"><aside class="sidebar"><div class="project-mark"><div class="cover"></div><div class="project-name">ProjectOS UX</div></div><nav><div class="nav-item selected">Overview</div><div class="nav-item">Project Map</div><div class="nav-item">Conversation</div><div class="nav-item">Topics</div><div class="nav-item">Tasks</div><div class="nav-item">Decisions</div><div class="nav-item">Research</div><div class="nav-item">Questions</div></nav></aside><section class="main"><p class="crumb">Project / Overview</p><h3>ProjectOS UX</h3><p class="description">Design a local-first macOS workspace that makes consequential project work easy to resume.</p><div class="recap"><div class="recap-copy"><strong>Recap latest progress</strong><span>Rebuild your context from accepted project history.</span></div><button class="primary">Generate recap</button></div><div class="overview-grid"><div class="panel"><div class="panel-head"><span class="panel-title">What’s settled</span><span class="count">3 decisions</span></div><div class="item"><i class="status"></i><span>Project themes inherit global appearance.</span></div><div class="item"><i class="status"></i><span>Canonical changes require approval.</span></div></div><div class="panel"><div class="panel-head"><span class="panel-title">Unanswered questions</span><span class="count">2 open</span></div><div class="item"><i class="status question"></i><span>Which notifications deserve interruption?</span></div><div class="item"><i class="status question"></i><span>When should Project Map gain prominence?</span></div></div><div class="panel next"><div><div class="panel-head"><span class="panel-title">What’s up next</span></div><div class="item"><span>Resolve the notification model before defining Settings.</span></div></div><button class="text-link">View question →</button></div></div></section></div>
+          </div></div>
+        </div>
+      </article>
+
+      <article class="family">
+        <header class="family-head"><h2>Signal Slate</h2><p class="register">Precise, focused, and quietly technical — confidence through crisp structure.</p></header>
+        <div class="tokens" aria-label="Signal Slate semantic identity tokens"><span class="token"><i class="swatch" style="--swatch:#174D7A"></i>accent</span><span class="token"><i class="swatch" style="--swatch:#D6E4F0"></i>selected</span><span class="token"><i class="swatch" style="--swatch:#EDF4F8"></i>surface tint</span><span class="token"><i class="swatch" style="--swatch:linear-gradient(145deg,#172B3A,#4E7188)"></i>cover</span></div>
+        <div class="modes">
+          <div class="mode-wrap"><p class="mode-label">Light</p><div class="app slate light" aria-label="Signal Slate light Project Overview"><div class="titlebar"><div class="traffic"><span></span><span></span><span></span></div><div class="window-title">ProjectOS</div></div><div class="app-body"><aside class="sidebar"><div class="project-mark"><div class="cover"></div><div class="project-name">ProjectOS UX</div></div><nav><div class="nav-item selected">Overview</div><div class="nav-item">Project Map</div><div class="nav-item">Conversation</div><div class="nav-item">Topics</div><div class="nav-item">Tasks</div><div class="nav-item">Decisions</div><div class="nav-item">Research</div><div class="nav-item">Questions</div></nav></aside><section class="main"><p class="crumb">Project / Overview</p><h3>ProjectOS UX</h3><p class="description">Design a local-first macOS workspace that makes consequential project work easy to resume.</p><div class="recap"><div class="recap-copy"><strong>Recap latest progress</strong><span>Rebuild your context from accepted project history.</span></div><button class="primary">Generate recap</button></div><div class="overview-grid"><div class="panel"><div class="panel-head"><span class="panel-title">What’s settled</span><span class="count">3 decisions</span></div><div class="item"><i class="status"></i><span>Project themes inherit global appearance.</span></div><div class="item"><i class="status"></i><span>Canonical changes require approval.</span></div></div><div class="panel"><div class="panel-head"><span class="panel-title">Unanswered questions</span><span class="count">2 open</span></div><div class="item"><i class="status question"></i><span>Which notifications deserve interruption?</span></div><div class="item"><i class="status question"></i><span>When should Project Map gain prominence?</span></div></div><div class="panel next"><div><div class="panel-head"><span class="panel-title">What’s up next</span></div><div class="item"><span>Resolve the notification model before defining Settings.</span></div></div><button class="text-link">View question →</button></div></div></section></div></div></div>
+          <div class="mode-wrap"><p class="mode-label">Dark</p><div class="app slate dark" aria-label="Signal Slate dark Project Overview"><div class="titlebar"><div class="traffic"><span></span><span></span><span></span></div><div class="window-title">ProjectOS</div></div><div class="app-body"><aside class="sidebar"><div class="project-mark"><div class="cover"></div><div class="project-name">ProjectOS UX</div></div><nav><div class="nav-item selected">Overview</div><div class="nav-item">Project Map</div><div class="nav-item">Conversation</div><div class="nav-item">Topics</div><div class="nav-item">Tasks</div><div class="nav-item">Decisions</div><div class="nav-item">Research</div><div class="nav-item">Questions</div></nav></aside><section class="main"><p class="crumb">Project / Overview</p><h3>ProjectOS UX</h3><p class="description">Design a local-first macOS workspace that makes consequential project work easy to resume.</p><div class="recap"><div class="recap-copy"><strong>Recap latest progress</strong><span>Rebuild your context from accepted project history.</span></div><button class="primary">Generate recap</button></div><div class="overview-grid"><div class="panel"><div class="panel-head"><span class="panel-title">What’s settled</span><span class="count">3 decisions</span></div><div class="item"><i class="status"></i><span>Project themes inherit global appearance.</span></div><div class="item"><i class="status"></i><span>Canonical changes require approval.</span></div></div><div class="panel"><div class="panel-head"><span class="panel-title">Unanswered questions</span><span class="count">2 open</span></div><div class="item"><i class="status question"></i><span>Which notifications deserve interruption?</span></div><div class="item"><i class="status question"></i><span>When should Project Map gain prominence?</span></div></div><div class="panel next"><div><div class="panel-head"><span class="panel-title">What’s up next</span></div><div class="item"><span>Resolve the notification model before defining Settings.</span></div></div><button class="text-link">View question →</button></div></div></section></div></div></div>
+        </div>
+      </article>
+
+      <article class="family">
+        <header class="family-head"><h2>Quiet Grove</h2><p class="register">Grounded, patient, and restorative — calm continuity for long-running work.</p></header>
+        <div class="tokens" aria-label="Quiet Grove semantic identity tokens"><span class="token"><i class="swatch" style="--swatch:#2E6045"></i>accent</span><span class="token"><i class="swatch" style="--swatch:#DCE9DD"></i>selected</span><span class="token"><i class="swatch" style="--swatch:#EEF5EC"></i>surface tint</span><span class="token"><i class="swatch" style="--swatch:linear-gradient(145deg,#315B45,#9BB792)"></i>cover</span></div>
+        <div class="modes">
+          <div class="mode-wrap"><p class="mode-label">Light</p><div class="app grove light" aria-label="Quiet Grove light Project Overview"><div class="titlebar"><div class="traffic"><span></span><span></span><span></span></div><div class="window-title">ProjectOS</div></div><div class="app-body"><aside class="sidebar"><div class="project-mark"><div class="cover"></div><div class="project-name">ProjectOS UX</div></div><nav><div class="nav-item selected">Overview</div><div class="nav-item">Project Map</div><div class="nav-item">Conversation</div><div class="nav-item">Topics</div><div class="nav-item">Tasks</div><div class="nav-item">Decisions</div><div class="nav-item">Research</div><div class="nav-item">Questions</div></nav></aside><section class="main"><p class="crumb">Project / Overview</p><h3>ProjectOS UX</h3><p class="description">Design a local-first macOS workspace that makes consequential project work easy to resume.</p><div class="recap"><div class="recap-copy"><strong>Recap latest progress</strong><span>Rebuild your context from accepted project history.</span></div><button class="primary">Generate recap</button></div><div class="overview-grid"><div class="panel"><div class="panel-head"><span class="panel-title">What’s settled</span><span class="count">3 decisions</span></div><div class="item"><i class="status"></i><span>Project themes inherit global appearance.</span></div><div class="item"><i class="status"></i><span>Canonical changes require approval.</span></div></div><div class="panel"><div class="panel-head"><span class="panel-title">Unanswered questions</span><span class="count">2 open</span></div><div class="item"><i class="status question"></i><span>Which notifications deserve interruption?</span></div><div class="item"><i class="status question"></i><span>When should Project Map gain prominence?</span></div></div><div class="panel next"><div><div class="panel-head"><span class="panel-title">What’s up next</span></div><div class="item"><span>Resolve the notification model before defining Settings.</span></div></div><button class="text-link">View question →</button></div></div></section></div></div></div>
+          <div class="mode-wrap"><p class="mode-label">Dark</p><div class="app grove dark" aria-label="Quiet Grove dark Project Overview"><div class="titlebar"><div class="traffic"><span></span><span></span><span></span></div><div class="window-title">ProjectOS</div></div><div class="app-body"><aside class="sidebar"><div class="project-mark"><div class="cover"></div><div class="project-name">ProjectOS UX</div></div><nav><div class="nav-item selected">Overview</div><div class="nav-item">Project Map</div><div class="nav-item">Conversation</div><div class="nav-item">Topics</div><div class="nav-item">Tasks</div><div class="nav-item">Decisions</div><div class="nav-item">Research</div><div class="nav-item">Questions</div></nav></aside><section class="main"><p class="crumb">Project / Overview</p><h3>ProjectOS UX</h3><p class="description">Design a local-first macOS workspace that makes consequential project work easy to resume.</p><div class="recap"><div class="recap-copy"><strong>Recap latest progress</strong><span>Rebuild your context from accepted project history.</span></div><button class="primary">Generate recap</button></div><div class="overview-grid"><div class="panel"><div class="panel-head"><span class="panel-title">What’s settled</span><span class="count">3 decisions</span></div><div class="item"><i class="status"></i><span>Project themes inherit global appearance.</span></div><div class="item"><i class="status"></i><span>Canonical changes require approval.</span></div></div><div class="panel"><div class="panel-head"><span class="panel-title">Unanswered questions</span><span class="count">2 open</span></div><div class="item"><i class="status question"></i><span>Which notifications deserve interruption?</span></div><div class="item"><i class="status question"></i><span>When should Project Map gain prominence?</span></div></div><div class="panel next"><div><div class="panel-head"><span class="panel-title">What’s up next</span></div><div class="item"><span>Resolve the notification model before defining Settings.</span></div></div><button class="text-link">View question →</button></div></div></section></div></div></div>
+        </div>
+      </article>
+
+      <article class="family">
+        <header class="family-head"><h2>Fjord Air</h2><p class="register">Open, lucid, and light-footed — room to think without losing direction.</p></header>
+        <div class="tokens" aria-label="Fjord Air semantic identity tokens"><span class="token"><i class="swatch" style="--swatch:#0B6070"></i>accent</span><span class="token"><i class="swatch" style="--swatch:#D6EDF1"></i>selected</span><span class="token"><i class="swatch" style="--swatch:#EAF6F7"></i>surface tint</span><span class="token"><i class="swatch" style="--swatch:linear-gradient(145deg,#1B6570,#9BC8CF)"></i>cover</span></div>
+        <div class="modes">
+          <div class="mode-wrap"><p class="mode-label">Light</p><div class="app fjord light" aria-label="Fjord Air light Project Overview"><div class="titlebar"><div class="traffic"><span></span><span></span><span></span></div><div class="window-title">ProjectOS</div></div><div class="app-body"><aside class="sidebar"><div class="project-mark"><div class="cover"></div><div class="project-name">ProjectOS UX</div></div><nav><div class="nav-item selected">Overview</div><div class="nav-item">Project Map</div><div class="nav-item">Conversation</div><div class="nav-item">Topics</div><div class="nav-item">Tasks</div><div class="nav-item">Decisions</div><div class="nav-item">Research</div><div class="nav-item">Questions</div></nav></aside><section class="main"><p class="crumb">Project / Overview</p><h3>ProjectOS UX</h3><p class="description">Design a local-first macOS workspace that makes consequential project work easy to resume.</p><div class="recap"><div class="recap-copy"><strong>Recap latest progress</strong><span>Rebuild your context from accepted project history.</span></div><button class="primary">Generate recap</button></div><div class="overview-grid"><div class="panel"><div class="panel-head"><span class="panel-title">What’s settled</span><span class="count">3 decisions</span></div><div class="item"><i class="status"></i><span>Project themes inherit global appearance.</span></div><div class="item"><i class="status"></i><span>Canonical changes require approval.</span></div></div><div class="panel"><div class="panel-head"><span class="panel-title">Unanswered questions</span><span class="count">2 open</span></div><div class="item"><i class="status question"></i><span>Which notifications deserve interruption?</span></div><div class="item"><i class="status question"></i><span>When should Project Map gain prominence?</span></div></div><div class="panel next"><div><div class="panel-head"><span class="panel-title">What’s up next</span></div><div class="item"><span>Resolve the notification model before defining Settings.</span></div></div><button class="text-link">View question →</button></div></div></section></div></div></div>
+          <div class="mode-wrap"><p class="mode-label">Dark</p><div class="app fjord dark" aria-label="Fjord Air dark Project Overview"><div class="titlebar"><div class="traffic"><span></span><span></span><span></span></div><div class="window-title">ProjectOS</div></div><div class="app-body"><aside class="sidebar"><div class="project-mark"><div class="cover"></div><div class="project-name">ProjectOS UX</div></div><nav><div class="nav-item selected">Overview</div><div class="nav-item">Project Map</div><div class="nav-item">Conversation</div><div class="nav-item">Topics</div><div class="nav-item">Tasks</div><div class="nav-item">Decisions</div><div class="nav-item">Research</div><div class="nav-item">Questions</div></nav></aside><section class="main"><p class="crumb">Project / Overview</p><h3>ProjectOS UX</h3><p class="description">Design a local-first macOS workspace that makes consequential project work easy to resume.</p><div class="recap"><div class="recap-copy"><strong>Recap latest progress</strong><span>Rebuild your context from accepted project history.</span></div><button class="primary">Generate recap</button></div><div class="overview-grid"><div class="panel"><div class="panel-head"><span class="panel-title">What’s settled</span><span class="count">3 decisions</span></div><div class="item"><i class="status"></i><span>Project themes inherit global appearance.</span></div><div class="item"><i class="status"></i><span>Canonical changes require approval.</span></div></div><div class="panel"><div class="panel-head"><span class="panel-title">Unanswered questions</span><span class="count">2 open</span></div><div class="item"><i class="status question"></i><span>Which notifications deserve interruption?</span></div><div class="item"><i class="status question"></i><span>When should Project Map gain prominence?</span></div></div><div class="panel next"><div><div class="panel-head"><span class="panel-title">What’s up next</span></div><div class="item"><span>Resolve the notification model before defining Settings.</span></div></div><button class="text-link">View question →</button></div></div></section></div></div></div>
+        </div>
+      </article>
+
+      <article class="family">
+        <header class="family-head"><h2>Aubergine Ledger</h2><p class="register">Composed, reflective, and quietly premium — gravitas without ornament.</p></header>
+        <div class="tokens" aria-label="Aubergine Ledger semantic identity tokens"><span class="token"><i class="swatch" style="--swatch:#67436C"></i>accent</span><span class="token"><i class="swatch" style="--swatch:#E9DDEB"></i>selected</span><span class="token"><i class="swatch" style="--swatch:#F6EEF6"></i>surface tint</span><span class="token"><i class="swatch" style="--swatch:linear-gradient(145deg,#57375D,#C0A0C4)"></i>cover</span></div>
+        <div class="modes">
+          <div class="mode-wrap"><p class="mode-label">Light</p><div class="app aubergine light" aria-label="Aubergine Ledger light Project Overview"><div class="titlebar"><div class="traffic"><span></span><span></span><span></span></div><div class="window-title">ProjectOS</div></div><div class="app-body"><aside class="sidebar"><div class="project-mark"><div class="cover"></div><div class="project-name">ProjectOS UX</div></div><nav><div class="nav-item selected">Overview</div><div class="nav-item">Project Map</div><div class="nav-item">Conversation</div><div class="nav-item">Topics</div><div class="nav-item">Tasks</div><div class="nav-item">Decisions</div><div class="nav-item">Research</div><div class="nav-item">Questions</div></nav></aside><section class="main"><p class="crumb">Project / Overview</p><h3>ProjectOS UX</h3><p class="description">Design a local-first macOS workspace that makes consequential project work easy to resume.</p><div class="recap"><div class="recap-copy"><strong>Recap latest progress</strong><span>Rebuild your context from accepted project history.</span></div><button class="primary">Generate recap</button></div><div class="overview-grid"><div class="panel"><div class="panel-head"><span class="panel-title">What’s settled</span><span class="count">3 decisions</span></div><div class="item"><i class="status"></i><span>Project themes inherit global appearance.</span></div><div class="item"><i class="status"></i><span>Canonical changes require approval.</span></div></div><div class="panel"><div class="panel-head"><span class="panel-title">Unanswered questions</span><span class="count">2 open</span></div><div class="item"><i class="status question"></i><span>Which notifications deserve interruption?</span></div><div class="item"><i class="status question"></i><span>When should Project Map gain prominence?</span></div></div><div class="panel next"><div><div class="panel-head"><span class="panel-title">What’s up next</span></div><div class="item"><span>Resolve the notification model before defining Settings.</span></div></div><button class="text-link">View question →</button></div></div></section></div></div></div>
+          <div class="mode-wrap"><p class="mode-label">Dark</p><div class="app aubergine dark" aria-label="Aubergine Ledger dark Project Overview"><div class="titlebar"><div class="traffic"><span></span><span></span><span></span></div><div class="window-title">ProjectOS</div></div><div class="app-body"><aside class="sidebar"><div class="project-mark"><div class="cover"></div><div class="project-name">ProjectOS UX</div></div><nav><div class="nav-item selected">Overview</div><div class="nav-item">Project Map</div><div class="nav-item">Conversation</div><div class="nav-item">Topics</div><div class="nav-item">Tasks</div><div class="nav-item">Decisions</div><div class="nav-item">Research</div><div class="nav-item">Questions</div></nav></aside><section class="main"><p class="crumb">Project / Overview</p><h3>ProjectOS UX</h3><p class="description">Design a local-first macOS workspace that makes consequential project work easy to resume.</p><div class="recap"><div class="recap-copy"><strong>Recap latest progress</strong><span>Rebuild your context from accepted project history.</span></div><button class="primary">Generate recap</button></div><div class="overview-grid"><div class="panel"><div class="panel-head"><span class="panel-title">What’s settled</span><span class="count">3 decisions</span></div><div class="item"><i class="status"></i><span>Project themes inherit global appearance.</span></div><div class="item"><i class="status"></i><span>Canonical changes require approval.</span></div></div><div class="panel"><div class="panel-head"><span class="panel-title">Unanswered questions</span><span class="count">2 open</span></div><div class="item"><i class="status question"></i><span>Which notifications deserve interruption?</span></div><div class="item"><i class="status question"></i><span>When should Project Map gain prominence?</span></div></div><div class="panel next"><div><div class="panel-head"><span class="panel-title">What’s up next</span></div><div class="item"><span>Resolve the notification model before defining Settings.</span></div></div><button class="text-link">View question →</button></div></div></section></div></div></div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

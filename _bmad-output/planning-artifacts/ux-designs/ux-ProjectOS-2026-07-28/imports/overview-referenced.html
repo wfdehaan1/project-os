@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garden Office Utilities</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+
+/* ---------- atmospheres ---------- */
+[data-mood="chalk"]{--sky:#EDF1EF;--earth:#E1E7E3;--page:#F7F7F5;--rail:#FBFBFA;--card:#FFF;--line:#E9E9E5;--line2:#F1F1EE;--ink:#1D1F21;--ink2:#5F6367;--ink3:#94989C;--acc:#3F5C51;--acc-ink:#3F5C51;--acc-soft:#E9EFEC;--shadow:0 1px 2px rgba(20,24,22,.05)}
+[data-mood="early"]{--sky:#E6F0F7;--earth:#D9E7F0;--page:#F5F8FA;--rail:#FAFCFD;--card:#FFF;--line:#E4EBF0;--line2:#EFF4F7;--ink:#152230;--ink2:#5A6C7C;--ink3:#93A2AE;--acc:#2E6B8F;--acc-ink:#2E6B8F;--acc-soft:#E5EFF5;--shadow:0 1px 2px rgba(21,34,48,.05)}
+[data-mood="moss"]{--sky:#ECF1E2;--earth:#E0E8D3;--page:#F6F7F1;--rail:#FBFBF7;--card:#FFF;--line:#E7E9DD;--line2:#F1F2E9;--ink:#1E2A1D;--ink2:#5E6B58;--ink3:#98A192;--acc:#4E6B3C;--acc-ink:#4E6B3C;--acc-soft:#EAEFE1;--shadow:0 1px 2px rgba(30,42,29,.05)}
+[data-mood="oxide"]{--sky:#F7E8E1;--earth:#F0DDD3;--page:#FAF6F3;--rail:#FDFAF8;--card:#FFF;--line:#EDE1DA;--line2:#F5EDE8;--ink:#2A1E19;--ink2:#736158;--ink3:#A9968B;--acc:#95482D;--acc-ink:#95482D;--acc-soft:#F5E5DD;--shadow:0 1px 2px rgba(42,30,25,.05)}
+[data-mood="dusk"]{--sky:#1F252B;--earth:#181D22;--page:#15181C;--rail:#191D21;--card:#1D2126;--line:#2A2F35;--line2:#23272C;--ink:#E9E7E2;--ink2:#9AA0A8;--ink3:#6D747C;--acc:#D5A05E;--acc-ink:#E0B379;--acc-soft:#2A2823;--shadow:0 1px 2px rgba(0,0,0,.3)}
+
+/* ---------- lettering ---------- */
+[data-letter="plain"]{--display:"Archivo",-apple-system,sans-serif;--body:"Archivo",-apple-system,sans-serif;--dw:600;--dt:-.025em;--bs:14.5px}
+[data-letter="written"]{--display:"Newsreader",Georgia,serif;--body:"Newsreader",Georgia,serif;--dw:400;--dt:-.005em;--bs:16.5px}
+[data-letter="drafted"]{--display:"IBM Plex Mono",ui-monospace,monospace;--body:"Archivo",-apple-system,sans-serif;--dw:500;--dt:-.03em;--bs:14px}
+
+body{margin:0;padding:34px 26px 60px;background:#7A7D84;font-family:var(--body);color:var(--ink);transition:background .35s ease}
+.desk{max-width:1240px;margin:0 auto}
+.win{border-radius:16px;overflow:hidden;box-shadow:0 30px 70px -24px rgba(0,0,0,.5),0 2px 4px rgba(0,0,0,.16)}
+.app{display:grid;grid-template-columns:252px 1fr;min-height:820px;background:var(--page);transition:background .35s ease}
+
+/* ---------- sidebar: projects only ---------- */
+.side{background:var(--rail);border-right:1px solid var(--line);padding:20px 14px 16px;display:flex;flex-direction:column;transition:background .35s ease,border-color .35s ease}
+.mark{width:26px;height:26px;border-radius:50%;border:5px solid var(--ink);margin:2px 0 20px 8px}
+.me{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:9px;cursor:default}
+.me:hover{background:var(--line2)}
+.av{width:26px;height:26px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600;font-family:"Archivo",sans-serif;letter-spacing:.02em}
+[data-mood="dusk"] .av{color:#15181C}
+.me b{font-weight:500;font-size:13.5px}
+.me i{margin-left:auto;font-style:normal;color:var(--ink3);font-size:11px}
+
+.grp{margin-top:18px;border:1px solid var(--line);border-radius:11px;padding:6px;background:var(--card);box-shadow:var(--shadow);transition:background .35s ease,border-color .35s ease}
+.grp-h{display:flex;align-items:center;gap:9px;padding:7px 9px 9px;font-size:13px;font-weight:500;color:var(--ink)}
+.grp-h svg{opacity:.55}
+.side nav{display:flex;flex-direction:column;gap:1px}
+.side nav a{display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:8px;text-decoration:none;color:var(--ink2);font-size:13px;transition:background .14s ease,color .14s ease}
+.side nav a .pd{width:7px;height:7px;border-radius:50%;background:var(--ink3);flex:none}
+.side nav a:hover{background:var(--line2);color:var(--ink)}
+.side nav a[aria-current]{background:var(--acc-soft);color:var(--acc-ink);font-weight:500}
+.side nav a[aria-current] .pd{background:var(--acc)}
+.side nav a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.pd.blue{background:#4B7BC4}.pd.clay{background:#B0664A}.pd.moss{background:#6E8A55}
+
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:12px}
+.addp{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:1px solid var(--acc);color:var(--acc-ink);border-radius:10px;background:none;font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;transition:background .15s ease}
+.addp:hover{background:var(--acc-soft)}
+.addp:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.search{display:flex;align-items:center;gap:9px;padding:4px 8px 2px;color:var(--ink3);font-size:13px}
+.search kbd{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:10.5px;border:1px solid var(--line);border-radius:5px;padding:2px 6px;color:var(--ink3)}
+
+/* ---------- main ---------- */
+main{padding:26px 32px 40px;min-width:0}
+.crumbs{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink3);margin-bottom:16px}
+.crumbs a{color:var(--ink3);text-decoration:none}
+.crumbs a:hover{color:var(--ink2)}
+.crumbs .now{color:var(--ink)}
+
+.hero{position:relative;height:208px;border-radius:13px;overflow:hidden;border:1px solid var(--line);background:var(--sky);margin-bottom:22px;box-shadow:var(--shadow);transition:background .35s ease,border-color .35s ease}
+.hero svg{display:block;width:100%;height:100%}
+.hero .cover-btn{position:absolute;top:12px;right:12px;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink2);font:inherit;font-size:12px;cursor:pointer;opacity:0;transform:translateY(-2px);transition:opacity .18s ease,transform .18s ease}
+.hero:hover .cover-btn,.hero .cover-btn:focus-visible{opacity:1;transform:none}
+.hero .cover-btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.hero .caption{position:absolute;left:16px;bottom:12px;font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+.head{display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:var(--dw);letter-spacing:var(--dt);font-size:clamp(26px,3.2vw,33px);line-height:1.1;margin:0 0 7px}
+.since{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3)}
+.head-r{margin-left:auto;display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;box-shadow:var(--shadow);transition:border-color .15s ease}
+.btn:hover{border-color:var(--ink3)}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+[data-mood="dusk"] .btn.primary{color:#15181C}
+.btn.primary:hover{opacity:.9}
+.btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+
+.tabs{display:flex;gap:2px;margin:22px 0 26px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tabs a{padding:9px 13px;border-radius:8px 8px 0 0;text-decoration:none;color:var(--ink2);font-size:13.5px;position:relative;top:1px;border-bottom:2px solid transparent}
+.tabs a:hover{color:var(--ink);background:var(--line2)}
+.tabs a[aria-current]{color:var(--acc-ink);font-weight:500;border-bottom-color:var(--acc)}
+.tabs a:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:34px;align-items:start}
+
+h2{font-size:14px;font-weight:500;margin:0 0 14px;letter-spacing:-.005em}
+section+section{margin-top:34px}
+
+.intent{font-size:var(--bs);line-height:1.68;color:var(--ink2);max-width:60ch;margin:0;padding:3px 6px;margin-left:-6px;border-radius:6px}
+.intent:hover{background:var(--line2)}
+.intent:focus{outline:2px solid var(--acc);outline-offset:1px;background:transparent}
+
+.next{border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:11px;background:var(--card);box-shadow:var(--shadow);padding:20px 22px}
+.next .k{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.17em;text-transform:uppercase;color:var(--ink3);margin:0 0 10px}
+.next p.a{font-family:var(--display);font-weight:var(--dw);letter-spacing:var(--dt);font-size:19px;line-height:1.36;margin:0;max-width:34ch}
+.why{appearance:none;background:none;border:0;padding:0;margin-top:13px;font:inherit;font-size:12.5px;color:var(--acc-ink);cursor:pointer;border-bottom:1px solid currentColor}
+.why:hover{opacity:.7}
+.why:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+.whyb{display:none;margin-top:14px;padding-left:14px;border-left:1px solid var(--line);font-size:13.5px;line-height:1.62;color:var(--ink2);max-width:52ch}
+.whyb.open{display:block}
+
+.rows{list-style:none;margin:0;padding:0}
+.rows li{display:flex;gap:16px;align-items:baseline;padding:13px 0;border-bottom:1px solid var(--line2);font-size:var(--bs);line-height:1.55}
+.rows li:last-child{border-bottom:0}
+.rows .t{flex:1;max-width:56ch}
+.chip{font-size:10.5px;letter-spacing:.05em;color:var(--ink3);border:1px solid var(--line);border-radius:6px;padding:2px 8px;white-space:nowrap;font-family:"Archivo",sans-serif}
+.rows.q .t::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--acc);opacity:.8;margin-right:10px;vertical-align:middle}
+
+/* ---------- right rail ---------- */
+.rail-col{display:flex;flex-direction:column;gap:14px}
+.rail-col h2{margin-bottom:2px}
+.card{border:1px solid var(--line);border-radius:12px;background:var(--card);box-shadow:var(--shadow);padding:16px 17px;transition:background .35s ease,border-color .35s ease}
+.card .ch{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:500;margin-bottom:12px}
+.card .ch .n{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink3)}
+.mini{list-style:none;margin:0;padding:0}
+.mini li{padding:9px 0;border-top:1px solid var(--line2);font-size:13.5px;line-height:1.5}
+.mini li:first-child{border-top:0;padding-top:0}
+.mini .m{display:block;margin-top:5px;font-size:11px;color:var(--ink3)}
+.byline{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--ink3);margin-top:6px}
+.byline .b{width:14px;height:14px;border-radius:50%;border:3px solid var(--ink3);flex:none}
+.card .link{display:inline-block;margin-top:13px;font-size:12.5px;color:var(--acc-ink);text-decoration:none;border-bottom:1px solid transparent}
+.card .link:hover{border-bottom-color:currentColor}
+.card .link:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+.date{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.06em;color:var(--ink3);float:right;margin-left:12px}
+
+/* ---------- feel control ---------- */
+.feel .sw-row{display:flex;gap:8px;margin-bottom:14px}
+.sw{width:22px;height:22px;border-radius:50%;border:1px solid rgba(0,0,0,.12);cursor:pointer;padding:0;position:relative;transition:transform .15s ease}
+.sw:hover{transform:scale(1.12)}
+.sw[aria-pressed="true"]::after{content:"";position:absolute;inset:-4px;border:1.5px solid var(--acc);border-radius:50%}
+.sw:focus-visible{outline:2px solid var(--acc);outline-offset:4px}
+.lts{display:flex;gap:6px}
+.lt{appearance:none;border:1px solid var(--line);background:none;border-radius:7px;padding:5px 10px;cursor:pointer;color:var(--ink3);font-size:12px}
+.lt[aria-pressed="true"]{color:var(--ink);border-color:var(--ink3)}
+.lt:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.lt.w{font-family:"Newsreader",serif;font-size:13.5px}
+.lt.d{font-family:"IBM Plex Mono",monospace;font-size:11px}
+.lt.p{font-family:"Archivo",sans-serif}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:1000px){
+  body{padding:16px 10px 40px}
+  .app{grid-template-columns:1fr}
+  .side{border-right:0;border-bottom:1px solid var(--line)}
+  .side nav{flex-direction:row;flex-wrap:wrap}
+  .side-foot{margin-top:16px}
+  .cols{grid-template-columns:1fr}
+  main{padding:20px 18px 32px}
+  .hero{height:150px}
+}
+</style>
+</head>
+<body data-mood="chalk" data-letter="plain">
+<div class="desk">
+  <div class="win">
+    <div class="app">
+
+      <aside class="side">
+        <div class="mark"></div>
+        <div class="me"><span class="av">N</span><b>Nadia</b><i>▾</i></div>
+
+        <div class="grp">
+          <div class="grp-h">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            Projects
+          </div>
+          <nav>
+            <a href="#" aria-current="page"><span class="pd"></span>Garden Office Utilities</a>
+            <a href="#"><span class="pd blue"></span>Kitchen Rewire</a>
+            <a href="#"><span class="pd clay"></span>Loft Insulation</a>
+            <a href="#"><span class="pd moss"></span>Fence Line</a>
+          </nav>
+        </div>
+
+        <div class="side-foot">
+          <button class="addp">＋ Add project</button>
+          <div class="search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            Search<kbd>⌘F</kbd>
+          </div>
+        </div>
+      </aside>
+
+      <main>
+        <div class="crumbs"><a href="#">Nadia</a><span>/</span><a href="#">Projects</a><span>/</span><span class="now">Garden Office Utilities</span></div>
+
+        <div class="hero">
+          <svg viewBox="0 0 1200 208" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Section through the garden: house on the left, the new office at the end, and the service trench running between them below ground.">
+            <rect x="0" y="0" width="1200" height="208" fill="var(--sky)"/>
+            <rect x="0" y="118" width="1200" height="90" fill="var(--earth)"/>
+            <line x1="0" y1="118" x2="1200" y2="118" stroke="var(--ink3)" stroke-width="1" opacity=".45"/>
+
+            <!-- house -->
+            <path d="M70 118 V58 h130 v60 z" fill="var(--acc)" opacity=".16"/>
+            <path d="M56 60 L135 26 L214 60 z" fill="var(--acc)" opacity=".24"/>
+            <rect x="104" y="80" width="24" height="38" fill="var(--sky)" opacity=".85"/>
+            <rect x="150" y="80" width="20" height="20" fill="var(--sky)" opacity=".85"/>
+
+            <!-- fence posts -->
+            <g stroke="var(--ink3)" stroke-width="1.4" opacity=".35">
+              <line x1="300" y1="118" x2="300" y2="98"/><line x1="330" y1="118" x2="330" y2="98"/>
+              <line x1="360" y1="118" x2="360" y2="98"/><line x1="390" y1="118" x2="390" y2="98"/>
+            </g>
+
+            <!-- tree and its root zone -->
+            <line x1="620" y1="118" x2="620" y2="72" stroke="var(--acc)" stroke-width="3" opacity=".5"/>
+            <circle cx="620" cy="56" r="34" fill="var(--acc)" opacity=".2"/>
+            <circle cx="592" cy="70" r="20" fill="var(--acc)" opacity=".16"/>
+            <circle cx="650" cy="70" r="22" fill="var(--acc)" opacity=".16"/>
+            <ellipse cx="620" cy="150" rx="76" ry="26" fill="none" stroke="var(--acc)" stroke-width="1.2" stroke-dasharray="3 5" opacity=".55"/>
+
+            <!-- the trench: house -> chamber -> office, bending around the roots -->
+            <path d="M135 118 V146 H500 Q560 146 560 176 H690 Q718 176 718 150 H960 V118"
+                  fill="none" stroke="var(--acc)" stroke-width="2" stroke-dasharray="7 6" opacity=".75"/>
+            <rect x="946" y="140" width="28" height="24" rx="3" fill="none" stroke="var(--acc)" stroke-width="1.6" opacity=".8"/>
+
+            <!-- depth ticks -->
+            <g stroke="var(--ink3)" stroke-width="1" opacity=".3">
+              <line x1="430" y1="118" x2="430" y2="146"/><line x1="424" y1="146" x2="436" y2="146"/>
+            </g>
+
+            <!-- the office itself: the only solid thing -->
+            <rect x="1000" y="54" width="150" height="64" fill="var(--acc)"/>
+            <rect x="992" y="46" width="166" height="10" rx="2" fill="var(--acc)"/>
+            <rect x="1024" y="70" width="46" height="34" fill="var(--sky)" opacity=".92"/>
+            <rect x="1084" y="70" width="30" height="48" fill="var(--sky)" opacity=".92"/>
+          </svg>
+          <button class="cover-btn">Change cover</button>
+          <span class="caption">Section · house to office · 22 m</span>
+        </div>
+
+        <div class="head">
+          <div>
+            <h1>Garden Office Utilities</h1>
+            <div class="since">Day 47 · started 3 April · saved on this Mac</div>
+          </div>
+          <div class="head-r">
+            <button class="btn">Project settings</button>
+            <button class="btn primary">Open conversation</button>
+          </div>
+        </div>
+
+        <nav class="tabs">
+          <a href="#" aria-current="page">Overview</a>
+          <a href="#">Conversation</a>
+          <a href="#">Research</a>
+          <a href="#">Decisions</a>
+          <a href="#">Questions</a>
+          <a href="#">Tasks</a>
+        </nav>
+
+        <div class="cols">
+          <div>
+            <section>
+              <h2>What this is</h2>
+              <p class="intent" contenteditable="true" spellcheck="false">A room at the end of the garden with a door I can close. This part is the unglamorous half — getting waste, water and power down there before the slab goes in.</p>
+            </section>
+
+            <section class="next-wrap">
+              <div class="next">
+                <p class="k">Do this next</p>
+                <p class="a">Confirm the pump lift and service access before trench work begins.</p>
+                <button class="why" id="whyBtn">Why this one</button>
+                <div class="whyb" id="whyBody">Trench depth follows from the pump's lift, and the chamber needs a route you can reach it by later. Settle both and the two tasks behind this one come free.</div>
+              </div>
+            </section>
+
+            <section>
+              <h2>What's settled</h2>
+              <ul class="rows">
+                <li><span class="t">All waste flows via macerator pump to the existing sewer connection.</span><span class="chip">Drainage</span></li>
+                <li><span class="t">Power comes in on a buried armoured cable from the main house board.</span><span class="chip">Power</span></li>
+                <li><span class="t">No surface water connection — a soakaway on site instead.</span><span class="chip">Ground</span></li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>Still unanswered</h2>
+              <ul class="rows q">
+                <li><span class="t">What is the exact invert level at the sewer connection?</span><span class="chip">holds the trench</span></li>
+                <li><span class="t">Do you want a separate water supply for later?</span><span class="chip">holds the booking</span></li>
+              </ul>
+            </section>
+          </div>
+
+          <div class="rail-col">
+            <h2>While you were away</h2>
+
+            <div class="card">
+              <div class="ch">Waiting for you<span class="n">3</span></div>
+              <ul class="mini">
+                <li>Add a draw pit at the trench midpoint<span class="m">2 days ago</span></li>
+                <li>Raise cable depth to 600 mm under the path<span class="m">4 days ago</span></li>
+                <li>Record the soakaway location as a decision<span class="m">6 days ago</span></li>
+              </ul>
+              <span class="byline"><span class="b"></span>Proposed by Claude</span><br>
+              <a class="link" href="#">Read the proposals →</a>
+            </div>
+
+            <div class="card">
+              <div class="ch">Settled without you<span class="n">2</span></div>
+              <ul class="mini">
+                <li>The trench route moved to keep clear of the tree roots.<span class="m">5 days ago</span></li>
+                <li>Pump station chosen — Grundfos Sololift2 WC-1.<span class="m">7 days ago</span></li>
+              </ul>
+            </div>
+
+            <div class="card">
+              <div class="ch">Coming up</div>
+              <ul class="mini">
+                <li><span class="date">22 May</span>Confirm pump lift and service access</li>
+                <li><span class="date">24 May</span>Plan trench route and depth</li>
+                <li><span class="date">29 May</span>Book contractor for trench works</li>
+              </ul>
+            </div>
+
+            <div class="card feel">
+              <div class="ch">How this project feels</div>
+              <div class="sw-row" role="group" aria-label="Atmosphere">
+                <button class="sw" data-mood="chalk" aria-pressed="true" title="Chalk" style="background:#DCDCD7"></button>
+                <button class="sw" data-mood="early" aria-pressed="false" title="Early" style="background:#BFD5E3"></button>
+                <button class="sw" data-mood="moss" aria-pressed="false" title="Moss" style="background:#C6D2AF"></button>
+                <button class="sw" data-mood="oxide" aria-pressed="false" title="Oxide" style="background:#E0BEAD"></button>
+                <button class="sw" data-mood="dusk" aria-pressed="false" title="Dusk" style="background:#22262C"></button>
+              </div>
+              <div class="lts" role="group" aria-label="Lettering">
+                <button class="lt p" data-letter="plain" aria-pressed="true">Plain</button>
+                <button class="lt w" data-letter="written" aria-pressed="false">Written</button>
+                <button class="lt d" data-letter="drafted" aria-pressed="false">Drafted</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var root=document.body;
+  function group(sel,attr){
+    var b=[].slice.call(document.querySelectorAll(sel));
+    b.forEach(function(x){x.addEventListener('click',function(){
+      b.forEach(function(y){y.setAttribute('aria-pressed',y===x?'true':'false');});
+      root.setAttribute(attr,x.getAttribute(attr));
+    });});
+  }
+  group('.sw','data-mood'); group('.lt','data-letter');
+  var btn=document.getElementById('whyBtn'), bod=document.getElementById('whyBody');
+  btn.addEventListener('click',function(){
+    btn.textContent = bod.classList.toggle('open') ? 'Hide the reason' : 'Why this one';
+  });
+})();
+</script>
+</body>
+</html>

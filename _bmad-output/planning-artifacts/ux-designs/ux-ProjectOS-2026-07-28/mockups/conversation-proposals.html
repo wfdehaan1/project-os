@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ProjectOS — Key screen: Conversation and proposals</title>
+  <style>
+    /*
+      Governing spine sections:
+      DESIGN.md — Colors; Layout & Spacing; Elevation & Depth; Components:
+      Project Sidebar, Conversation List, Transcript, Composer, Context Preview,
+      Proposal Rail, Change Proposal Card, Proposal Inspector, Button,
+      Status Badge, Search Field.
+      EXPERIENCE.md — Information Architecture: Conversation; Component Patterns:
+      Conversation List through Proposal Inspector; State Patterns: Conversation,
+      Change Proposal lifecycle, global provider/offline states; Interaction Primitives;
+      Offline, Notifications, and External Boundaries; Accessibility Floor;
+      UJ-1 steps 3–7 and UJ-2 steps 2–6.
+      Reduce Motion: pane changes use immediate or opacity-only 140ms replacement;
+      proposal acceptance never relies on motion and this reference is static.
+    */
+    :root {
+      color-scheme:light;
+      --canvas:#FCFBF8; --sidebar:#F3F0EA; --surface:#FFFFFF; --raised:#FFFFFF;
+      --text:#24211D; --muted:#686158; --divider:#D8D2C8; --boundary:#756B60;
+      --accent:#6B4E2E; --accent-text:#FFFFFF; --selection:#E9E1D6; --tint:#F7F2E9;
+      --focus:#6B4E2E; --warning:#8A5A00; --success:#2F6B4F;
+      --shadow:0 1px 2px rgba(36,33,29,.07),0 10px 26px rgba(36,33,29,.05);
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
+    }
+    * { box-sizing:border-box; }
+    html { -webkit-text-size-adjust:100%; }
+    body { margin:0; min-width:320px; background:#E8E4DE; color:var(--text); }
+    button,input,textarea { font:inherit; color:inherit; }
+    button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
+    h1,h2,h3,h4,p { margin:0; }
+    .sheet { width:min(1680px,100%); margin:0 auto; padding:32px clamp(12px,2.5vw,42px) 56px; }
+    .sheet-head { display:flex; justify-content:space-between; align-items:end; gap:28px; margin-bottom:18px; }
+    .eyebrow { margin-bottom:7px; color:var(--accent); font-size:12px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
+    .sheet h1 { font-size:clamp(28px,4vw,44px); letter-spacing:-.045em; }
+    .sheet-note { max-width:62ch; color:var(--muted); font-size:14px; line-height:1.5; }
+    .window { overflow:hidden; border:1px solid var(--boundary); border-radius:14px; background:var(--canvas); box-shadow:var(--shadow); }
+    .titlebar { height:38px; display:grid; grid-template-columns:80px 1fr 80px; align-items:center; padding:0 12px; border-bottom:1px solid var(--divider); background:var(--sidebar); }
+    .traffic { display:flex; gap:7px; }
+    .traffic i { width:11px; height:11px; border-radius:50%; }
+    .traffic i:nth-child(1){background:#D64B43}.traffic i:nth-child(2){background:#C88710}.traffic i:nth-child(3){background:#21883A}
+    .window-title { text-align:center; color:var(--muted); font-size:12px; font-weight:600; }
+    .kbd { justify-self:end; padding:3px 6px; border:1px solid var(--boundary); border-radius:6px; background:var(--surface); color:var(--muted); font:600 10px ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .app { height:790px; min-height:0; display:grid; grid-template-columns:178px 210px minmax(390px,1fr) 340px; }
+    .project-sidebar { min-height:0; display:flex; flex-direction:column; padding:10px 9px; border-right:1px solid var(--boundary); background:var(--sidebar); }
+    .side-button,.nav-item { position:relative; width:100%; min-height:30px; display:flex; align-items:center; gap:8px; padding:6px 8px; border:0; border-radius:7px; background:transparent; text-align:left; font-size:11px; }
+    .project-switcher { margin-top:5px; border:1px solid var(--boundary); background:var(--surface); }
+    .theme-marker { width:18px; height:18px; flex:none; border-radius:5px; background:var(--accent); }
+    .project-copy { min-width:0; flex:1; }
+    .project-copy strong,.project-copy small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .project-copy small { margin-top:2px; color:var(--muted); font-size:9px; }
+    .command { margin-top:6px; color:var(--muted); }
+    .command .kbd { margin-left:auto; }
+    .nav-groups { margin-top:10px; }
+    .nav-group + .nav-group { margin-top:7px; padding-top:7px; border-top:1px solid var(--divider); }
+    .group-label { display:block; padding:0 8px 4px; color:var(--muted); font-size:8px; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }
+    .nav-item { color:var(--muted); }
+    .nav-item.active { border:1px solid var(--boundary); background:var(--selection); color:var(--text); font-weight:700; }
+    .nav-item.active::before { content:""; position:absolute; left:3px; top:7px; bottom:7px; width:3px; border-radius:2px; background:var(--accent); }
+    .nav-icon { width:16px; text-align:center; }
+    .nav-label { min-width:0; flex:1; }
+    .count { min-width:19px; padding:1px 5px; border:1px solid var(--boundary); border-radius:999px; background:var(--surface); color:var(--accent); text-align:center; font-size:9px; font-weight:750; }
+    .sidebar-footer { margin-top:auto; padding-top:7px; border-top:1px solid var(--divider); }
+    .conversation-list { min-height:0; display:flex; flex-direction:column; border-right:1px solid var(--boundary); background:var(--sidebar); }
+    .pane-head { padding:16px 14px 12px; border-bottom:1px solid var(--divider); }
+    .pane-head h2 { font-size:15px; }
+    .pane-actions { display:flex; gap:7px; margin-top:10px; }
+    .button { min-width:30px; min-height:30px; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:6px 10px; border:1px solid var(--boundary); border-radius:8px; background:var(--surface); font-size:11px; font-weight:650; }
+    .button.primary { border-color:var(--accent); background:var(--accent); color:var(--accent-text); }
+    .button.ghost { border-color:transparent; background:transparent; color:var(--accent); text-decoration:underline; text-underline-offset:3px; }
+    .button:disabled { opacity:.58; }
+    .search { min-height:30px; display:flex; align-items:center; gap:6px; flex:1; padding:4px 7px; border:1px solid var(--boundary); border-radius:7px; background:var(--surface); }
+    .search input { width:100%; min-width:0; border:0; outline:0; background:transparent; font-size:11px; }
+    .conversation-rows { padding:8px; }
+    .conversation-row { width:100%; min-height:58px; padding:9px; border:0; border-radius:7px; background:transparent; text-align:left; }
+    .conversation-row + .conversation-row { margin-top:3px; }
+    .conversation-row.selected { border:1px solid var(--boundary); background:var(--selection); }
+    .conversation-row strong { display:block; font-size:11px; line-height:1.3; }
+    .conversation-row span { display:block; margin-top:4px; color:var(--muted); font-size:9px; line-height:1.35; }
+    .row-state { display:inline-flex!important; width:max-content; min-height:21px; align-items:center; margin-top:6px!important; padding:2px 6px; border:1px solid var(--boundary); border-radius:999px; background:var(--surface); color:var(--text)!important; font-size:8px!important; font-weight:700; }
+    .transcript { min-width:0; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr) auto; background:var(--canvas); }
+    .conversation-head { padding:15px 18px 12px; border-bottom:1px solid var(--divider); }
+    .conversation-head h2 { font-size:17px; }
+    .conversation-head p { margin-top:4px; color:var(--muted); font-size:10px; }
+    .messages { overflow:auto; padding:18px clamp(16px,3vw,34px); }
+    .message { max-width:68ch; padding:12px 14px; border:1px solid var(--boundary); border-radius:10px; background:var(--surface); font-size:12px; line-height:1.55; }
+    .message + .message { margin-top:12px; }
+    .message.user { margin-left:auto; background:var(--selection); }
+    .speaker { display:flex; justify-content:space-between; gap:12px; margin-bottom:5px; color:var(--muted); font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+    .message.source-turn { outline:3px solid var(--focus); outline-offset:3px; }
+    .proposal-callout { margin-top:10px; padding-top:9px; border-top:1px solid var(--divider); color:var(--accent); font-size:10px; font-weight:650; }
+    .context-preview { margin:0 18px 10px; padding:11px 12px; border:1px solid var(--boundary); border-radius:8px; background:var(--tint); }
+    .context-preview h3 { font-size:11px; }
+    .context-preview p { margin-top:4px; color:var(--muted); font-size:10px; line-height:1.45; }
+    .context-values { display:grid; grid-template-columns:auto 1fr; gap:4px 8px; margin-top:7px; font-size:10px; line-height:1.35; }
+    .context-values b { color:var(--accent); }
+    .composer { margin:0 18px 16px; padding:10px; border:1px solid var(--boundary); border-radius:10px; background:var(--surface); }
+    .composer textarea { width:100%; min-height:58px; resize:none; border:0; outline:0; background:transparent; font-size:12px; line-height:1.45; }
+    .composer-foot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:8px; border-top:1px solid var(--divider); }
+    .composer-foot p { color:var(--muted); font-size:9px; line-height:1.35; }
+    .proposal-rail { min-width:0; min-height:0; overflow:auto; border-left:1px solid var(--boundary); background:var(--sidebar); }
+    .rail-head { position:sticky; top:0; z-index:1; padding:15px 14px 12px; border-bottom:1px solid var(--divider); background:var(--sidebar); }
+    .rail-head-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .rail-head h2 { font-size:15px; }
+    .scope { margin-top:7px; color:var(--muted); font-size:10px; }
+    .proposal-set { padding:12px; }
+    .set-title { display:flex; align-items:center; gap:7px; margin-bottom:8px; font-size:11px; }
+    .badge { min-height:22px; display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border:1px solid var(--boundary); border-radius:999px; background:var(--surface); font-size:9px; font-weight:700; }
+    .badge::before { content:"○"; }
+    .badge.review::before { content:"!"; color:var(--warning); }
+    .badge.blocked::before { content:"×"; color:var(--warning); }
+    .proposal-card { width:100%; min-height:74px; padding:10px; border:1px solid var(--boundary); border-radius:8px; background:var(--surface); text-align:left; }
+    .proposal-card + .proposal-card { margin-top:7px; }
+    .proposal-card.selected { outline:3px solid var(--focus); outline-offset:2px; }
+    .card-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .card-type { font-size:9px; font-weight:750; text-transform:uppercase; letter-spacing:.05em; }
+    .proposal-card strong { display:block; margin-top:5px; font-size:11px; line-height:1.35; }
+    .dependency { margin-top:5px; color:var(--muted); font-size:9px; line-height:1.35; }
+    .proposal-inspector { margin:0 12px 14px; padding:13px; border:1px solid var(--boundary); border-radius:10px; background:var(--raised); box-shadow:var(--shadow); }
+    .proposal-inspector h3 { font-size:14px; }
+    .inspector-meta { margin-top:4px; color:var(--muted); font-size:9px; line-height:1.4; }
+    .field { margin-top:11px; }
+    .field h4 { font-size:10px; }
+    .field p,.effects li { margin-top:4px; color:var(--muted); font-size:10px; line-height:1.45; }
+    .effects { margin:5px 0 0; padding-left:18px; }
+    .source-link { width:100%; justify-content:flex-start; margin-top:12px; white-space:normal; text-align:left; }
+    .inspector-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; padding-top:11px; border-top:1px solid var(--divider); }
+    .offline-title { margin:24px 0 9px; font-size:14px; }
+    .offline-state { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:14px; padding:14px; border:1px solid var(--boundary); border-radius:10px; background:var(--canvas); }
+    .offline-banner { padding:12px; border:1px solid var(--boundary); border-radius:8px; background:var(--tint); }
+    .offline-banner strong { font-size:12px; }
+    .offline-banner p { margin-top:5px; color:var(--muted); font-size:11px; line-height:1.45; }
+    .offline-composer { margin-top:10px; padding:10px; border:1px solid var(--boundary); border-radius:8px; background:var(--surface); }
+    .offline-composer p { color:var(--muted); font-size:11px; }
+    .offline-composer .buttons { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
+    .offline-review { padding:12px; border:1px solid var(--boundary); border-radius:8px; background:var(--surface); }
+    .offline-review h3 { font-size:12px; }
+    .offline-review p { margin-top:5px; color:var(--muted); font-size:10px; line-height:1.45; }
+    @media (max-width:1320px) { .app { grid-template-columns:56px 190px minmax(360px,1fr) 320px; } .project-copy,.nav-label,.group-label,.command .kbd { display:none; } .side-button,.nav-item { justify-content:center; } }
+    @media (max-width:980px) { .app { height:auto; grid-template-columns:56px 1fr; } .conversation-list,.proposal-rail { grid-column:2; border-left:0; } .transcript { grid-column:2; min-height:650px; } .offline-state { grid-template-columns:1fr; } }
+    @media (max-width:620px) { .sheet-head { flex-direction:column; align-items:flex-start; } .app { grid-template-columns:1fr; } .project-sidebar { display:none; } .conversation-list,.transcript,.proposal-rail { grid-column:1; } }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <header class="sheet-head">
+      <div><p class="eyebrow">ProjectOS · Key screen 03</p><h1>Conversation and proposal review</h1></div>
+      <p class="sheet-note">Conversation stays natural while consequential changes remain in a persistent, source-linked review rail. The selected proposal never resembles accepted state.</p>
+    </header>
+    <section class="window" aria-label="Conversation with proposal review">
+      <div class="titlebar"><span class="traffic"><i></i><i></i><i></i></span><span class="window-title">ProjectOS — Resolve the recap boundary</span><span class="kbd">⌘3</span></div>
+      <div class="app">
+        <aside class="project-sidebar" aria-label="Project navigation">
+          <button class="side-button"><span class="nav-icon">‹</span><span class="nav-label">All Projects</span></button>
+          <button class="side-button project-switcher"><span class="theme-marker"></span><span class="project-copy"><strong>ProjectOS UX</strong><small>Studio Paper</small></span><span>⌄</span></button>
+          <button class="side-button command"><span class="nav-icon">⌕</span><span class="nav-label">Search</span><span class="kbd">⌘K</span></button>
+          <nav class="nav-groups">
+            <div class="nav-group"><span class="group-label">Orientation</span><button class="nav-item"><span class="nav-icon">⌂</span><span class="nav-label">Overview</span></button><button class="nav-item"><span class="nav-icon">◇</span><span class="nav-label">Project Map</span></button></div>
+            <div class="nav-group"><span class="group-label">Active work</span><button class="nav-item active" aria-current="page"><span class="nav-icon">◉</span><span class="nav-label">Conversation</span><span class="count">3</span></button><button class="nav-item"><span class="nav-icon">●</span><span class="nav-label">Topics</span></button><button class="nav-item"><span class="nav-icon">✓</span><span class="nav-label">Tasks</span></button></div>
+            <div class="nav-group"><span class="group-label">Accepted knowledge</span><button class="nav-item"><span class="nav-icon">◆</span><span class="nav-label">Decisions</span></button><button class="nav-item"><span class="nav-icon">▱</span><span class="nav-label">Research</span></button><button class="nav-item"><span class="nav-icon">?</span><span class="nav-label">Questions</span></button></div>
+          </nav>
+          <footer class="sidebar-footer"><button class="nav-item"><span class="nav-icon">◌</span><span class="nav-label">Notifications</span></button><button class="nav-item"><span class="nav-icon">⚙</span><span class="nav-label">Project Settings</span></button></footer>
+        </aside>
+        <aside class="conversation-list" aria-label="Conversation List">
+          <header class="pane-head"><h2>Conversations</h2><div class="pane-actions"><label class="search"><span>⌕</span><input aria-label="Search Conversations" placeholder="Search"></label><button class="button" aria-label="New Conversation">＋</button></div></header>
+          <div class="conversation-rows">
+            <button class="conversation-row selected"><strong>Resolve the recap boundary</strong><span>Trusted re-entry · 12 minutes ago</span><span class="row-state">3 need review</span></button>
+            <button class="conversation-row"><strong>Project Map context scope</strong><span>Project Map · Yesterday</span><span class="row-state">1 deferred</span></button>
+            <button class="conversation-row"><strong>Theme accessibility</strong><span>Visual system · 29 July</span></button>
+            <button class="conversation-row"><strong>Notification model</strong><span>Notifications · 28 July</span><span class="row-state">1 blocked</span></button>
+          </div>
+        </aside>
+        <section class="transcript" aria-label="Transcript">
+          <header class="conversation-head"><h2>Resolve the recap boundary</h2><p>Topic: Trusted re-entry · English · saved locally</p></header>
+          <div class="messages">
+            <article class="message user"><div class="speaker"><span>Wouter</span><span>10:42</span></div><p>The recap should explain only what changed. What’s up next should stay future-facing and take me into the relevant work.</p></article>
+            <article class="message source-turn" id="turn-18"><div class="speaker"><span>ProjectOS agent</span><span>10:43 · source turn 18</span></div><p>That creates a clean boundary: Recap is historical, while What’s up next recommends one current Question or Task. Both remain bound to the same Canonical-State version.</p><p>I prepared three linked proposals. The relationship proposal depends on accepting the Decision and resolving the Open Question in the same transaction.</p><div class="proposal-callout">Proposal set ready · Review in the rail</div></article>
+            <article class="message user"><div class="speaker"><span>Wouter</span><span>10:45</span></div><p>Keep the original Question visible as resolved history when the Decision is accepted.</p></article>
+          </div>
+          <div>
+            <section class="context-preview" aria-label="Context Preview"><h3>Context Preview · ready for the next send</h3><p>This call is not started yet. Wouter may inspect or narrow the selected context first.</p><div class="context-values"><b>Provider</b><span>Codex App Server → OpenAI</span><b>Scope</b><span>Trusted re-entry Topic, current Question, current Decision, and this Conversation</span><b>Language</b><span>English</span><b>Boundary</b><span>Selected context leaves this Mac only after Send</span></div></section>
+            <form class="composer" aria-label="Composer"><textarea aria-label="Message" placeholder="Message the ProjectOS agent…"></textarea><div class="composer-foot"><p>⌘Return to send · ⇧Return for a new line</p><button class="button primary" type="button">Send</button></div></form>
+          </div>
+        </section>
+        <aside class="proposal-rail" aria-label="Proposal Rail">
+          <header class="rail-head"><div class="rail-head-row"><h2>Proposals</h2><span class="badge review">3</span></div><p class="scope">Current Conversation · Set: Clarify return point</p></header>
+          <section class="proposal-set">
+            <div class="set-title"><strong>Dependency order</strong><span class="badge">Pending</span></div>
+            <button class="proposal-card selected"><span class="card-top"><span class="card-type">Decision · Create</span><span class="badge review">Needs review</span></span><strong>Separate historical Recap from future recommendation</strong><span class="dependency">1 of 3 · prerequisite for the relationship change</span></button>
+            <button class="proposal-card"><span class="card-top"><span class="card-type">Open Question · Resolve</span><span class="badge">Pending</span></span><strong>What belongs in a project return point?</strong><span class="dependency">2 of 3 · accepted atomically with Decision</span></button>
+            <button class="proposal-card"><span class="card-top"><span class="card-type">Relationship · Create</span><span class="badge blocked">Dependent</span></span><strong>Decision resolves Question</strong><span class="dependency">3 of 3 · waits for both prerequisite records</span></button>
+          </section>
+          <section class="proposal-inspector" aria-label="Proposal Inspector">
+            <h3>Separate Recap from What’s up next</h3>
+            <p class="inspector-meta">Decision · Create · Pending · set 1 of 3</p>
+            <div class="field"><h4>Proposed value</h4><p>Recap contains recent accepted history only. What’s up next contains one future-facing recommendation grounded in current Canonical State.</p></div>
+            <div class="field"><h4>Effects before acceptance</h4><ul class="effects"><li>Creates one Governing Decision.</li><li>Resolves the originating Open Question while preserving it as history.</li><li>Creates explicit Question → Decision lineage.</li><li>Invalidates the existing state-bound recap pair.</li></ul></div>
+            <div class="field"><h4>Dependency</h4><p>All three changes apply as one atomic transaction. No intermediate Canonical State is valid.</p></div>
+            <button class="button source-link">Open exact source turn 18 in this Conversation</button>
+            <div class="inspector-actions"><button class="button">Edit</button><button class="button">Reject</button><button class="button">Defer</button><button class="button primary">Review atomic acceptance</button></div>
+          </section>
+        </aside>
+      </div>
+    </section>
+    <h2 class="offline-title">Load-bearing alternate · Offline</h2>
+    <section class="offline-state" aria-label="Conversation offline state">
+      <div><div class="offline-banner"><strong>Offline. Local inspection remains available.</strong><p>Transcript search, drafts, proposal review, provenance, and accepted state remain available. Agent calls are unavailable and nothing is silently queued.</p></div><div class="offline-composer"><p>Draft preserved: “Show how this affects the Project Map outline.”</p><div class="buttons"><span class="badge">Saved locally</span><button class="button primary" disabled>Send unavailable</button></div><p class="provider-note">Reconnect, review a fresh Context Preview, then choose Send.</p></div></div>
+      <aside class="offline-review"><h3>Proposal review remains available</h3><p>The Clarify return point set is persisted independently from the Transcript. Wouter may inspect, edit, accept, reject, or defer it offline because those actions use local state.</p><div class="inspector-actions"><button class="button">Open Proposal Inspector</button><button class="button">Open source turn</button></div></aside>
+    </section>
+  </main>
+</body>
+</html>

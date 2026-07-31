@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProjectOS — Post-MVP Brainstorm Keepsake</title>
+<style>
+  :root{
+    --bg:#0b0f14;
+    --bg2:#0e141c;
+    --panel:#121a24;
+    --panel2:#16202c;
+    --line:#233241;
+    --ink:#dfe8f1;
+    --ink-dim:#8fa3b5;
+    --ink-faint:#5c7288;
+    --accent:#5bc8af;      /* governed / accepted */
+    --accent2:#7aa7ff;     /* provenance blue */
+    --gold:#e8c268;        /* decision gold */
+    --rose:#e88a9a;        /* provocation */
+    --violet:#b18cf0;      /* reversal */
+    --orange:#f0a35e;      /* scamper */
+    --mono:"SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+    --serifish:"Iowan Old Style","Palatino","Georgia",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Inter",Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.55;
+    overflow-x:hidden;
+  }
+  ::selection{background:rgba(91,200,175,.3)}
+
+  /* ---------- ambient provenance graph background ---------- */
+  #bgGraph{position:fixed;inset:0;z-index:0;opacity:.55;pointer-events:none}
+  .wrap{position:relative;z-index:1;max-width:1060px;margin:0 auto;padding:0 28px 120px}
+
+  /* ---------- hero ---------- */
+  header.hero{padding:96px 0 64px;text-align:left;position:relative}
+  .kicker{
+    font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:22px;display:flex;align-items:center;gap:12px;
+  }
+  .kicker::before{content:"";width:34px;height:1px;background:var(--accent);display:inline-block}
+  h1{
+    font-family:var(--serifish);font-weight:500;font-size:clamp(34px,5.4vw,58px);
+    line-height:1.12;letter-spacing:-.01em;max-width:17ch;
+  }
+  h1 em{font-style:normal;color:var(--accent2)}
+  .hero-goal{
+    margin-top:26px;max-width:62ch;color:var(--ink-dim);font-size:16.5px;
+  }
+  .hero-meta{
+    margin-top:34px;display:flex;flex-wrap:wrap;gap:10px;font-family:var(--mono);font-size:11.5px;
+  }
+  .chip{
+    border:1px solid var(--line);border-radius:100px;padding:5px 13px;color:var(--ink-dim);
+    background:rgba(18,26,36,.6);
+  }
+  .chip b{color:var(--ink);font-weight:600}
+
+  /* ---------- seed node ---------- */
+  .seed{
+    margin:46px 0 0;position:relative;
+    border:1px solid rgba(122,167,255,.35);border-radius:14px;
+    background:linear-gradient(135deg,rgba(122,167,255,.10),rgba(18,26,36,.85));
+    padding:24px 26px 24px 74px;
+  }
+  .seed::before{
+    content:"";position:absolute;left:28px;top:50%;transform:translateY(-50%);
+    width:18px;height:18px;border-radius:50%;background:var(--accent2);
+    box-shadow:0 0 0 6px rgba(122,167,255,.16),0 0 0 14px rgba(122,167,255,.06);
+  }
+  .seed .tag{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent2)}
+  .seed p{margin-top:6px;color:var(--ink);font-size:15.5px;max-width:70ch}
+  .seed p span{color:var(--ink-dim)}
+
+  /* ---------- section scaffolding ---------- */
+  section{margin-top:110px;position:relative}
+  .sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:8px;flex-wrap:wrap}
+  .sec-num{font-family:var(--mono);font-size:13px;color:var(--ink-faint)}
+  h2{font-family:var(--serifish);font-weight:500;font-size:clamp(24px,3.4vw,34px);letter-spacing:-.01em}
+  .sec-sub{color:var(--ink-dim);font-size:14.5px;max-width:66ch;margin-bottom:34px}
+  .count-pill{
+    font-family:var(--mono);font-size:11px;border-radius:100px;padding:3px 10px;
+    border:1px solid var(--line);color:var(--ink-faint);
+  }
+
+  /* ================= 1 · JTBD — ledger of re-entry ================= */
+  #jtbd .sec-accent{color:var(--accent)}
+  .ledger{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:rgba(14,20,28,.7)}
+  .ledger-item{
+    padding:20px 22px 20px 52px;position:relative;border-bottom:1px solid var(--line);
+  }
+  .ledger-item:nth-child(odd){border-right:1px solid var(--line)}
+  .ledger-item:nth-last-child(-n+2){border-bottom:none}
+  .ledger-item::before{
+    content:"";position:absolute;left:24px;top:26px;width:9px;height:9px;border-radius:50%;
+    border:2px solid var(--accent);background:transparent;
+  }
+  .ledger-item:hover{background:rgba(91,200,175,.05)}
+  .ledger-item h3{font-size:15px;font-weight:600;letter-spacing:-.005em}
+  .ledger-item p{margin-top:5px;font-size:13.5px;color:var(--ink-dim)}
+  .job-line{
+    font-family:var(--mono);font-size:12px;color:var(--accent);
+    border:1px dashed rgba(91,200,175,.4);border-radius:10px;
+    padding:12px 18px;margin-bottom:26px;display:inline-block;background:rgba(91,200,175,.05);
+  }
+
+  /* ================= 2 · SCAMPER — the seven levers ================= */
+  #scamper .sec-accent{color:var(--orange)}
+  .scamper-rail{display:flex;flex-direction:column;gap:14px}
+  .lever{
+    display:grid;grid-template-columns:88px 1fr;border:1px solid var(--line);
+    border-radius:12px;overflow:hidden;background:rgba(14,20,28,.7);
+  }
+  .lever-letter{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    background:rgba(240,163,94,.07);border-right:1px solid var(--line);padding:16px 8px;
+  }
+  .lever-letter .big{
+    font-family:var(--serifish);font-size:34px;color:var(--orange);line-height:1;
+  }
+  .lever-letter .word{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-faint);text-align:center;
+  }
+  .lever-ideas{padding:14px 18px;display:flex;flex-direction:column;gap:10px}
+  .lever-ideas .idea{font-size:14px;padding-left:18px;position:relative;color:var(--ink)}
+  .lever-ideas .idea::before{
+    content:"↳";position:absolute;left:0;color:var(--orange);font-size:13px;
+  }
+  .lever-ideas .idea span{color:var(--ink-dim);font-size:13px}
+
+  /* ================= 3 · Assumption Reversal — flip cards ================= */
+  #reversal .sec-accent{color:var(--violet)}
+  .flips{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+  .flip{perspective:1200px;min-height:172px;cursor:pointer}
+  .flip-inner{
+    position:relative;width:100%;height:100%;min-height:172px;
+    transform-style:preserve-3d;transition:transform .65s cubic-bezier(.2,.8,.25,1);
+  }
+  .flip.flipped .flip-inner{transform:rotateY(180deg)}
+  .face{
+    position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;justify-content:center;
+  }
+  .face.front{
+    border:1px solid var(--line);background:var(--panel);
+  }
+  .face.front .assume-tag{
+    font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--ink-faint);margin-bottom:10px;
+  }
+  .face.front .assume{font-family:var(--serifish);font-size:19px;color:var(--ink)}
+  .face.front .hint{
+    margin-top:auto;padding-top:14px;font-family:var(--mono);font-size:10.5px;color:var(--violet);opacity:.8;
+  }
+  .face.back{
+    transform:rotateY(180deg);
+    border:1px solid rgba(177,140,240,.45);
+    background:linear-gradient(160deg,rgba(177,140,240,.13),rgba(18,26,36,.92));
+  }
+  .face.back .flip-tag{
+    font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--violet);margin-bottom:10px;
+  }
+  .face.back h3{font-size:15px;font-weight:600;margin-bottom:6px}
+  .face.back p{font-size:13px;color:var(--ink-dim)}
+  .flip-note{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);margin-bottom:20px}
+
+  /* ================= 4 · Time Horizon Ladder ================= */
+  #ladder .sec-accent{color:var(--gold)}
+  .ladder{position:relative;margin-left:14px;padding-left:46px}
+  .ladder::before{
+    content:"";position:absolute;left:0;top:6px;bottom:6px;width:2px;
+    background:linear-gradient(180deg,var(--gold),rgba(232,194,104,.1));
+  }
+  .rung-group{margin-bottom:44px;position:relative}
+  .rung-label{
+    position:relative;display:inline-flex;align-items:center;gap:12px;margin-bottom:18px;
+  }
+  .rung-label::before{
+    content:"";position:absolute;left:-53px;top:50%;transform:translateY(-50%);
+    width:16px;height:16px;border-radius:50%;background:var(--bg);
+    border:3px solid var(--gold);box-shadow:0 0 0 6px rgba(232,194,104,.12);
+  }
+  .rung-label .yr{font-family:var(--serifish);font-size:26px;color:var(--gold)}
+  .rung-label .yr-sub{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint)}
+  .rung{
+    position:relative;border:1px solid var(--line);border-radius:11px;background:rgba(14,20,28,.7);
+    padding:15px 18px 15px 20px;margin-bottom:10px;
+  }
+  .rung::before{
+    content:"";position:absolute;left:-46px;top:50%;width:38px;height:1px;
+    background:linear-gradient(90deg,rgba(232,194,104,.55),rgba(232,194,104,.08));
+  }
+  .rung h3{font-size:14.5px;font-weight:600;display:inline}
+  .rung h3 .star{color:var(--gold);margin-right:6px}
+  .rung p{display:inline;font-size:13.5px;color:var(--ink-dim)}
+  .rung.mcp{
+    border-color:rgba(122,167,255,.5);
+    background:linear-gradient(135deg,rgba(122,167,255,.12),rgba(14,20,28,.85));
+  }
+  .rung.mcp::after{
+    content:"strategic thread ↓";position:absolute;right:14px;top:-10px;
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--accent2);background:var(--bg);padding:2px 8px;border:1px solid rgba(122,167,255,.4);border-radius:100px;
+  }
+
+  /* ================= 5 · Provocation burst ================= */
+  #provocation .sec-accent{color:var(--rose)}
+  .burst{display:flex;flex-wrap:wrap;gap:14px}
+  .spark{
+    flex:1 1 260px;max-width:340px;
+    border:1px solid var(--line);border-radius:12px;background:var(--panel);
+    padding:18px 20px;position:relative;overflow:hidden;
+    transition:transform .25s ease, border-color .25s ease;
+  }
+  .spark:hover{transform:translateY(-3px) rotate(var(--tilt,0deg));border-color:rgba(232,138,154,.55)}
+  .spark::before{
+    content:"⚡";position:absolute;top:-8px;right:-4px;font-size:52px;opacity:.06;
+  }
+  .spark:nth-child(3n){--tilt:-.6deg}
+  .spark:nth-child(3n+1){--tilt:.6deg}
+  .spark .q{
+    font-family:var(--serifish);font-style:italic;font-size:14px;color:var(--rose);margin-bottom:10px;display:block;
+  }
+  .spark h3{font-size:14.5px;font-weight:600}
+  .spark p{margin-top:5px;font-size:13px;color:var(--ink-dim)}
+
+  /* ================= 6 · Synthesis constellation ================= */
+  #synthesis{margin-top:130px}
+  .syn-frame{
+    border:1px solid var(--line);border-radius:18px;overflow:hidden;
+    background:radial-gradient(ellipse at 50% 0%,rgba(122,167,255,.07),transparent 60%),var(--bg2);
+  }
+  .constellation{display:block;width:100%;height:auto}
+  .theme-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:22px;
+  }
+  .theme{
+    border:1px solid var(--line);border-radius:12px;background:rgba(14,20,28,.7);padding:18px 20px;
+    border-top:3px solid var(--tcol,var(--accent));
+  }
+  .theme h3{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:9px}
+  .theme h3 .dot{width:9px;height:9px;border-radius:50%;background:var(--tcol,var(--accent));flex:none}
+  .theme p{margin-top:7px;font-size:13px;color:var(--ink-dim)}
+  .strategic{
+    margin-top:34px;border:1px solid rgba(122,167,255,.45);border-radius:16px;
+    background:linear-gradient(140deg,rgba(122,167,255,.13),rgba(11,15,20,.9));
+    padding:34px 36px;position:relative;overflow:hidden;
+  }
+  .strategic::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+    background:linear-gradient(180deg,var(--accent2),var(--accent));
+  }
+  .strategic .tag{
+    font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent2);
+  }
+  .strategic h3{
+    font-family:var(--serifish);font-weight:500;font-size:clamp(21px,3vw,28px);margin-top:10px;line-height:1.28;max-width:30ch;
+  }
+  .strategic p{margin-top:14px;color:var(--ink-dim);font-size:15px;max-width:66ch}
+  .strategic p b{color:var(--ink)}
+  .synergy{
+    margin-top:16px;border:1px solid rgba(91,200,175,.4);border-radius:14px;
+    background:rgba(91,200,175,.06);padding:22px 28px;
+  }
+  .synergy .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent)}
+  .synergy p{margin-top:8px;font-size:14.5px;color:var(--ink-dim);max-width:70ch}
+  .synergy p b{color:var(--ink)}
+  .syn-eq{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;font-family:var(--mono);font-size:12px;
+  }
+  .syn-eq .term{border:1px solid rgba(91,200,175,.45);border-radius:8px;padding:6px 12px;color:var(--ink)}
+  .syn-eq .op{color:var(--accent);font-size:15px}
+
+  footer{
+    margin-top:120px;padding-top:30px;border-top:1px solid var(--line);
+    display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);
+  }
+
+  @media (max-width:720px){
+    .ledger{grid-template-columns:1fr}
+    .ledger-item:nth-child(odd){border-right:none}
+    .ledger-item:nth-last-child(-n+2){border-bottom:1px solid var(--line)}
+    .ledger-item:last-child{border-bottom:none}
+    .lever{grid-template-columns:64px 1fr}
+    .strategic{padding:26px 22px}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bgGraph"></canvas>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">Brainstorm keepsake · 2026-07-28 · session complete</div>
+  <h1>Post-MVP feature ideas for <em>ProjectOS</em></h1>
+  <p class="hero-goal">
+    Goal: generate candidate features for a post-MVP feature-ideas doc. ProjectOS is a local-first
+    macOS workspace that turns AI conversations into governed, versioned project state —
+    decisions, research, open questions, and tasks, each with provenance. Five techniques,
+    run in autonomous mode, produced 54 ideas and one synthesis.
+  </p>
+  <div class="hero-meta">
+    <span class="chip"><b>5</b> techniques</span>
+    <span class="chip"><b>54</b> ideas</span>
+    <span class="chip"><b>6</b> synthesis themes</span>
+    <span class="chip"><b>1</b> strategic thread</span>
+    <span class="chip">mode: <b>autonomous</b></span>
+  </div>
+
+  <div class="seed">
+    <div class="tag">Seed node · idea #1 · carried in by the user</div>
+    <p><b>Project graph visualization of Artifacts.</b> <span>Ego graph around any Artifact,
+    decision-lineage view, and delta-highlighted map variants — the provenance web made visible.
+    Everything below branches from this node.</span></p>
+  </div>
+</header>
+
+<!-- ============ 1 · JOB TO BE DONE ============ -->
+<section id="jtbd">
+  <div class="sec-head">
+    <span class="sec-num">01</span>
+    <h2><span class="sec-accent">Job to Be Done</span> — the re-entry ledger</h2>
+    <span class="count-pill">12 ideas</span>
+  </div>
+  <p class="sec-sub">Anchored on the core job ProjectOS is hired for: coming back to a project after time
+  away and trusting what you find. Each entry is a node the returning user can lean on.</p>
+
+  <div class="job-line">JOB: "When I return to a project after weeks away, help me trust the state and know what to do next."</div>
+
+  <div class="ledger">
+    <div class="ledger-item"><h3>Audio re-entry briefing</h3><p>Listen to a what-changed recap, podcast-style, before you even sit down.</p></div>
+    <div class="ledger-item"><h3>Trust check score</h3><p>The system self-reports how stale or contradictory Canonical State currently is.</p></div>
+    <div class="ledger-item"><h3>Scheduled absence mode</h3><p>Declare an upcoming absence; the app prepares a mothball summary and a re-entry plan.</p></div>
+    <div class="ledger-item"><h3>Cross-project re-entry dashboard</h3><p>One morning view showing which project most needs your attention.</p></div>
+    <div class="ledger-item"><h3>Weekly digest notification</h3><p>Summary of accepted changes and aging open questions, delivered on cadence.</p></div>
+    <div class="ledger-item"><h3>Natural-language decision search</h3><p>Ask "why did I decide this?" and search decisions and their rationale directly.</p></div>
+    <div class="ledger-item"><h3>Decision debt tracker</h3><p>Surfaces decisions with weak rationale or thin provenance so they can be shored up.</p></div>
+    <div class="ledger-item"><h3>Next Action queue with effort estimates</h3><p>Pick a 10-minute task or a deep session based on the time you actually have.</p></div>
+    <div class="ledger-item"><h3>Stale-state detection</h3><p>Flags old research that governing decisions still rely on and suggests re-verification.</p></div>
+    <div class="ledger-item"><h3>Session handoff notes</h3><p>An auto-drafted note-to-future-self at session end — user approved, of course.</p></div>
+    <div class="ledger-item"><h3>Project health heuristics</h3><p>Open questions aging, blocked tasks, unresolved contradictions — vitals at a glance.</p></div>
+    <div class="ledger-item"><h3>Momentum view</h3><p>Gaps and streaks of meaningful work, framed gently, with respect for counter-metrics.</p></div>
+  </div>
+</section>
+
+<!-- ============ 2 · SCAMPER ============ -->
+<section id="scamper">
+  <div class="sec-head">
+    <span class="sec-num">02</span>
+    <h2><span class="sec-accent">SCAMPER</span> — seven levers on the machine</h2>
+    <span class="count-pill">14 ideas</span>
+  </div>
+  <p class="sec-sub">Each letter is a lever pulled against the existing ProjectOS design — substituting parts,
+  combining flows, magnifying provenance, even eliminating the chat itself.</p>
+
+  <div class="scamper-rail">
+    <div class="lever">
+      <div class="lever-letter"><span class="big">S</span><span class="word">Substitute</span></div>
+      <div class="lever-ideas">
+        <div class="idea"><b>Ollama &amp; local model providers</b> <span>— a privacy tier, already a roadmap direction.</span></div>
+        <div class="idea"><b>Voice conversation mode</b> <span>— spoken sessions transcribed with provenance preserved.</span></div>
+      </div>
+    </div>
+    <div class="lever">
+      <div class="lever-letter"><span class="big">C</span><span class="word">Combine</span></div>
+      <div class="lever-ideas">
+        <div class="idea"><b>Batch triage mode for Change Proposals</b> <span>— inbox-zero style accept / edit / reject flow.</span></div>
+        <div class="idea"><b>Calendar integration</b> <span>— schedule re-entry sessions and task deadlines into the system calendar.</span></div>
+        <div class="idea"><b>Shared reference library</b> <span>— reusable Research and Artifacts across projects.</span></div>
+      </div>
+    </div>
+    <div class="lever">
+      <div class="lever-letter"><span class="big">A</span><span class="word">Adapt</span></div>
+      <div class="lever-ideas">
+        <div class="idea"><b>What-if branches</b> <span>— fork Canonical State to explore an alternative decision path, then merge or discard.</span></div>
+      </div>
+    </div>
+    <div class="lever">
+      <div class="lever-letter"><span class="big">M</span><span class="word">Magnify / Minify</span></div>
+      <div class="lever-ideas">
+        <div class="idea"><b>Web clipper</b> <span>— magnify provenance: archive URL snapshots as durable Source Material.</span></div>
+        <div class="idea"><b>Quick-capture inbox</b> <span>— minify: menubar or share sheet into a project staging area.</span></div>
+      </div>
+    </div>
+    <div class="lever">
+      <div class="lever-letter"><span class="big">P</span><span class="word">Put to other use</span></div>
+      <div class="lever-ideas">
+        <div class="idea"><b>Stakeholder brief generator</b> <span>— one-click external summary for a contractor, advisor, or partner from Canonical State.</span></div>
+        <div class="idea"><b>Public build-log export</b> <span>— decision history as a shareable narrative.</span></div>
+      </div>
+    </div>
+    <div class="lever">
+      <div class="lever-letter"><span class="big">E</span><span class="word">Eliminate</span></div>
+      <div class="lever-ideas">
+        <div class="idea"><b>Trust levels per Artifact type</b> <span>— auto-accept low-stakes types; Decisions always require review.</span></div>
+        <div class="idea"><b>Eliminate the chat</b> <span>— direct artifact editing with AI as reviewer and linker instead of proposer.</span></div>
+      </div>
+    </div>
+    <div class="lever">
+      <div class="lever-letter"><span class="big">R</span><span class="word">Reverse</span></div>
+      <div class="lever-ideas">
+        <div class="idea"><b>Red-team mode</b> <span>— AI critiques a user-authored Decision against existing Research and Decisions.</span></div>
+        <div class="idea"><b>Reverse re-entry</b> <span>— a pre-departure ritual generating a closing summary plus re-entry package before a planned absence.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 · ASSUMPTION REVERSAL ============ -->
+<section id="reversal">
+  <div class="sec-head">
+    <span class="sec-num">03</span>
+    <h2><span class="sec-accent">Assumption Reversal</span> — twelve cards, flipped</h2>
+    <span class="count-pill">12 ideas</span>
+  </div>
+  <p class="sec-sub">Every card shows a founding assumption of ProjectOS. Turn it over to see the feature that
+  falls out when the assumption is inverted.</p>
+  <div class="flip-note">▸ click or tap a card to flip it</div>
+
+  <div class="flips">
+    <div class="flip"><div class="flip-inner">
+      <div class="face front"><div class="assume-tag">Assumption</div><div class="assume">"It's a solo tool."</div><div class="hint">flip →</div></div>
+      <div class="face back"><div class="flip-tag">Reversed</div><h3>Multiplayer continuity</h3><p>Invite a collaborator under the same governance model, with role-based acceptance.</p></div>
+    </div></div>
+    <div class="flip"><div class="flip-inner">
+      <div class="face front"><div class="assume-tag">Assumption</div><div class="assume">"It's a solo tool."</div><div class="hint">flip again →</div></div>
+      <div class="face back"><div class="flip-tag">Reversed</div><h3>Household mode</h3><p>Shared family projects — a renovation, a health journey — with per-person views.</p></div>
+    </div></div>
+    <div class="flip"><div class="flip-inner">
+      <div class="face front"><div class="assume-tag">Assumption</div><div class="assume">"It lives on one Mac."</div><div class="hint">flip →</div></div>
+      <div class="face back"><div class="flip-tag">Reversed</div><h3>User-owned sync</h3><p>iCloud Drive or Syncthing keeps the local-first ethos — no hosted backend, ever.</p></div>
+    </div></div>
+    <div class="flip"><div class="flip-inner">
+      <div class="face front"><div class="assume-tag">Assumption</div><div class="assume">"It's desktop-only."</div><div class="hint">flip →</div></div>
+      <div class="face back"><div class="flip-tag">Reversed</div><h3>iOS companion</h3><p>Read-only Re-entry View plus quick capture, in your pocket.</p></div>
+    </div></div>
+    <div class="flip"><div class="flip-inner">
+      <div class="face front"><div class="assume-tag">Assumption</div><div class="assume">"The user always initiates."</div><div class="hint">flip →</div></div>
+      <div class="face back"><div class="flip-tag">Reversed</div><h3>Opt-in AI check-ins</h3><p>The app drafts a "you have been away" state notification when you go quiet.</p></div>
+    </div></div>
+    <div class="flip"><div class="flip-inner">
+      <div class="face front"><div class="assume-tag">Assumption</div><div class="assume">"The user always initiates."</div><div class="hint">flip again →</div></div>
+      <div class="face back"><div class="flip-tag">Reversed</div><h3>Background contradiction sweeps</h3><p>Conflicts are flagged as proposals — the sweep never mutates state itself.</p></div>
+    </div></div>
+    <div class="flip"><div class="flip-inner">
+      <div class="face front"><div class="assume-tag">Assumption</div><div class="assume">"One AI provider is enough."</div><div class="hint">flip →</div></div>
+      <div class="face back"><div class="flip-tag">Reversed</div><h3>Multi-provider arbitration</h3><p>Two models extract independently; divergence is surfaced as an uncertainty signal.</p></div>
+    </div></div>
+    <div class="flip"><div class="flip-inner">
+      <div class="face front"><div class="assume-tag">Assumption</div><div class="assume">"Projects are long-lived."</div><div class="hint">flip →</div></div>
+      <div class="face back"><div class="flip-tag">Reversed</div><h3>Short-lived project mode</h3><p>A 2-week sprint template with a compressed lifecycle — an event, a talk, a move.</p></div>
+    </div></div>
+    <div class="flip"><div class="flip-inner">
+      <div class="face front"><div class="assume-tag">Assumption</div><div class="assume">"Every project starts fresh."</div><div class="hint">flip →</div></div>
+      <div class="face back"><div class="flip-tag">Reversed</div><h3>Project archaeology</h3><p>Bounded import of an old project's docs to reconstruct Canonical State retroactively.</p></div>
+    </div></div>
+    <div class="flip"><div class="flip-inner">
+      <div class="face front"><div class="assume-tag">Assumption</div><div class="assume">"State is text-only."</div><div class="hint">flip →</div></div>
+      <div class="face back"><div class="flip-tag">Reversed</div><h3>Visual Source Material</h3><p>Images, sketches, and photos as first-class sources, with AI descriptions for search.</p></div>
+    </div></div>
+    <div class="flip"><div class="flip-inner">
+      <div class="face front"><div class="assume-tag">Assumption</div><div class="assume">"Chat is freeform."</div><div class="hint">flip →</div></div>
+      <div class="face back"><div class="flip-tag">Reversed</div><h3>Decision-intake interview</h3><p>A structured mode where the AI interviews you to elicit project state.</p></div>
+    </div></div>
+    <div class="flip"><div class="flip-inner">
+      <div class="face front"><div class="assume-tag">Assumption</div><div class="assume">"Projects stay personal."</div><div class="hint">flip →</div></div>
+      <div class="face back"><div class="flip-tag">Reversed</div><h3>Project handoff export</h3><p>Another person can adopt and continue the project with full provenance intact.</p></div>
+    </div></div>
+  </div>
+</section>
+
+<!-- ============ 4 · TIME HORIZON LADDER ============ -->
+<section id="ladder">
+  <div class="sec-head">
+    <span class="sec-num">04</span>
+    <h2><span class="sec-accent">Time Horizon Ladder</span> — climbing from next year to next decade</h2>
+    <span class="count-pill">10 ideas</span>
+  </div>
+  <p class="sec-sub">The same product, viewed from two rungs: what ships within a year, and what ProjectOS
+  becomes when it has held a decade of your decisions.</p>
+
+  <div class="ladder">
+    <div class="rung-group">
+      <div class="rung-label"><span class="yr">+1 year</span><span class="yr-sub">near rung · ship it</span></div>
+      <div class="rung"><h3><span class="star">◆</span>Template gallery</h3> <p>— starting Artifact scaffolds per domain: renovation, book, startup, health.</p></div>
+      <div class="rung mcp"><h3><span class="star">◆</span>MCP server</h3> <p>— expose Canonical State so any external AI tool can use ProjectOS as its trusted memory backend.</p></div>
+      <div class="rung"><h3><span class="star">◆</span>Shortcuts / automation hooks</h3> <p>— local scripting against project data.</p></div>
+      <div class="rung"><h3><span class="star">◆</span>Semantic search</h3> <p>— across all projects, conversations, and provenance.</p></div>
+      <div class="rung"><h3><span class="star">◆</span>Decision review dates</h3> <p>— decisions carry an optional revisit-by date and resurface when due.</p></div>
+    </div>
+    <div class="rung-group">
+      <div class="rung-label"><span class="yr">+10 years</span><span class="yr-sub">far rung · what it becomes</span></div>
+      <div class="rung"><h3><span class="star">◆</span>Lifelong knowledge estate</h3> <p>— projects as chapters, with a cross-project timeline of life decisions.</p></div>
+      <div class="rung"><h3><span class="star">◆</span>Legacy mode</h3> <p>— a project inheritable and legible to family (estate, health history), provenance intact.</p></div>
+      <div class="rung"><h3><span class="star">◆</span>Governed agent delegation</h3> <p>— agents execute external tasks, but every consequential outcome returns as a Change Proposal.</p></div>
+      <div class="rung"><h3><span class="star">◆</span>Personal decision model</h3> <p>— the system learns your decision style and flags when a new decision deviates from your own patterns.</p></div>
+      <div class="rung"><h3><span class="star">◆</span>Federated patterns</h3> <p>— privacy-preserving, opt-in anonymized insight: "people with similar decisions hit this problem."</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 · PROVOCATION BURST ============ -->
+<section id="provocation">
+  <div class="sec-head">
+    <span class="sec-num">05</span>
+    <h2><span class="sec-accent">Provocation burst</span> — ten sparks off the grid</h2>
+    <span class="count-pill">10 ideas</span>
+  </div>
+  <p class="sec-sub">Deliberately strange prompts, kept only where the strangeness landed on something real.</p>
+
+  <div class="burst">
+    <div class="spark"><span class="q">"What if the project could speak?"</span><h3>Talk to your project</h3><p>A persona grounded strictly in Canonical State answers: what do you need from me?</p></div>
+    <div class="spark"><span class="q">"What if state had a rewind knob?"</span><h3>Time machine scrubber</h3><p>A slider to view Canonical State as of any past date.</p></div>
+    <div class="spark"><span class="q">"What if certainty had a forecast?"</span><h3>Confidence weather map</h3><p>A forecast-style visual of project areas by certainty and staleness.</p></div>
+    <div class="spark"><span class="q">"What if you had to beat yourself first?"</span><h3>Argue with past self</h3><p>Before superseding a decision, the app replays your original rationale so you must rebut it.</p></div>
+    <div class="spark"><span class="q">"What if it worked with no screen at all?"</span><h3>Printable project passport</h3><p>A one-page offline snapshot of governing state.</p></div>
+    <div class="spark"><span class="q">"What if there were only one thing?"</span><h3>Focus mode</h3><p>Full-screen single Next Action; everything else hidden.</p></div>
+    <div class="spark"><span class="q">"What if decisions faced each other?"</span><h3>Decision diff view</h3><p>Governing vs. superseded, side by side, changes highlighted.</p></div>
+    <div class="spark"><span class="q">"What if evidence had muscle tone?"</span><h3>Provenance strength meter</h3><p>Per-Artifact indicator of evidence quality — multiple sources vs. a single chat claim.</p></div>
+    <div class="spark"><span class="q">"What if questions answered themselves?"</span><h3>One-click question research</h3><p>A scoped research pass on an Open Question; results filed as Change Proposals.</p></div>
+    <div class="spark"><span class="q">"What if the vault had a twin?"</span><h3>Markdown vault interop</h3><p>A continuous export/import bridge to Obsidian-style vaults.</p></div>
+  </div>
+</section>
+
+<!-- ============ 6 · SYNTHESIS ============ -->
+<section id="synthesis">
+  <div class="sec-head">
+    <span class="sec-num">06</span>
+    <h2>Synthesis — the constellation resolves</h2>
+  </div>
+  <p class="sec-sub">Fifty-four ideas settle into six gravitational clusters — and one thread runs
+  brighter than the rest.</p>
+
+  <div class="syn-frame">
+    <svg class="constellation" viewBox="0 0 1000 420" role="img" aria-label="Constellation of six idea themes orbiting Canonical State, with the MCP server thread highlighted">
+      <defs>
+        <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#7aa7ff" stop-opacity=".55"/>
+          <stop offset="100%" stop-color="#7aa7ff" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <!-- edges -->
+      <g stroke="#233241" stroke-width="1.4">
+        <line x1="500" y1="210" x2="180" y2="90"/>
+        <line x1="500" y1="210" x2="330" y2="330"/>
+        <line x1="500" y1="210" x2="500" y2="70"/>
+        <line x1="500" y1="210" x2="670" y2="330"/>
+        <line x1="500" y1="210" x2="820" y2="90"/>
+      </g>
+      <!-- strategic edge -->
+      <line x1="500" y1="210" x2="850" y2="250" stroke="#7aa7ff" stroke-width="2.6" stroke-dasharray="7 5">
+        <animate attributeName="stroke-dashoffset" from="48" to="0" dur="2.2s" repeatCount="indefinite"/>
+      </line>
+      <!-- core -->
+      <circle cx="500" cy="210" r="86" fill="url(#coreGlow)"/>
+      <circle cx="500" cy="210" r="34" fill="#121a24" stroke="#7aa7ff" stroke-width="2"/>
+      <text x="500" y="205" text-anchor="middle" fill="#dfe8f1" font-size="11" font-family="monospace">CANONICAL</text>
+      <text x="500" y="220" text-anchor="middle" fill="#dfe8f1" font-size="11" font-family="monospace">STATE</text>
+      <!-- theme nodes -->
+      <g font-family="monospace" font-size="11.5">
+        <circle cx="180" cy="90" r="11" fill="#5bc8af"/><text x="180" y="64" text-anchor="middle" fill="#8fa3b5">Re-entry deepening</text>
+        <circle cx="330" cy="330" r="11" fill="#e8c268"/><text x="330" y="362" text-anchor="middle" fill="#8fa3b5">Trust instrumentation</text>
+        <circle cx="500" cy="70" r="11" fill="#7aa7ff"/><text x="500" y="46" text-anchor="middle" fill="#8fa3b5">Graph &amp; visual lenses</text>
+        <circle cx="670" cy="330" r="11" fill="#e88a9a"/><text x="670" y="362" text-anchor="middle" fill="#8fa3b5">Capture surfaces</text>
+        <circle cx="820" cy="90" r="11" fill="#b18cf0"/><text x="820" y="64" text-anchor="middle" fill="#8fa3b5">Governance scaled up</text>
+        <!-- strategic node -->
+        <circle cx="850" cy="250" r="15" fill="#0b0f14" stroke="#7aa7ff" stroke-width="2.5">
+          <animate attributeName="r" values="15;18;15" dur="2.2s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="850" cy="250" r="6" fill="#7aa7ff"/>
+        <text x="850" y="286" text-anchor="middle" fill="#7aa7ff">Interop &amp; openness → MCP</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="theme-grid">
+    <div class="theme" style="--tcol:#5bc8af"><h3><span class="dot"></span>1 · Re-entry deepening</h3><p>Audio briefing, pre-departure ritual, cross-project dashboard — the core job, done deeper.</p></div>
+    <div class="theme" style="--tcol:#e8c268"><h3><span class="dot"></span>2 · Trust instrumentation</h3><p>Provenance strength, stale-state detection, contradiction sweeps, decision debt.</p></div>
+    <div class="theme" style="--tcol:#7aa7ff"><h3><span class="dot"></span>3 · Graph &amp; visual lenses</h3><p>The seed idea plus time scrubber, decision diff, and the confidence map.</p></div>
+    <div class="theme" style="--tcol:#e88a9a"><h3><span class="dot"></span>4 · Capture surface expansion</h3><p>Quick-capture inbox, web clipper, voice, and images as first-class sources.</p></div>
+    <div class="theme" style="--tcol:#5f9ee0"><h3><span class="dot"></span>5 · Interop &amp; openness</h3><p>MCP server, markdown vault bridge, Shortcuts, export and handoff.</p></div>
+    <div class="theme" style="--tcol:#b18cf0"><h3><span class="dot"></span>6 · Governance scaled up</h3><p>Agent delegation, multiplayer continuity, what-if branches.</p></div>
+  </div>
+
+  <div class="strategic">
+    <div class="tag">Strongest strategic thread</div>
+    <h3>ProjectOS as the governed memory backend other AI tools trust.</h3>
+    <p>The <b>MCP server</b> turns the moat — Canonical State — into a platform. Every external AI tool
+    that reads from ProjectOS inherits its governance: versioned, provenance-backed, human-accepted truth.
+    The thing that makes ProjectOS defensible becomes the thing that makes it indispensable.</p>
+  </div>
+
+  <div class="synergy">
+    <div class="tag">Best near-term synergy · the "evidence UI"</div>
+    <div class="syn-eq">
+      <span class="term">graph visualization</span><span class="op">+</span>
+      <span class="term">decision diff view</span><span class="op">+</span>
+      <span class="term">provenance strength meter</span><span class="op">=</span>
+      <span class="term" style="border-color:var(--accent);color:var(--accent)">one coherent investment</span>
+    </div>
+    <p>Three ideas from three different techniques turn out to be <b>one product surface</b>:
+    a way of seeing — and weighing — the evidence behind every governing decision.</p>
+  </div>
+</section>
+
+<footer>
+  <span>ProjectOS · brainstorm-post-mvp-features-2026-07-28</span>
+  <span>54 ideas · 6 themes · 1 thread — every node with provenance</span>
+</footer>
+
+</div>
+
+<script>
+// flip cards
+document.querySelectorAll('.flip').forEach(function(card){
+  card.addEventListener('click', function(){ card.classList.toggle('flipped'); });
+});
+
+// ambient provenance-graph background: slow-drifting nodes with edges
+(function(){
+  var c = document.getElementById('bgGraph');
+  var ctx = c.getContext('2d');
+  var nodes = [], N = 42, W, H;
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function resize(){
+    W = c.width = window.innerWidth;
+    H = c.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  for (var i = 0; i < N; i++){
+    nodes.push({
+      x: Math.random()*W, y: Math.random()*H,
+      vx: (Math.random()-.5)*.18, vy: (Math.random()-.5)*.18,
+      r: 1 + Math.random()*1.8,
+      hue: Math.random() < .18 ? '122,167,255' : (Math.random() < .3 ? '91,200,175' : '60,80,100')
+    });
+  }
+
+  function frame(){
+    ctx.clearRect(0,0,W,H);
+    for (var i = 0; i < N; i++){
+      var a = nodes[i];
+      if (!reduced){
+        a.x += a.vx; a.y += a.vy;
+        if (a.x < -20) a.x = W+20; if (a.x > W+20) a.x = -20;
+        if (a.y < -20) a.y = H+20; if (a.y > H+20) a.y = -20;
+      }
+      for (var j = i+1; j < N; j++){
+        var b = nodes[j], dx = a.x-b.x, dy = a.y-b.y, d2 = dx*dx+dy*dy;
+        if (d2 < 26000){
+          var o = (1 - d2/26000) * .16;
+          ctx.strokeStyle = 'rgba(90,120,150,'+o+')';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+        }
+      }
+    }
+    for (var k = 0; k < N; k++){
+      var n = nodes[k];
+      ctx.fillStyle = 'rgba('+n.hue+',.5)';
+      ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,Math.PI*2); ctx.fill();
+    }
+    if (!reduced) requestAnimationFrame(frame);
+  }
+  frame();
+})();
+</script>
+</body>
+</html>

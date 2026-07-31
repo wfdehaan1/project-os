@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ProjectOS — Visual System Directions</title>
+  <style>
+    /* Shared Studio Paper palette — palette is fixed, not under comparison.
+       Light: canvas #FCFBF8, sidebar #F3F0EA, surface #FFFFFF, text #24211D,
+       muted #686158, border #D8D2C8, accent #6B4E2E, accentText #FFFFFF,
+       selection #E9E1D6, tint #F7F2E9, success #2F6B4F, warning #8A5A00.
+       Dark-ready counterparts: canvas #1C1A17, sidebar #24211D, surface #28241F,
+       text #F3EFE8, muted #BBB2A6, border #4B443B, accent #D6B98B,
+       accentText #20180F, selection #3B3126, tint #29231C,
+       success #78C69A, warning #F0BE63. */
+    :root {
+      color-scheme: light dark;
+      --page: #151412;
+      --page-text: #F5F1EB;
+      --page-muted: #BEB6AB;
+      --canvas: #FCFBF8;
+      --sidebar: #F3F0EA;
+      --surface: #FFFFFF;
+      --text: #24211D;
+      --muted: #686158;
+      --border: #D8D2C8;
+      --accent: #6B4E2E;
+      --accent-text: #FFFFFF;
+      --selection: #E9E1D6;
+      --tint: #F7F2E9;
+      --success: #2F6B4F;
+      --warning: #8A5A00;
+      --shadow: 0 24px 60px rgba(20, 16, 11, .24);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: radial-gradient(circle at 12% -5%, #302b25 0, transparent 29rem), var(--page);
+      color: var(--page-text);
+    }
+    button, input { font: inherit; }
+    button { cursor: default; }
+    button:focus-visible, [tabindex]:focus-visible {
+      outline: 3px solid #A8753D;
+      outline-offset: 2px;
+    }
+    .page { width: min(1880px, 100%); margin: 0 auto; padding: 44px clamp(18px, 3vw, 54px) 72px; }
+    .page-head { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: 40px; align-items: end; margin-bottom: 34px; }
+    .kicker { margin: 0 0 11px; color: #D6B98B; font-size: 12px; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+    h1, h2, h3, h4, p { margin: 0; }
+    h1 { max-width: 15ch; font-size: clamp(34px, 4.3vw, 62px); letter-spacing: -.055em; line-height: .98; }
+    .intro { max-width: 67ch; color: var(--page-muted); font-size: 15px; line-height: 1.62; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+    .legend span { padding: 6px 9px; border: 1px solid #514a42; border-radius: 999px; color: #D7D0C8; font-size: 11px; }
+
+    .directions { display: grid; grid-template-columns: repeat(2, minmax(680px, 1fr)); gap: 28px; align-items: start; }
+    .direction { min-width: 0; padding: 22px; border: 1px solid #3F3A34; border-radius: 24px; background: rgba(35, 32, 28, .88); box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+    .direction-head { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: start; margin-bottom: 16px; }
+    .direction-number { color: #D6B98B; font: 700 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; }
+    .direction h2 { margin-top: 4px; font-size: 25px; letter-spacing: -.035em; }
+    .rationale { margin-top: 7px; max-width: 68ch; color: #C9C1B8; font-size: 12.5px; line-height: 1.52; }
+    .traits { display: grid; justify-items: end; gap: 6px; }
+    .trait { padding: 5px 8px; border: 1px solid #534b42; border-radius: 7px; color: #CFC6BB; font-size: 10px; white-space: nowrap; }
+    .screen-label { display: flex; justify-content: space-between; gap: 10px; margin: 0 4px 7px; color: #AAA197; font-size: 10px; font-weight: 700; letter-spacing: .095em; text-transform: uppercase; }
+    .secondary-label { margin-top: 15px; }
+
+    .window {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--canvas);
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }
+    .window.hero { height: 470px; }
+    .window.secondary { height: 270px; }
+    .titlebar {
+      height: 34px;
+      display: grid;
+      grid-template-columns: 76px 1fr 76px;
+      align-items: center;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--sidebar) 92%, white 8%);
+    }
+    .traffic { display: flex; gap: 7px; }
+    .traffic i { width: 10px; height: 10px; border-radius: 50%; }
+    .traffic i:nth-child(1) { background:#FF5F57; }
+    .traffic i:nth-child(2) { background:#FEBC2E; }
+    .traffic i:nth-child(3) { background:#28C840; }
+    .window-title { text-align: center; color: var(--muted); font-size: 10px; font-weight: 650; }
+    .window-actions { text-align: right; color: var(--muted); font-size: 10px; }
+    .kbd { display: inline-flex; align-items: center; min-height: 18px; padding: 1px 5px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--surface); color: var(--muted); font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .app-body { height: calc(100% - 34px); min-height: 0; }
+    .cover { background: linear-gradient(145deg, #6B4E2E, #D6B98B); }
+    .btn {
+      width: max-content;
+      max-width: 100%;
+      height: auto;
+      min-height: 30px;
+      flex: 0 0 auto;
+      align-self: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 11px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text);
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .btn.primary { background: var(--accent); color: var(--accent-text); box-shadow: 0 1px 2px rgba(0,0,0,.16); }
+    .btn.secondary { border-color: var(--border); background: var(--surface); }
+    .link { width: max-content; max-width: 100%; height: auto; flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; border: 0; background: transparent; color: var(--accent); font-size: 10px; font-weight: 720; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; min-height: 21px; padding: 2px 7px; border-radius: 999px; background: var(--tint); color: var(--muted); font-size: 9px; font-weight: 650; }
+    .pill::before { content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+    .offline { background: #F7EEDB; color: #6E4800; }
+    .offline::before { background: var(--warning); }
+    .section-name { font-size: 10px; font-weight: 760; letter-spacing: .01em; }
+    .meta { color: var(--muted); font-size: 9px; }
+    .status-dot { width: 7px; height: 7px; flex: 0 0 auto; margin-top: 3px; border-radius: 50%; background: var(--success); }
+    .status-dot.open { background: transparent; border: 1.5px solid var(--warning); }
+    .row { display: flex; align-items: flex-start; gap: 7px; font-size: 9.5px; line-height: 1.38; }
+    .row + .row { margin-top: 7px; }
+    .focus-sample { box-shadow: 0 0 0 3px rgba(107,78,46,.24); }
+    .motion-note { position: absolute; right: 10px; bottom: 8px; padding: 4px 7px; border-radius: 6px; background: rgba(36,33,29,.88); color: #fff; font-size: 8.5px; letter-spacing: .02em; }
+
+    /* Direction 01 — Quiet Ledger.
+       Personality uses the shared Studio Paper values unchanged. Visual differentiation:
+       generous editorial spacing, high title contrast, near-borderless columns, reading-first hierarchy. */
+    .ledger .hero .app-body { display: grid; grid-template-columns: 152px minmax(0, 1fr); }
+    .ledger .sidebar { padding: 14px 11px; border-right: 1px solid var(--border); background: var(--sidebar); }
+    .ledger .project { display: flex; gap: 9px; align-items: center; margin: 0 3px 18px; }
+    .ledger .cover { width: 27px; height: 27px; border-radius: 7px; }
+    .ledger .project strong { display:block; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; }
+    .ledger nav { display:grid; gap:3px; }
+    .ledger .nav { min-height:27px; display:flex; align-items:center; gap:8px; padding:0 8px; border-radius:7px; color:var(--muted); font-size:10px; }
+    .ledger .nav::before { content:""; width:7px; height:7px; border:1px solid currentColor; border-radius:2px; opacity:.7; }
+    .ledger .nav.active { color:var(--text); background:var(--selection); font-weight:700; }
+    .ledger .nav.active::before { background:var(--accent); border-color:var(--accent); }
+    .ledger .overview { padding: 26px 30px; overflow:hidden; }
+    .ledger .breadcrumb { color:var(--muted); font-size:9px; }
+    .ledger .overview h3 { margin-top:5px; font-size:29px; line-height:1.05; letter-spacing:-.045em; }
+    .ledger .description { margin-top:7px; max-width:57ch; color:var(--muted); font-size:10.5px; line-height:1.45; }
+    .ledger .recap { margin-top:20px; display:grid; grid-template-columns:1fr auto; gap:18px; align-items:center; padding:14px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+    .ledger .recap strong { display:block; font-size:11px; }
+    .ledger .recap span { display:block; margin-top:3px; color:var(--muted); font-size:9.5px; }
+    .ledger .columns { display:grid; grid-template-columns:1fr 1fr; gap:30px; align-items:start; margin-top:20px; }
+    .ledger .column-head { display:flex; justify-content:space-between; gap:8px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+    .ledger .column .row { margin-top:9px; }
+    .ledger .next { grid-column:1/-1; display:flex; justify-content:space-between; gap:20px; align-items:center; padding-top:15px; border-top:1px solid var(--border); }
+    .ledger .next p { margin-top:4px; color:var(--muted); font-size:9.5px; }
+    .ledger .secondary .app-body { display:grid; grid-template-columns:142px minmax(0,1fr) 208px; }
+    .ledger .conversation-list { padding:11px 9px; border-right:1px solid var(--border); background:var(--sidebar); }
+    .ledger .conversation-list strong { font-size:10px; }
+    .ledger .conversation-item { margin-top:9px; padding:8px; border-radius:7px; background:var(--selection); font-size:8.8px; line-height:1.35; }
+    .ledger .transcript { padding:14px 17px; }
+    .ledger .turn { max-width:34ch; padding:9px 10px; border-radius:10px; background:var(--tint); font-size:8.7px; line-height:1.42; }
+    .ledger .turn.agent { margin:8px 0 0 auto; background:var(--surface); border:1px solid var(--border); }
+    .ledger .anchor { margin-top:6px; padding-left:7px; border-left:3px solid var(--accent); color:var(--muted); font-size:8px; }
+    .ledger .proposal-rail { padding:11px; border-left:1px solid var(--border); background:var(--sidebar); }
+    .ledger .proposal-card { margin-top:9px; padding:10px; border:1px solid var(--border); border-radius:9px; background:var(--surface); }
+    .ledger .proposal-card h4 { margin-top:6px; font-size:10px; line-height:1.25; }
+    .ledger .proposal-card p { margin-top:4px; color:var(--muted); font-size:8px; line-height:1.35; }
+    .ledger .proposal-actions { display:flex; align-items:center; gap:5px; margin-top:8px; }
+
+    /* Direction 02 — Operational Desk.
+       Same Studio Paper colors; compact utility bar, tighter type scale, list containment,
+       persistent counts, and scan-first grouping create a high-information operating view. */
+    .desk .hero .app-body { display:grid; grid-template-rows:40px minmax(0,1fr); }
+    .desk .toolnav { display:flex; align-items:center; gap:5px; padding:0 12px; border-bottom:1px solid var(--border); background:var(--sidebar); }
+    .desk .tool-project { display:flex; align-items:center; gap:7px; margin-right:7px; padding-right:12px; border-right:1px solid var(--border); font-size:10px; font-weight:750; }
+    .desk .tool-project .cover { width:22px; height:22px; border-radius:6px; }
+    .desk .toolitem { padding:6px 7px; border-radius:6px; color:var(--muted); font-size:8.7px; }
+    .desk .toolitem.active { background:var(--selection); color:var(--text); font-weight:720; }
+    .desk .sync { margin-left:auto; }
+    .desk .overview { display:grid; grid-template-columns:minmax(0,1fr) 220px; min-height:0; }
+    .desk .workspace { padding:18px 20px; }
+    .desk .workspace-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+    .desk .workspace-head .btn { align-self:flex-start; }
+    .desk .workspace h3 { font-size:21px; letter-spacing:-.035em; }
+    .desk .description { margin-top:4px; color:var(--muted); font-size:9.5px; }
+    .desk .recap { margin-top:13px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 11px; border:1px solid var(--border); border-radius:8px; background:var(--tint); }
+    .desk .recap strong { font-size:9.5px; }
+    .desk .recap span { display:block; margin-top:2px; color:var(--muted); font-size:8.5px; }
+    .desk .table { margin-top:12px; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--surface); }
+    .desk .table-head, .desk .table-row { display:grid; grid-template-columns:84px 1fr 72px; gap:9px; align-items:center; padding:7px 9px; }
+    .desk .table-head { background:var(--sidebar); color:var(--muted); font-size:8px; font-weight:750; text-transform:uppercase; letter-spacing:.06em; }
+    .desk .table-row { border-top:1px solid var(--border); font-size:8.8px; }
+    .desk .type { font-weight:700; }
+    .desk .sidequeue { padding:15px 13px; border-left:1px solid var(--border); background:var(--sidebar); }
+    .desk .queue-head { display:flex; justify-content:space-between; align-items:center; }
+    .desk .queue-item { height:auto; align-self:start; margin-top:9px; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); }
+    .desk .queue-item strong { font-size:9px; line-height:1.25; }
+    .desk .queue-item p { margin-top:4px; color:var(--muted); font-size:8px; line-height:1.35; }
+    .desk .secondary .app-body { display:grid; grid-template-rows:34px minmax(0,1fr); }
+    .desk .conversation-toolbar { display:flex; align-items:center; gap:8px; padding:0 11px; border-bottom:1px solid var(--border); background:var(--sidebar); font-size:8.5px; }
+    .desk .conversation-toolbar strong { font-size:9.5px; }
+    .desk .pending-count { margin-left:auto; color:var(--warning); font-weight:700; }
+    .desk .conversation-body { display:grid; grid-template-columns:128px minmax(0,1fr) 220px; min-height:0; }
+    .desk .conversation-list { padding:8px; border-right:1px solid var(--border); background:var(--sidebar); font-size:8px; }
+    .desk .conversation-item { padding:7px; border-radius:6px; }
+    .desk .conversation-item.active { background:var(--selection); font-weight:700; }
+    .desk .transcript { padding:10px 12px; font-size:8.4px; line-height:1.38; }
+    .desk .message { padding:7px 8px; border-left:2px solid var(--border); }
+    .desk .message + .message { margin-top:5px; }
+    .desk .message.highlight { border-left-color:var(--accent); background:var(--tint); }
+    .desk .proposal-rail { padding:9px; border-left:1px solid var(--border); background:var(--sidebar); }
+    .desk .proposal-row { display:grid; grid-template-columns:18px 1fr auto; gap:7px; align-items:start; margin-top:7px; padding:8px; border:1px solid var(--border); border-radius:7px; background:var(--surface); }
+    .desk .proposal-index { font:700 8px ui-monospace,monospace; color:var(--muted); }
+    .desk .proposal-row strong { display:block; font-size:8.5px; }
+    .desk .proposal-row span { display:block; margin-top:2px; color:var(--muted); font-size:7.6px; }
+
+    /* Direction 03 — Guided Focus.
+       Same Studio Paper colors; low-density centered flow, large narrative hierarchy,
+       stepwise continuation, restrained containment, and explicit focus transitions. */
+    .focus .hero .app-body { display:grid; grid-template-columns:52px minmax(0,1fr); }
+    .focus .iconrail { display:flex; flex-direction:column; align-items:center; gap:9px; padding:13px 8px; border-right:1px solid var(--border); background:var(--sidebar); }
+    .focus .iconcover { width:28px; height:28px; border-radius:8px; margin-bottom:4px; }
+    .focus .iconnav { width:27px; height:27px; display:grid; place-items:center; border-radius:7px; color:var(--muted); font-size:10px; }
+    .focus .iconnav.active { background:var(--selection); color:var(--accent); font-weight:800; }
+    .focus .overview { padding:27px clamp(28px,5vw,64px); overflow:hidden; }
+    .focus .projectline { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+    .focus .projectline span { color:var(--muted); font-size:9px; }
+    .focus .overview h3 { margin-top:18px; max-width:16ch; font-size:31px; line-height:1.06; letter-spacing:-.045em; }
+    .focus .lead { margin-top:8px; max-width:54ch; color:var(--muted); font-size:10.5px; line-height:1.5; }
+    .focus .recap { margin-top:22px; display:grid; grid-template-columns:1fr auto; gap:20px; align-items:center; padding:17px 18px; border-radius:12px; background:var(--tint); }
+    .focus .recap strong { display:block; font-size:12px; }
+    .focus .recap p { margin-top:4px; max-width:48ch; color:var(--muted); font-size:9px; line-height:1.42; }
+    .focus .progression { display:grid; grid-template-columns:1fr 24px 1fr 24px 1fr; align-items:center; margin-top:22px; }
+    .focus .step { min-height:77px; padding:11px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+    .focus .step.current { border-color:#A98C6B; background:var(--tint); }
+    .focus .step small { color:var(--muted); font-size:8px; text-transform:uppercase; letter-spacing:.07em; }
+    .focus .step strong { display:block; margin-top:5px; font-size:9px; line-height:1.3; }
+    .focus .connector { height:1px; background:var(--border); }
+    .focus .secondary .app-body { display:grid; grid-template-columns:52px minmax(0,1fr); }
+    .focus .conversation-stage { display:grid; grid-template-columns:minmax(0,1fr) 215px; min-height:0; }
+    .focus .transcript { padding:16px 25px; }
+    .focus .topic-label { color:var(--muted); font-size:8px; }
+    .focus .transcript h4 { margin-top:3px; font-size:13px; }
+    .focus .message { margin-top:12px; max-width:45ch; font-size:8.7px; line-height:1.45; }
+    .focus .moment { margin-top:10px; padding:10px 11px; border-radius:9px; background:var(--tint); box-shadow:inset 3px 0 0 var(--accent); }
+    .focus .moment strong { font-size:8.8px; }
+    .focus .moment p { margin-top:3px; color:var(--muted); font-size:8px; line-height:1.4; }
+    .focus .proposal-rail { display:flex; flex-direction:column; padding:13px; border-left:1px solid var(--border); background:var(--sidebar); }
+    .focus .proposal-rail h4 { font-size:10px; }
+    .focus .proposal-card { margin-top:10px; padding:12px; border-radius:10px; background:var(--surface); box-shadow:0 3px 14px rgba(45,35,23,.09); }
+    .focus .proposal-card strong { display:block; margin-top:6px; font-size:10px; line-height:1.3; }
+    .focus .proposal-card p { margin-top:4px; color:var(--muted); font-size:8px; line-height:1.4; }
+    .focus .proposal-actions { margin-top:auto; display:flex; align-items:center; gap:6px; }
+
+    /* Direction 04 — Context Atlas.
+       Same Studio Paper colors; balanced three-zone composition, relationship-aware context,
+       medium density, stronger spatial grouping, and continuity-preserving side context. */
+    .atlas .hero .app-body { display:grid; grid-template-columns:138px minmax(0,1fr) 190px; }
+    .atlas .sidebar { padding:13px 9px; border-right:1px solid var(--border); background:var(--sidebar); }
+    .atlas .project { display:flex; align-items:center; gap:8px; padding:0 4px 12px; }
+    .atlas .cover { width:25px; height:25px; border-radius:50% 50% 8px 50%; }
+    .atlas .project strong { font-size:9.5px; }
+    .atlas nav { display:grid; gap:3px; }
+    .atlas .nav { display:flex; align-items:center; justify-content:space-between; min-height:26px; padding:0 7px; border-radius:7px; color:var(--muted); font-size:9px; }
+    .atlas .nav.active { color:var(--text); background:var(--selection); font-weight:700; }
+    .atlas .nav b { min-width:16px; padding:2px 4px; border-radius:999px; background:var(--surface); color:var(--muted); font-size:7px; text-align:center; }
+    .atlas .overview { padding:21px 22px; overflow:hidden; }
+    .atlas .overview-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; }
+    .atlas .overview-head .btn { height:auto; min-height:30px; align-self:flex-start; }
+    .atlas .overview h3 { font-size:24px; letter-spacing:-.04em; }
+    .atlas .description { margin-top:5px; max-width:52ch; color:var(--muted); font-size:9.5px; line-height:1.45; }
+    .atlas .recap { margin-top:15px; padding:12px 13px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+    .atlas .recap-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .atlas .recap strong { font-size:10px; }
+    .atlas .recap p { margin-top:6px; color:var(--muted); font-size:8.8px; line-height:1.42; }
+    .atlas .artifacts { display:grid; grid-template-columns:1fr 1fr; gap:9px; align-items:start; margin-top:10px; }
+    .atlas .artifact { height:auto; align-self:start; padding:10px; border:1px solid var(--border); border-radius:9px; background:var(--surface); }
+    .atlas .artifact-head { display:flex; justify-content:space-between; gap:8px; padding-bottom:6px; }
+    .atlas .contextbar { padding:14px 12px; border-left:1px solid var(--border); background:var(--sidebar); }
+    .atlas .contextbar h4 { font-size:10px; }
+    .atlas .next-card { margin-top:10px; padding:11px; border-radius:9px; background:var(--tint); }
+    .atlas .next-card strong { font-size:9.5px; line-height:1.3; }
+    .atlas .next-card p { margin-top:5px; color:var(--muted); font-size:8px; line-height:1.4; }
+    .atlas .related { margin-top:14px; padding-top:10px; border-top:1px solid var(--border); }
+    .atlas .related strong { font-size:8.5px; }
+    .atlas .relation { display:flex; align-items:center; gap:6px; margin-top:8px; color:var(--muted); font-size:8px; }
+    .atlas .relation i { width:12px; height:1px; background:var(--accent); }
+    .atlas .secondary .app-body { display:grid; grid-template-columns:138px minmax(0,1fr) 228px; }
+    .atlas .conversation-list { padding:10px 8px; border-right:1px solid var(--border); background:var(--sidebar); }
+    .atlas .conversation-list h4 { padding:0 5px; font-size:9.5px; }
+    .atlas .conversation-item { margin-top:7px; padding:8px; border-radius:7px; color:var(--muted); font-size:8px; line-height:1.35; }
+    .atlas .conversation-item.active { background:var(--selection); color:var(--text); }
+    .atlas .transcript { padding:13px 15px; }
+    .atlas .scope { display:flex; gap:5px; }
+    .atlas .message { margin-top:11px; font-size:8.5px; line-height:1.45; }
+    .atlas .message.anchor { padding:9px; border:1px solid #BFA98D; border-radius:8px; background:var(--tint); }
+    .atlas .proposal-rail { padding:11px; border-left:1px solid var(--border); background:var(--sidebar); }
+    .atlas .proposal-card { margin-top:9px; padding:10px; border:1px solid var(--border); border-radius:9px; background:var(--surface); }
+    .atlas .proposal-card strong { display:block; margin-top:5px; font-size:9px; }
+    .atlas .lineage { display:grid; grid-template-columns:auto 1fr; gap:6px; margin-top:8px; color:var(--muted); font-size:7.5px; }
+    .atlas .lineage b { color:var(--accent); }
+
+    @media (max-width: 1480px) { .directions { grid-template-columns: minmax(680px, 1fr); } }
+    @media (max-width: 760px) {
+      .page { padding-inline: 12px; }
+      .page-head { grid-template-columns:1fr; gap:18px; }
+      .directions { display:block; }
+      .direction { min-width:680px; margin-bottom:24px; }
+      .directions { overflow-x:auto; }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .btn, .nav, .toolitem, .iconnav, .proposal-card, .artifact { transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease; }
+      .btn:hover { transform: translateY(-1px); }
+      .proposal-card:hover, .artifact:hover { box-shadow: 0 5px 18px rgba(45,35,23,.1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior:auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="page-head">
+      <div>
+        <p class="kicker">ProjectOS · Design directions 01</p>
+        <h1>One palette. Four systems for continuity.</h1>
+      </div>
+      <div>
+        <p class="intro">Every direction uses Studio Paper, native macOS framing, the same ProjectOS content, reusable controls, visible keyboard focus, and a reduced-motion fallback. Compare the hierarchy and interaction character—not the color.</p>
+        <div class="legend"><span>Studio Paper fixed</span><span>Light shown · Dark ready</span><span>WCAG 2.2 AA floor</span><span>Motion serves continuity</span></div>
+      </div>
+    </header>
+
+    <section class="directions" aria-label="ProjectOS visual system directions">
+      <article class="direction ledger">
+        <header class="direction-head">
+          <div><span class="direction-number">DIRECTION 01</span><h2>Quiet Ledger</h2><p class="rationale">An editorial, reading-first workspace that gives accepted project truth room to breathe. Fine rules and generous spacing make re-entry feel like opening a carefully maintained project notebook; transitions would gently preserve reading position as details expand.</p></div>
+          <div class="traits"><span class="trait">Low density</span><span class="trait">Editorial hierarchy</span><span class="trait">Minimal containment</span></div>
+        </header>
+        <div class="screen-label"><span>Hero · Project Overview</span><span>State · Ready to recap</span></div>
+        <section class="window hero" aria-label="Quiet Ledger Project Overview">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">ProjectOS UX — Overview</div><div class="window-actions"><span class="kbd">⌘ K</span></div></div>
+          <div class="app-body">
+            <aside class="sidebar"><div class="project"><div class="cover"></div><strong>ProjectOS UX</strong></div><nav aria-label="Project"><div class="nav active">Overview</div><div class="nav">Project Map</div><div class="nav">Conversation</div><div class="nav">Topics</div><div class="nav">Tasks</div><div class="nav">Decisions</div><div class="nav">Research</div><div class="nav">Questions</div></nav></aside>
+            <section class="overview"><span class="breadcrumb">Project / Overview</span><h3>Return without starting over.</h3><p class="description">Design a local-first macOS workspace that makes consequential project work easy to resume.</p>
+              <div class="recap"><div><strong>Recap latest progress</strong><span>Rebuild your context from accepted project history.</span></div><button class="btn primary">Generate recap</button></div>
+              <div class="columns">
+                <section class="column"><div class="column-head"><span class="section-name">What’s settled</span><span class="meta">3 decisions</span></div><div class="row"><i class="status-dot"></i><span>Studio Paper is the global default theme.</span></div><div class="row"><i class="status-dot"></i><span>Canonical changes require explicit approval.</span></div></section>
+                <section class="column"><div class="column-head"><span class="section-name">Unanswered questions</span><span class="meta">2 open</span></div><div class="row"><i class="status-dot open"></i><span>Which notifications deserve interruption?</span></div><div class="row"><i class="status-dot open"></i><span>When should Project Map gain prominence?</span></div></section>
+                <section class="next"><div><span class="section-name">What’s up next</span><p>Generate a current recommendation after reviewing recent history.</p></div><button class="link">Review context →</button></section>
+              </div>
+            </section>
+          </div><span class="motion-note">Expansion preserves reading position</span>
+        </section>
+        <div class="screen-label secondary-label"><span>Secondary · Conversation</span><span>State · Proposal-generating moment</span></div>
+        <section class="window secondary" aria-label="Quiet Ledger Conversation and proposal rail">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">Notification model</div><div class="window-actions"><span class="kbd">⌘ ↩</span></div></div>
+          <div class="app-body"><aside class="conversation-list"><strong>Conversations</strong><div class="conversation-item">Notification model<br><span class="meta">1 proposal pending</span></div><div class="conversation-item" style="background:transparent">Theme inheritance<br><span class="meta">Accepted</span></div></aside><section class="transcript"><div class="turn">Which events should interrupt me?</div><div class="turn agent">I recommend notifying only when review is waiting on you; progress remains in-app.</div><div class="anchor">Proposal created from this turn · exact anchor</div></section><aside class="proposal-rail"><span class="section-name">Proposal</span><div class="proposal-card focus-sample"><span class="pill">Decision · Create</span><h4>Interrupt only when review waits on Wouter</h4><p>Source: Notification model · exact turn available</p><div class="proposal-actions"><button class="btn primary">Accept</button><button class="btn secondary">Edit</button><button class="btn">Reject</button></div></div></aside></div>
+        </section>
+      </article>
+
+      <article class="direction desk">
+        <header class="direction-head">
+          <div><span class="direction-number">DIRECTION 02</span><h2>Operational Desk</h2><p class="rationale">A compact, scan-first system for projects with many active artifacts. Persistent counts, structured rows, and a project-wide review queue favour fast keyboard navigation; motion is limited to row-to-inspector continuity and status confirmation.</p></div>
+          <div class="traits"><span class="trait">High density</span><span class="trait">Utility hierarchy</span><span class="trait">Structured containment</span></div>
+        </header>
+        <div class="screen-label"><span>Hero · Project Overview</span><span>State · Offline, locally useful</span></div>
+        <section class="window hero" aria-label="Operational Desk Project Overview offline">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">ProjectOS</div><div class="window-actions"><span class="kbd">⌘ K</span></div></div>
+          <div class="app-body"><nav class="toolnav" aria-label="Project"><div class="tool-project"><div class="cover"></div>ProjectOS UX</div><span class="toolitem active">Overview</span><span class="toolitem">Map</span><span class="toolitem">Conversation</span><span class="toolitem">Topics</span><span class="toolitem">Tasks</span><span class="toolitem">Decisions</span><span class="toolitem">Research</span><span class="toolitem">Questions</span><span class="pill offline sync">Offline</span></nav>
+            <section class="overview"><div class="workspace"><div class="workspace-head"><div><h3>ProjectOS UX</h3><p class="description">A local-first macOS workspace for semantic project continuity.</p></div><button class="btn secondary">Open Project Map</button></div>
+              <div class="recap"><div><strong>Recap unavailable offline</strong><span>Accepted project history remains available.</span></div><button class="btn secondary" disabled>Generate recap</button></div>
+              <div class="table"><div class="table-head"><span>Type</span><span>Current artifact</span><span>State</span></div><div class="table-row"><span class="type">Decision</span><span>Studio Paper is the global default</span><span class="pill">Accepted</span></div><div class="table-row"><span class="type">Question</span><span>Which notifications deserve interruption?</span><span style="color:var(--warning);font-weight:700">Open</span></div><div class="table-row"><span class="type">Topic</span><span>Conversation and proposal review</span><span>Current</span></div><div class="table-row"><span class="type">Task</span><span>Define Settings notification controls</span><span>Blocked</span></div></div>
+            </div><aside class="sidequeue"><div class="queue-head"><span class="section-name">What’s up next</span><span class="meta">AI recommendation</span></div><div class="queue-item"><strong>Resolve the notification model</strong><p>Settings cannot be defined until interruption rules are settled.</p><button class="link" style="padding:7px 0 0">View question →</button></div><div class="queue-item"><strong>Pending review</strong><p>1 Decision and 2 Topics remain outside Canonical State.</p><button class="link" style="padding:7px 0 0">Review 3 proposals →</button></div></aside></section>
+          </div><span class="motion-note">Rows morph into inspectors</span>
+        </section>
+        <div class="screen-label secondary-label"><span>Secondary · Conversation</span><span>State · Mixed proposal set</span></div>
+        <section class="window secondary" aria-label="Operational Desk Conversation and proposal queue">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">ProjectOS</div><div class="window-actions"><span class="kbd">⌘ ⇧ P</span></div></div>
+          <div class="app-body"><div class="conversation-toolbar"><strong>Notification model</strong><span>Scope: Question</span><span>Provider: OpenAI</span><span class="pending-count">3 proposals need review</span></div><div class="conversation-body"><aside class="conversation-list"><div class="conversation-item active">Notification model<br><span class="meta">3 pending</span></div><div class="conversation-item">Kickoff<br><span class="meta">2 accepted</span></div><div class="conversation-item">Theme model<br><span class="meta">Accepted</span></div></aside><section class="transcript"><div class="message">Wouter: Which events should interrupt me?</div><div class="message highlight">Agent: Notify only when proposal review waits on you. <strong>3 proposals created</strong></div><div class="message">The changes are saved for review and are not yet Canonical State.</div></section><aside class="proposal-rail"><span class="section-name">Proposal set · Notification model</span><div class="proposal-row focus-sample"><span class="proposal-index">01</span><div><strong>Create Decision</strong><span>Interruption boundary</span></div><button class="link">Inspect</button></div><div class="proposal-row"><span class="proposal-index">02</span><div><strong>Create Task</strong><span>Requires Decision 01</span></div><span style="font-size:7px;color:var(--warning)">Blocked</span></div><div class="proposal-row"><span class="proposal-index">03</span><div><strong>Relate artifacts</strong><span>Compatible</span></div><button class="link">Inspect</button></div></aside></div></div>
+        </section>
+      </article>
+
+      <article class="direction focus">
+        <header class="direction-head">
+          <div><span class="direction-number">DIRECTION 03</span><h2>Guided Focus</h2><p class="rationale">A low-noise, sequential experience that frames re-entry as a calm progression from history to understanding to action. Large type and a narrow content stage reduce competing signals; purposeful transitions carry the selected recommendation into its grounded Conversation.</p></div>
+          <div class="traits"><span class="trait">Very low density</span><span class="trait">Narrative hierarchy</span><span class="trait">Progressive disclosure</span></div>
+        </header>
+        <div class="screen-label"><span>Hero · Project Overview</span><span>State · Current recap available</span></div>
+        <section class="window hero" aria-label="Guided Focus Project Overview with recap">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">ProjectOS UX</div><div class="window-actions"><span class="kbd">⌘ K</span></div></div>
+          <div class="app-body"><aside class="iconrail" aria-label="Project navigation"><div class="cover iconcover"></div><span class="iconnav active" title="Overview">O</span><span class="iconnav" title="Project Map">M</span><span class="iconnav" title="Conversation">C</span><span class="iconnav" title="Topics">T</span><span class="iconnav" title="Tasks">✓</span><span class="iconnav" title="Decisions">D</span><span class="iconnav" title="Research">R</span><span class="iconnav" title="Questions">?</span></aside>
+            <section class="overview"><div class="projectline"><span>OVERVIEW · PROJECTOS UX</span><span class="pill">Up to date</span></div><h3>Pick up the thread.</h3><p class="lead">ProjectOS keeps accepted project truth close, so you can continue without rebuilding the mental model.</p>
+              <div class="recap focus-sample"><div><strong>Since your last session</strong><p>Theme inheritance was settled, the Project Map joined the MVP, and Source Material was separated from accepted Research.</p></div><button class="btn secondary" aria-label="Close recap">Close</button></div>
+              <div class="progression"><div class="step"><small>1 · History</small><strong>Review what changed</strong></div><i class="connector"></i><div class="step current"><small>2 · Current state</small><strong>Inspect 2 open questions</strong></div><i class="connector"></i><div class="step"><small>3 · Continue</small><strong>Resolve notification model</strong></div></div>
+            </section>
+          </div><span class="motion-note">Selection carries into grounded work</span>
+        </section>
+        <div class="screen-label secondary-label"><span>Secondary · Conversation</span><span>State · Recommendation continued</span></div>
+        <section class="window secondary" aria-label="Guided Focus Conversation and focused proposal">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">Continue · Notification model</div><div class="window-actions"><span class="kbd">⌘ ↩</span></div></div>
+          <div class="app-body"><aside class="iconrail"><div class="cover iconcover"></div><span class="iconnav">O</span><span class="iconnav active">C</span><span class="iconnav">T</span><span class="iconnav">D</span></aside><section class="conversation-stage"><div class="transcript"><span class="topic-label">Grounded in Open Question · Notification model</span><h4>Which notifications deserve interruption?</h4><p class="message">Wouter: Keep notifications useful without turning ProjectOS into noise.</p><div class="moment"><strong>Agent · proposal-generating moment</strong><p>Notify only when review waits on Wouter. Keep progress and completed agent work in the in-app notification center.</p></div></div><aside class="proposal-rail"><h4>Review proposed Decision</h4><div class="proposal-card"><span class="pill">Not canonical</span><strong>Reserve interruption for required review</strong><p>Accepting resolves the Open Question and preserves it as linked history.</p></div><div class="proposal-actions"><button class="btn secondary">Edit</button><button class="btn primary">Accept</button></div></aside></section></div>
+        </section>
+      </article>
+
+      <article class="direction atlas">
+        <header class="direction-head">
+          <div><span class="direction-number">DIRECTION 04</span><h2>Context Atlas</h2><p class="rationale">A balanced, relationship-aware workspace that keeps orientation, current artifacts, and next-step context visible at once. Moderate containment makes provenance tangible without becoming a graph-first interface; inspector transitions preserve spatial continuity between Overview, Map, and Conversation.</p></div>
+          <div class="traits"><span class="trait">Medium density</span><span class="trait">Relational hierarchy</span><span class="trait">Three-zone layout</span></div>
+        </header>
+        <div class="screen-label"><span>Hero · Project Overview</span><span>State · Recommendation ready</span></div>
+        <section class="window hero" aria-label="Context Atlas Project Overview">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">ProjectOS UX — Overview</div><div class="window-actions"><span class="kbd">⌘ K</span></div></div>
+          <div class="app-body"><aside class="sidebar"><div class="project"><div class="cover"></div><strong>ProjectOS UX</strong></div><nav aria-label="Project"><div class="nav active"><span>Overview</span></div><div class="nav"><span>Project Map</span></div><div class="nav"><span>Conversation</span><b>1</b></div><div class="nav"><span>Topics</span><b>6</b></div><div class="nav"><span>Tasks</span><b>3</b></div><div class="nav"><span>Decisions</span><b>18</b></div><div class="nav"><span>Research</span><b>4</b></div><div class="nav"><span>Questions</span><b>2</b></div></nav></aside>
+            <section class="overview"><div class="overview-head"><div><h3>ProjectOS UX</h3><p class="description">A local-first macOS workspace for semantic project continuity.</p></div><button class="btn secondary">View Map</button></div><div class="recap"><div class="recap-head"><strong>Latest progress</strong><button class="link">Close</button></div><p>Project Map became part of the commercial MVP. Source Material now lives beside Research, with exact provenance wherever possible.</p></div><div class="artifacts"><section class="artifact"><div class="artifact-head"><span class="section-name">What’s settled</span><span class="meta">18</span></div><div class="row"><i class="status-dot"></i><span>Studio Paper is the global default.</span></div><div class="row"><i class="status-dot"></i><span>Topics are first-class navigation.</span></div></section><section class="artifact"><div class="artifact-head"><span class="section-name">Unanswered</span><span class="meta">2</span></div><div class="row"><i class="status-dot open"></i><span>Which notifications deserve interruption?</span></div><div class="row"><i class="status-dot open"></i><span>When does Map gain prominence?</span></div></section></div></section>
+            <aside class="contextbar"><h4>What’s up next</h4><div class="next-card focus-sample"><strong>Resolve the notification model</strong><p>This Open Question blocks notification Settings and urgency controls.</p><button class="link" style="padding:8px 0 0">Inspect question →</button></div><div class="related"><strong>Connected context</strong><div class="relation"><i></i><span>Accessibility floor</span></div><div class="relation"><i></i><span>Purposeful motion</span></div><div class="relation"><i></i><span>Offline behavior</span></div></div></aside>
+          </div><span class="motion-note">Inspector keeps source in place</span>
+        </section>
+        <div class="screen-label secondary-label"><span>Secondary · Conversation</span><span>State · Accepted with edits</span></div>
+        <section class="window secondary" aria-label="Context Atlas Conversation with accepted proposal provenance">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">Notification model</div><div class="window-actions"><span class="kbd">⌘ ⇧ P</span></div></div>
+          <div class="app-body"><aside class="conversation-list"><h4>Conversations</h4><div class="conversation-item active">Notification model<br><span class="meta">Accepted with edits</span></div><div class="conversation-item">Source intake<br><span class="meta">2 proposals</span></div></aside><section class="transcript"><div class="scope"><span class="pill">Question</span><span class="pill">Whole project</span></div><p class="message">Wouter: Keep notifications useful without adding noise.</p><div class="message anchor"><strong>Agent · exact proposal-generating turn</strong><br>Notify only when review is waiting on you. Keep progress in-app.</div></section><aside class="proposal-rail"><span class="section-name">Decision · Accepted with edits</span><div class="proposal-card"><span class="pill">Canonical</span><strong>Reserve interruption for required review</strong><div class="lineage"><b>Original</b><span>Notify for all pending review</span><b>Accepted</b><span>Notify after a chosen quiet period</span><b>Source</b><span>Exact turn available</span></div><button class="link" style="padding:8px 0 0">Show accepted diff →</button></div></aside></div>
+        </section>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

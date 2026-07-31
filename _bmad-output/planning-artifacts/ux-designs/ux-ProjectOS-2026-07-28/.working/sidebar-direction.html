@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ProjectOS — Governing sidebar direction</title>
+  <style>
+    /* Studio Paper — sidebar stays neutral; project accent appears only in the
+       project marker and the active destination treatment.
+       Light: canvas #FCFBF8, sidebar #F3F0EA, card #FFFFFF, text #24211D,
+       muted #686158, border #D8D2C8, line #ECE7DF, accent #6B4E2E,
+       accentText #FFFFFF, accentSoft #E9E1D6, tint #F7F2E9,
+       success #2F6B4F, warning #8A5A00.
+       Dark-ready: canvas #1C1A17, sidebar #24211D, card #28241F,
+       text #F3EFE8, muted #BBB2A6, border #4B443B, accent #D6B98B,
+       accentText #20180F, accentSoft #3B3126, tint #29231C. */
+    :root {
+      color-scheme:light dark;
+      --page:#171512;
+      --page-text:#F5F1EB;
+      --page-muted:#C7BFB5;
+      --canvas:#FCFBF8;
+      --sidebar:#F3F0EA;
+      --card:#FFFFFF;
+      --text:#24211D;
+      --muted:#686158;
+      --quiet:#837A70;
+      --border:#D8D2C8;
+      --line:#ECE7DF;
+      --accent:#6B4E2E;
+      --accent-text:#FFFFFF;
+      --accent-soft:#E9E1D6;
+      --active-neutral:#E8E4DD;
+      --tint:#F7F2E9;
+      --success:#2F6B4F;
+      --warning:#8A5A00;
+      --shadow:0 1px 2px rgba(35,28,20,.06);
+      --window-shadow:0 28px 70px -28px rgba(0,0,0,.64),0 2px 5px rgba(0,0,0,.16);
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
+    }
+    * { box-sizing:border-box; }
+    html { -webkit-text-size-adjust:100%; }
+    body { margin:0; min-width:320px; background:radial-gradient(circle at 12% -8%,#3B332B 0,transparent 34rem),var(--page); color:var(--page-text); }
+    button { font:inherit; cursor:default; }
+    button:focus-visible,[role="button"]:focus-visible,[tabindex]:focus-visible { outline:3px solid #B68049; outline-offset:2px; }
+    h1,h2,h3,h4,p { margin:0; }
+    .page { width:min(2520px,100%); margin:0 auto; padding:42px clamp(14px,2.2vw,50px) 64px; }
+    .page-head { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(320px,.95fr); gap:40px; align-items:end; margin-bottom:29px; }
+    .eyebrow { margin-bottom:10px; color:#D6B98B; font-size:11px; font-weight:760; letter-spacing:.14em; text-transform:uppercase; }
+    h1 { max-width:18ch; font-size:clamp(34px,4vw,57px); line-height:1; letter-spacing:-.052em; }
+    .intro { max-width:70ch; color:var(--page-muted); font-size:14px; line-height:1.62; }
+    .contract { display:flex; flex-wrap:wrap; gap:7px; margin-top:15px; }
+    .contract span { padding:5px 8px; border:1px solid #554C43; border-radius:999px; color:#D8D0C6; font-size:10px; }
+    .variants { display:grid; grid-template-columns:repeat(3,minmax(720px,1fr)); gap:23px; align-items:start; }
+    .variant { min-width:0; padding:16px; border:1px solid #403A34; border-radius:21px; background:rgba(37,33,29,.91); box-shadow:0 20px 56px rgba(0,0,0,.17); }
+    .variant-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:11px; }
+    .variant-index { color:#D6B98B; font:700 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.12em; }
+    .variant h2 { margin-top:3px; font-size:19px; letter-spacing:-.025em; }
+    .variant-head p { margin-top:4px; max-width:53ch; color:#C7BFB5; font-size:10.5px; line-height:1.45; }
+    .variant-tag { flex:0 0 auto; padding:5px 7px; border:1px solid #554C43; border-radius:6px; color:#D2C9BF; font-size:8.5px; white-space:nowrap; }
+
+    .window { height:640px; overflow:hidden; border:1px solid var(--border); border-radius:14px; background:var(--canvas); color:var(--text); box-shadow:var(--window-shadow); }
+    .titlebar { height:32px; display:grid; grid-template-columns:72px 1fr 72px; align-items:center; padding:0 11px; border-bottom:1px solid var(--border); background:color-mix(in srgb,var(--sidebar) 93%,white 7%); }
+    .traffic { display:flex; gap:6px; }
+    .traffic i { width:9px; height:9px; border-radius:50%; }
+    .traffic i:nth-child(1){background:#FF5F57}.traffic i:nth-child(2){background:#FEBC2E}.traffic i:nth-child(3){background:#28C840}
+    .window-title { text-align:center; color:var(--muted); font-size:9px; font-weight:620; }
+    .title-action { text-align:right; }
+    .kbd { display:inline-flex; align-items:center; width:max-content; min-height:17px; padding:1px 5px; border:1px solid var(--border); border-bottom-width:2px; border-radius:5px; background:var(--card); color:var(--muted); font:600 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .app { height:calc(100% - 32px); min-height:0; display:grid; background:var(--canvas); }
+    .en .app { grid-template-columns:184px minmax(0,1fr); }
+    .nl .app { grid-template-columns:216px minmax(0,1fr); }
+    .collapsed .app { grid-template-columns:56px minmax(0,1fr); }
+
+    .btn,.text-btn { width:max-content; max-width:100%; height:auto; min-height:0; flex:0 0 auto; align-self:center; justify-self:start; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-weight:680; }
+    .btn { min-height:27px; padding:6px 9px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:8px; box-shadow:var(--shadow); }
+    .btn.primary { border-color:var(--accent); background:var(--accent); color:var(--accent-text); }
+    .btn[disabled] { opacity:.5; }
+    .text-btn { min-height:20px; padding:2px 0; border:0; border-bottom:1px solid currentColor; border-radius:0; background:transparent; color:var(--accent); font-size:7.7px; }
+    .chip { display:inline-flex; align-items:center; width:max-content; max-width:100%; height:auto; min-height:17px; flex:0 0 auto; padding:2px 6px; border:1px solid var(--border); border-radius:999px; background:var(--card); color:var(--muted); font-size:6.8px; white-space:nowrap; }
+    .chip::before { content:""; width:5px; height:5px; margin-right:5px; border-radius:50%; background:var(--success); }
+    .chip.offline { border-color:#D7C39B; background:#FBF2DF; color:#6E4800; }
+    .chip.offline::before { background:var(--warning); }
+
+    /* Governing macOS sidebar */
+    .sidebar { position:relative; min-width:0; min-height:0; display:flex; flex-direction:column; padding:8px; border-right:1px solid var(--border); background:var(--sidebar); }
+    .side-control { width:100%; min-height:27px; height:auto; flex:0 0 auto; display:flex; align-items:center; gap:7px; padding:5px 7px; border:0; border-radius:7px; background:transparent; color:var(--text); text-align:left; font-size:8px; }
+    .side-control:hover { background:var(--active-neutral); }
+    .side-control .label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .side-control .chevron { margin-left:auto; color:var(--quiet); }
+    .all-projects { font-weight:680; }
+    .project-switcher { margin-top:4px; border:1px solid var(--border); background:var(--card); box-shadow:var(--shadow); }
+    .theme-marker { width:18px; height:18px; flex:0 0 auto; border:1px solid #A98F73; border-radius:5px; background:linear-gradient(145deg,#6B4E2E,#D6B98B); box-shadow:inset 0 0 0 2px rgba(255,255,255,.28); }
+    .project-copy { min-width:0; }
+    .project-copy strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:8.2px; }
+    .project-copy small { display:block; margin-top:1px; color:var(--quiet); font-size:6.5px; }
+    .command { margin-top:7px; color:var(--muted); }
+    .command .kbd { margin-left:auto; }
+    .nav-groups { min-height:0; margin-top:10px; }
+    .nav-group + .nav-group { margin-top:8px; padding-top:7px; border-top:1px solid var(--line); }
+    .group-label { display:block; padding:0 7px 4px; color:var(--quiet); font-size:6.3px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; }
+    .nav-item { position:relative; width:100%; min-height:27px; height:auto; display:flex; align-items:center; gap:8px; padding:5px 7px; border:0; border-radius:7px; background:transparent; color:var(--muted); text-align:left; font-size:8px; }
+    .nav-item:hover { background:var(--active-neutral); color:var(--text); }
+    .nav-item.active { background:var(--active-neutral); color:var(--text); font-weight:720; }
+    .nav-item.active::before { content:""; position:absolute; left:0; top:6px; bottom:6px; width:3px; border-radius:3px; background:var(--accent); }
+    .nav-icon { width:15px; flex:0 0 15px; display:grid; place-items:center; color:currentColor; font-size:10px; font-weight:650; }
+    .nav-item.active .nav-icon { color:var(--accent); }
+    .nav-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .action-count { min-width:17px; min-height:16px; height:auto; flex:0 0 auto; display:inline-grid; place-items:center; margin-left:auto; padding:1px 5px; border:1px solid #CDBB9D; border-radius:999px; background:var(--card); color:var(--accent); font-size:6.7px; font-weight:760; }
+    .sidebar-footer { margin-top:auto; padding-top:7px; border-top:1px solid var(--line); }
+    .footer-separator { height:1px; margin:5px 7px; background:var(--line); }
+    .offline-row { color:#6E4800; }
+    .offline-dot { width:7px; height:7px; flex:0 0 auto; border-radius:50%; background:var(--warning); }
+    .collapse { position:absolute; top:8px; right:-11px; z-index:2; width:20px; height:20px; min-height:20px; display:grid; place-items:center; padding:0; border:1px solid var(--border); border-radius:50%; background:var(--card); color:var(--muted); font-size:11px; box-shadow:var(--shadow); }
+    .resize-grip { position:absolute; top:48%; right:-4px; z-index:1; width:8px; height:30px; display:grid; place-items:center; border-radius:5px; color:#A49B91; background:var(--card); border:1px solid var(--border); font-size:8px; }
+
+    .collapsed .sidebar { align-items:center; padding-inline:7px; }
+    .collapsed .side-control,.collapsed .nav-item { width:38px; justify-content:center; padding-inline:0; }
+    .collapsed .side-control .label,.collapsed .side-control .chevron,.collapsed .project-copy,.collapsed .command .kbd,.collapsed .group-label,.collapsed .nav-label { display:none; }
+    .collapsed .project-switcher { border-color:transparent; background:transparent; box-shadow:none; }
+    .collapsed .theme-marker { width:22px; height:22px; }
+    .collapsed .nav-groups { width:100%; }
+    .collapsed .nav-group { display:grid; justify-items:center; }
+    .collapsed .nav-group + .nav-group { width:100%; }
+    .collapsed .nav-item.active::before { left:-1px; }
+    .collapsed .action-count { position:absolute; top:1px; right:0; min-width:14px; min-height:14px; padding:0 3px; font-size:6px; }
+    .collapsed .sidebar-footer { width:100%; display:grid; justify-items:center; }
+    .collapsed .footer-separator { width:30px; }
+    .collapsed .offline-row .offline-dot { margin:0; }
+
+    /* Selected Overview context, without horizontal tabs or header Settings. */
+    .overview { min-width:0; padding:13px 15px 18px; overflow:hidden; }
+    .masthead { display:grid; grid-template-columns:minmax(0,1fr) 190px; gap:11px; align-items:start; }
+    .identity { min-width:0; }
+    .cover { position:relative; height:116px; overflow:hidden; border:1px solid var(--border); border-radius:10px; background:var(--tint); box-shadow:var(--shadow); }
+    .cover svg { display:block; width:100%; height:100%; }
+    .cover-caption { position:absolute; left:9px; bottom:7px; color:var(--muted); font:650 6.3px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.09em; text-transform:uppercase; }
+    .identity-head { margin-top:8px; }
+    .identity-head h3 { font-size:17px; line-height:1.08; letter-spacing:-.035em; }
+    .project-sub { margin-top:3px; color:var(--quiet); font:650 6.6px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.07em; text-transform:uppercase; }
+    .next-card { height:116px; min-height:116px; max-height:116px; align-self:start; display:flex; flex-direction:column; align-items:flex-start; padding:9px 10px; border:1px solid var(--border); border-radius:10px; background:var(--card); box-shadow:var(--shadow); }
+    .next-head { display:flex; align-items:center; gap:5px; }
+    .next-label { color:var(--quiet); font:700 6.3px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.1em; text-transform:uppercase; }
+    .next-card strong { display:block; margin-top:5px; font-size:8.5px; line-height:1.3; }
+    .next-card p { margin-top:3px; color:var(--muted); font-size:6.7px; line-height:1.35; }
+    .next-actions { display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin-top:7px; }
+    .next-actions .btn { min-height:24px; padding:4px 7px; font-size:7px; }
+    .provider-note { margin-top:4px; color:var(--quiet); font-size:6px; line-height:1.25; }
+    .content { display:grid; grid-template-columns:minmax(0,1fr) 174px; gap:13px; align-items:start; margin-top:13px; padding-top:11px; border-top:1px solid var(--border); }
+    .project-description { padding:8px 9px; border:1px solid var(--border); border-radius:8px; background:var(--card); }
+    .section-title { font-size:8px; font-weight:700; }
+    .description { margin-top:4px; color:var(--muted); font-size:7.2px; line-height:1.42; }
+    .relation-step { display:grid; grid-template-columns:22px minmax(0,1fr); gap:7px; align-items:start; padding:7px 0; border-bottom:1px solid var(--line); }
+    .relation-step:last-child { border-bottom:0; }
+    .step-num { width:21px; height:21px; display:grid; place-items:center; border-radius:50%; background:var(--accent-soft); color:var(--accent); font:700 6.7px ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .relation-step.current .step-num { background:var(--accent); color:var(--accent-text); }
+    .relation-step strong { display:block; font-size:8px; }
+    .relation-step p { margin-top:3px; color:var(--muted); font-size:6.8px; line-height:1.38; }
+    .rail-stack { display:flex; flex-direction:column; align-items:stretch; gap:7px; }
+    .rail-card { height:auto; align-self:stretch; padding:8px 9px; border:1px solid var(--border); border-radius:8px; background:var(--card); box-shadow:var(--shadow); }
+    .rail-head { display:flex; align-items:center; gap:5px; margin-bottom:6px; font-size:7.8px; font-weight:700; }
+    .rail-head .state-label { margin-left:auto; color:var(--quiet); font-size:6.3px; }
+    .mini { list-style:none; margin:0; padding:0; }
+    .mini li { padding:5px 0; border-top:1px solid var(--line); font-size:6.8px; line-height:1.35; }
+    .mini li:first-child { padding-top:0; border-top:0; }
+    .lineage { display:grid; grid-template-columns:auto minmax(0,1fr); gap:4px 6px; font-size:6.5px; line-height:1.34; }
+    .lineage b { color:var(--accent); }
+    .lineage span { color:var(--muted); }
+
+    .annotation { margin-top:10px; padding:8px 9px; border:1px solid #4D463F; border-radius:9px; color:#C8BFB5; background:rgba(31,28,24,.72); font-size:8.6px; line-height:1.45; }
+    .annotation code { color:#E0C99F; font:650 8px ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .notes { margin-top:25px; padding:15px 17px; border:1px solid #403A34; border-radius:15px; color:var(--page-muted); background:rgba(37,33,29,.91); font-size:10.5px; line-height:1.5; }
+    .notes strong { color:var(--page-text); }
+
+    @media (prefers-reduced-motion:no-preference) {
+      .sidebar,.side-control,.nav-item,.collapse,.theme-marker,.btn,.rail-card { transition:width 160ms ease,background-color 150ms ease,border-color 150ms ease,transform 150ms ease,box-shadow 150ms ease; }
+      .btn:hover { transform:translateY(-1px); }
+    }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; scroll-behavior:auto!important; } }
+    @media (max-width:2320px) { .variants { grid-template-columns:minmax(720px,1fr); } }
+    @media (max-width:780px) {
+      .page { padding-inline:10px; }
+      .page-head { grid-template-columns:1fr; gap:18px; }
+      .variants { display:block; overflow-x:auto; }
+      .variant { min-width:720px; margin-bottom:22px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="page-head">
+      <div><p class="eyebrow">ProjectOS · Governing sidebar</p><h1>One project shell, three sidebar states.</h1></div>
+      <div><p class="intro">Artifact destinations move into a neutral macOS-style sidebar. English, Dutch, and collapsed-offline variants keep the same hierarchy, actionable badge semantics, selected Overview masthead, and relational content.</p><div class="contract"><span>No horizontal tabs</span><span>Actionable badges only</span><span>Resizable + collapsible</span><span>Studio Paper</span><span>Reduce Motion respected</span></div></div>
+    </header>
+
+    <section class="variants" aria-label="ProjectOS sidebar variants">
+      <article class="variant en">
+        <header class="variant-head"><div><span class="variant-index">STATE 01</span><h2>Expanded · English</h2><p>Normal working width with the full governing hierarchy and actionable counts.</p></div><span class="variant-tag">184 px</span></header>
+        <section class="window" aria-label="Expanded English ProjectOS sidebar">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">ProjectOS — ProjectOS UX</div><div class="title-action"><span class="kbd">⌘ K</span></div></div>
+          <div class="app"><aside class="sidebar" aria-label="Project navigation"><button class="collapse" aria-label="Collapse sidebar" title="Collapse sidebar">‹</button><span class="resize-grip" aria-label="Resize sidebar" title="Drag to resize sidebar">⋮</span>
+            <button class="side-control all-projects" aria-label="All Projects" title="All Projects"><span class="nav-icon" aria-hidden="true">‹</span><span class="label">All Projects</span></button>
+            <button class="side-control project-switcher" aria-label="Switch project, current project ProjectOS UX" title="Switch project"><span class="theme-marker" aria-hidden="true"></span><span class="project-copy"><strong>ProjectOS UX</strong><small>Studio Paper</small></span><span class="chevron" aria-hidden="true">⌄</span></button>
+            <button class="side-control command" aria-label="Search all projects and commands" title="Search all projects and commands"><span class="nav-icon" aria-hidden="true">⌕</span><span class="label">Search</span><span class="kbd">⌘ K</span></button>
+            <nav class="nav-groups" aria-label="Project destinations"><div class="nav-group"><span class="group-label">Orientation</span><button class="nav-item active" aria-current="page" aria-label="Overview, current page" title="Overview"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-label">Overview</span></button><button class="nav-item" aria-label="Project Map" title="Project Map"><span class="nav-icon" aria-hidden="true">◇</span><span class="nav-label">Project Map</span></button></div>
+              <div class="nav-group"><span class="group-label">Active work</span><button class="nav-item" aria-label="Conversation, 3 proposals need review" title="Conversation — 3 proposals need review"><span class="nav-icon" aria-hidden="true">◉</span><span class="nav-label">Conversation</span><span class="action-count" aria-label="3 proposals need review">3</span></button><button class="nav-item" aria-label="Topics" title="Topics"><span class="nav-icon" aria-hidden="true">●</span><span class="nav-label">Topics</span></button><button class="nav-item" aria-label="Tasks" title="Tasks"><span class="nav-icon" aria-hidden="true">✓</span><span class="nav-label">Tasks</span></button></div>
+              <div class="nav-group"><span class="group-label">Accepted knowledge</span><button class="nav-item" aria-label="Decisions" title="Decisions"><span class="nav-icon" aria-hidden="true">◆</span><span class="nav-label">Decisions</span></button><button class="nav-item" aria-label="Research and Sources" title="Research and Sources"><span class="nav-icon" aria-hidden="true">▱</span><span class="nav-label">Research</span></button><button class="nav-item" aria-label="Questions" title="Questions"><span class="nav-icon" aria-hidden="true">?</span><span class="nav-label">Questions</span></button></div></nav>
+            <footer class="sidebar-footer"><button class="nav-item" aria-label="Notifications, 2 unread actionable notifications" title="Notifications — 2 unread"><span class="nav-icon" aria-hidden="true">◌</span><span class="nav-label">Notifications</span><span class="action-count" aria-label="2 unread notifications">2</span></button><button class="nav-item" aria-label="Project Settings" title="Project Settings"><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-label">Project Settings</span></button><div class="footer-separator"></div><button class="nav-item" aria-label="Global Settings" title="Global Settings"><span class="nav-icon" aria-hidden="true">⌘</span><span class="nav-label">Global Settings</span></button></footer>
+          </aside><section class="overview"><div class="masthead"><div class="identity"><div class="cover"><svg viewBox="0 0 440 116" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Project continuity line from sources to accepted state to affected work"><rect width="440" height="116" fill="#F7F2E9"/><path d="M32 76C100 20 156 98 222 54S330 27 408 49" fill="none" stroke="#A98259" stroke-width="2" stroke-dasharray="6 6"/><g fill="#6B4E2E"><circle cx="32" cy="76" r="10"/><circle cx="222" cy="54" r="14"/><circle cx="408" cy="49" r="11"/></g><g fill="#D6B98B"><circle cx="132" cy="52" r="6"/><circle cx="319" cy="45" r="7"/></g></svg><span class="cover-caption">Context chain · sources to affected work</span></div><div class="identity-head"><h3>ProjectOS UX</h3><p class="project-sub">Commercial MVP · saved locally on this Mac</p></div></div><aside class="next-card"><div class="next-head"><span class="next-label">What’s up next</span><span class="chip">Current</span></div><strong>Resolve the notification boundary</strong><p>It blocks notification Settings and urgency controls.</p><div class="next-actions"><button class="btn primary">Continue work</button><button class="btn">Inspect context</button></div><p class="provider-note">Starts a grounded Conversation.</p></aside></div>
+            <div class="content"><section><div class="project-description"><h4 class="section-title">What this project is</h4><p class="description">A local-first macOS workspace that helps Wouter resume consequential project work without rebuilding the mental model.</p></div><div class="relation-step"><span class="step-num">1</span><div><strong>Recent accepted history</strong><p>Project Map joined the MVP, Sources moved beside Research, and Studio Paper became the default.</p></div></div><div class="relation-step"><span class="step-num">2</span><div><strong>Accepted relationships</strong><p>Decisions link back to resolved Questions, source Conversations, and provenance.</p></div></div><div class="relation-step current"><span class="step-num">3</span><div><strong>Affected work</strong><p>The notification Question blocks its Settings Task.</p></div></div></section><aside class="rail-stack"><div class="rail-card"><div class="rail-head">Related state <span class="state-label">Current</span></div><ul class="mini"><li>18 accepted Decisions</li><li>2 linked Open Questions</li><li>3 pending Proposals</li></ul></div><div class="rail-card"><div class="rail-head">Provenance</div><div class="lineage"><b>Question</b><span>Notification boundary</span><b>Blocks</b><span>Settings Task</span><b>Grounded in</b><span>Low-noise requirement</span></div><button class="text-btn" style="margin-top:6px">Inspect provenance →</button></div></aside></div>
+          </section></div>
+        </section><p class="annotation">Every row carries a full <code>aria-label</code> and native-style <code>title</code> tooltip. The left accent bar, icon treatment, neutral fill, and font weight identify the active destination without relying on color alone.</p>
+      </article>
+
+      <article class="variant nl" lang="nl">
+        <header class="variant-head"><div><span class="variant-index">STAAT 02</span><h2>Uitgeklapt · Nederlands</h2><p>Een bredere test voor Nederlandse labels zonder afkappen of veranderde hiërarchie.</p></div><span class="variant-tag">216 px</span></header>
+        <section class="window" aria-label="Uitgeklapte Nederlandse ProjectOS-zijbalk">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">ProjectOS — ProjectOS UX</div><div class="title-action"><span class="kbd">⌘ K</span></div></div>
+          <div class="app"><aside class="sidebar" aria-label="Projectnavigatie"><button class="collapse" aria-label="Zijbalk inklappen" title="Zijbalk inklappen">‹</button><span class="resize-grip" aria-label="Zijbalk breder of smaller maken" title="Sleep om de zijbalk te vergroten of verkleinen">⋮</span>
+            <button class="side-control all-projects" aria-label="Alle projecten" title="Alle projecten"><span class="nav-icon" aria-hidden="true">‹</span><span class="label">Alle projecten</span></button>
+            <button class="side-control project-switcher" aria-label="Wissel van project, huidig project ProjectOS UX" title="Wissel van project"><span class="theme-marker" aria-hidden="true"></span><span class="project-copy"><strong>ProjectOS UX</strong><small>Studio Paper</small></span><span class="chevron" aria-hidden="true">⌄</span></button>
+            <button class="side-control command" aria-label="Doorzoek alle projecten en opdrachten" title="Doorzoek alle projecten en opdrachten"><span class="nav-icon" aria-hidden="true">⌕</span><span class="label">Globaal zoeken</span><span class="kbd">⌘ K</span></button>
+            <nav class="nav-groups" aria-label="Projectbestemmingen"><div class="nav-group"><span class="group-label">Oriëntatie</span><button class="nav-item active" aria-current="page" aria-label="Projectoverzicht, huidige pagina" title="Projectoverzicht"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-label">Projectoverzicht</span></button><button class="nav-item" aria-label="Projectkaart" title="Projectkaart"><span class="nav-icon" aria-hidden="true">◇</span><span class="nav-label">Projectkaart</span></button></div>
+              <div class="nav-group"><span class="group-label">Actief werk</span><button class="nav-item" aria-label="Gesprekken, 3 voorstellen wachten op beoordeling" title="Gesprekken — 3 voorstellen wachten op beoordeling"><span class="nav-icon" aria-hidden="true">◉</span><span class="nav-label">Gesprekken</span><span class="action-count" aria-label="3 voorstellen wachten op beoordeling">3</span></button><button class="nav-item" aria-label="Onderwerpen" title="Onderwerpen"><span class="nav-icon" aria-hidden="true">●</span><span class="nav-label">Onderwerpen</span></button><button class="nav-item" aria-label="Taken" title="Taken"><span class="nav-icon" aria-hidden="true">✓</span><span class="nav-label">Taken</span></button></div>
+              <div class="nav-group"><span class="group-label">Geaccepteerde kennis</span><button class="nav-item" aria-label="Besluiten" title="Besluiten"><span class="nav-icon" aria-hidden="true">◆</span><span class="nav-label">Besluiten</span></button><button class="nav-item" aria-label="Onderzoek en bronnen" title="Onderzoek en bronnen"><span class="nav-icon" aria-hidden="true">▱</span><span class="nav-label">Onderzoek</span></button><button class="nav-item" aria-label="Open vragen" title="Open vragen"><span class="nav-icon" aria-hidden="true">?</span><span class="nav-label">Open vragen</span></button></div></nav>
+            <footer class="sidebar-footer"><button class="nav-item" aria-label="Meldingen, 2 ongelezen meldingen die aandacht vragen" title="Meldingen — 2 ongelezen"><span class="nav-icon" aria-hidden="true">◌</span><span class="nav-label">Meldingen</span><span class="action-count" aria-label="2 ongelezen meldingen">2</span></button><button class="nav-item" aria-label="Projectinstellingen" title="Projectinstellingen"><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-label">Projectinstellingen</span></button><div class="footer-separator"></div><button class="nav-item" aria-label="Algemene instellingen" title="Algemene instellingen"><span class="nav-icon" aria-hidden="true">⌘</span><span class="nav-label">Algemene instellingen</span></button></footer>
+          </aside><section class="overview"><div class="masthead"><div class="identity"><div class="cover"><svg viewBox="0 0 400 116" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Projectcontinuïteit van bronnen naar geaccepteerde toestand en beïnvloed werk"><rect width="400" height="116" fill="#F7F2E9"/><path d="M28 76C94 20 142 98 204 54S304 27 372 49" fill="none" stroke="#A98259" stroke-width="2" stroke-dasharray="6 6"/><g fill="#6B4E2E"><circle cx="28" cy="76" r="10"/><circle cx="204" cy="54" r="14"/><circle cx="372" cy="49" r="11"/></g><g fill="#D6B98B"><circle cx="120" cy="52" r="6"/><circle cx="294" cy="45" r="7"/></g></svg><span class="cover-caption">Contextketen · bronnen naar werk</span></div><div class="identity-head"><h3>ProjectOS UX</h3><p class="project-sub">Commerciële MVP · lokaal op deze Mac</p></div></div><aside class="next-card"><div class="next-head"><span class="next-label">Wat volgt hierna</span><span class="chip">Actueel</span></div><strong>Bepaal de grens voor meldingen</strong><p>Dit blokkeert instellingen voor urgentie.</p><div class="next-actions"><button class="btn primary">Doorgaan</button><button class="btn">Context bekijken</button></div><p class="provider-note">Start een onderbouwd gesprek.</p></aside></div>
+            <div class="content"><section><div class="project-description"><h4 class="section-title">Wat dit project is</h4><p class="description">Een lokale macOS-werkruimte waarmee Wouter belangrijk projectwerk hervat zonder het mentale model opnieuw op te bouwen.</p></div><div class="relation-step"><span class="step-num">1</span><div><strong>Recente geaccepteerde geschiedenis</strong><p>De Projectkaart kwam in de MVP, Bronnen verhuisden naast Onderzoek en Studio Paper werd standaard.</p></div></div><div class="relation-step"><span class="step-num">2</span><div><strong>Geaccepteerde relaties</strong><p>Besluiten linken naar opgeloste Vragen, brongesprekken en herkomst.</p></div></div><div class="relation-step current"><span class="step-num">3</span><div><strong>Beïnvloed werk</strong><p>De meldingsvraag blokkeert de instellingentaak.</p></div></div></section><aside class="rail-stack"><div class="rail-card"><div class="rail-head">Gerelateerde status <span class="state-label">Actueel</span></div><ul class="mini"><li>18 geaccepteerde Besluiten</li><li>2 gekoppelde Open vragen</li><li>3 openstaande Voorstellen</li></ul></div><div class="rail-card"><div class="rail-head">Herkomst</div><div class="lineage"><b>Vraag</b><span>Meldingsgrens</span><b>Blokkeert</b><span>Instellingentaak</span><b>Gebaseerd op</b><span>Weinig ruis</span></div><button class="text-btn" style="margin-top:6px">Herkomst bekijken →</button></div></aside></div>
+          </section></div>
+        </section><p class="annotation">Nederlandse breedtetest: lange labels zoals <code>Projectinstellingen</code>, <code>Geaccepteerde kennis</code> en <code>Algemene instellingen</code> blijven herkenbaar. ⌘F blijft voor zoeken binnen het huidige scherm.</p>
+      </article>
+
+      <article class="variant collapsed">
+        <header class="variant-head"><div><span class="variant-index">STATE 03</span><h2>Collapsed · Offline</h2><p>Icon-only navigation retains labels, tooltips, keyboard access, and actionable state.</p></div><span class="variant-tag">56 px</span></header>
+        <section class="window" aria-label="Collapsed offline ProjectOS sidebar">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">ProjectOS — ProjectOS UX · Offline</div><div class="title-action"><span class="kbd">⌘ K</span></div></div>
+          <div class="app"><aside class="sidebar" aria-label="Collapsed project navigation"><button class="collapse" aria-label="Expand sidebar" title="Expand sidebar">›</button><span class="resize-grip" aria-label="Resize sidebar" title="Drag to resize sidebar">⋮</span>
+            <button class="side-control all-projects" aria-label="All Projects" title="All Projects"><span class="nav-icon" aria-hidden="true">‹</span><span class="label">All Projects</span></button>
+            <button class="side-control project-switcher" aria-label="Switch project, current project ProjectOS UX, Studio Paper theme" title="ProjectOS UX — switch project"><span class="theme-marker" aria-hidden="true"></span><span class="project-copy"><strong>ProjectOS UX</strong><small>Studio Paper</small></span></button>
+            <button class="side-control command" aria-label="Search all projects and commands, Command K" title="Search all projects and commands · ⌘K"><span class="nav-icon" aria-hidden="true">⌕</span><span class="label">Search</span><span class="kbd">⌘ K</span></button>
+            <nav class="nav-groups" aria-label="Project destinations"><div class="nav-group"><span class="group-label">Orientation</span><button class="nav-item active" aria-current="page" aria-label="Overview, current page" title="Overview"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-label">Overview</span></button><button class="nav-item" aria-label="Project Map" title="Project Map"><span class="nav-icon" aria-hidden="true">◇</span><span class="nav-label">Project Map</span></button></div>
+              <div class="nav-group"><span class="group-label">Active work</span><button class="nav-item" aria-label="Conversation, 3 proposals need review" title="Conversation — 3 proposals need review"><span class="nav-icon" aria-hidden="true">◉</span><span class="nav-label">Conversation</span><span class="action-count" aria-label="3 proposals need review">3</span></button><button class="nav-item" aria-label="Topics" title="Topics"><span class="nav-icon" aria-hidden="true">●</span><span class="nav-label">Topics</span></button><button class="nav-item" aria-label="Tasks" title="Tasks"><span class="nav-icon" aria-hidden="true">✓</span><span class="nav-label">Tasks</span></button></div>
+              <div class="nav-group"><span class="group-label">Accepted knowledge</span><button class="nav-item" aria-label="Decisions" title="Decisions"><span class="nav-icon" aria-hidden="true">◆</span><span class="nav-label">Decisions</span></button><button class="nav-item" aria-label="Research and Sources" title="Research and Sources"><span class="nav-icon" aria-hidden="true">▱</span><span class="nav-label">Research</span></button><button class="nav-item" aria-label="Questions" title="Questions"><span class="nav-icon" aria-hidden="true">?</span><span class="nav-label">Questions</span></button></div></nav>
+            <footer class="sidebar-footer"><button class="nav-item offline-row" aria-label="Offline, local inspection available, agent calls unavailable" title="Offline — local inspection available"><span class="offline-dot" aria-hidden="true"></span><span class="nav-label">Offline</span></button><button class="nav-item" aria-label="Notifications, 2 unread actionable notifications" title="Notifications — 2 unread"><span class="nav-icon" aria-hidden="true">◌</span><span class="nav-label">Notifications</span><span class="action-count" aria-label="2 unread notifications">2</span></button><button class="nav-item" aria-label="Project Settings" title="Project Settings"><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-label">Project Settings</span></button><div class="footer-separator"></div><button class="nav-item" aria-label="Global Settings" title="Global Settings"><span class="nav-icon" aria-hidden="true">⌘</span><span class="nav-label">Global Settings</span></button></footer>
+          </aside><section class="overview"><div class="masthead"><div class="identity"><div class="cover"><svg viewBox="0 0 520 116" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Locally available project continuity context"><rect width="520" height="116" fill="#F7F2E9"/><path d="M38 76C120 20 182 98 260 54S386 27 482 49" fill="none" stroke="#A98259" stroke-width="2" stroke-dasharray="6 6"/><g fill="#6B4E2E"><circle cx="38" cy="76" r="10"/><circle cx="260" cy="54" r="14"/><circle cx="482" cy="49" r="11"/></g><g fill="#D6B98B"><circle cx="154" cy="52" r="6"/><circle cx="372" cy="45" r="7"/></g></svg><span class="cover-caption">Context chain · available locally</span></div><div class="identity-head"><h3>ProjectOS UX</h3><p class="project-sub">Commercial MVP · saved locally on this Mac</p></div></div><aside class="next-card"><div class="next-head"><span class="next-label">What’s up next</span><span class="chip offline">Offline</span></div><strong>Resolve the notification boundary</strong><p>Saved recommendation · locally inspectable.</p><div class="next-actions"><button class="btn primary" disabled>Continue work</button><button class="btn">Inspect question</button></div><p class="provider-note">Agent calls unavailable; nothing queued.</p></aside></div>
+            <div class="content"><section><div class="project-description"><h4 class="section-title">What this project is</h4><p class="description">A local-first macOS workspace for resuming consequential project work.</p></div><div class="relation-step"><span class="step-num">1</span><div><strong>Recent accepted history</strong><p>Project Map joined the MVP, Sources moved beside Research, and Studio Paper became default.</p></div></div><div class="relation-step"><span class="step-num">2</span><div><strong>Accepted relationships</strong><p>Decisions, resolved Questions, and provenance remain available offline.</p></div></div><div class="relation-step current"><span class="step-num">3</span><div><strong>Affected work</strong><p>The notification Question and blocked Settings Task remain inspectable.</p></div></div></section><aside class="rail-stack"><div class="rail-card"><div class="rail-head">Related state <span class="state-label">Local</span></div><ul class="mini"><li>18 accepted Decisions</li><li>2 linked Questions</li><li>3 pending Proposals</li></ul></div><div class="rail-card"><div class="rail-head">Provenance</div><div class="lineage"><b>Question</b><span>Notification boundary</span><b>Blocks</b><span>Settings Task</span><b>Grounded in</b><span>Low-noise requirement</span></div><button class="text-btn" style="margin-top:6px">Inspect locally →</button></div></aside></div>
+          </section></div>
+        </section><p class="annotation">Collapsed icons expose full accessible names and hover/focus tooltips. Badges remain visible only for <code>3 proposals needing review</code> and <code>2 unread notifications</code>; the amber dot communicates Offline with a text tooltip and screen-reader label.</p>
+      </article>
+    </section>
+
+    <p class="notes"><strong>Motion and persistence:</strong> sidebar width is remembered per window. Collapse, resize feedback, project switching, and active-item movement use subtle continuity transitions; with Reduce Motion enabled they update without spatial animation. ⌘K opens global search/commands, while ⌘F searches the current surface.</p>
+  </main>
+</body>
+</html>

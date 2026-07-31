@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ProjectOS — Key screen: Project Map</title>
+  <style>
+    /*
+      Governing spine sections:
+      DESIGN.md — Colors; Layout & Spacing; Shapes; Components: Project Sidebar,
+      Project Map, Artifact Inspector, Relationship Inspector, Context Preview,
+      Button, Status Badge, Search Field; Do's and Don'ts.
+      EXPERIENCE.md — Information Architecture: Project Map; Component Patterns:
+      Project Map and Artifact/Relationship Inspector; State Patterns: Project Map
+      contract and relationship states; Interaction Primitives; Accessibility Floor;
+      UJ-2 steps 1–5 and Project Map task parity journeys.
+      Reduce Motion: node positions remain stable; selection/lens updates use immediate
+      replacement or opacity-only 140ms, with no automatic canvas movement.
+    */
+    :root {
+      color-scheme:light;
+      --canvas:#FCFBF8; --sidebar:#F3F0EA; --surface:#FFFFFF; --raised:#FFFFFF;
+      --text:#24211D; --muted:#686158; --divider:#D8D2C8; --boundary:#756B60;
+      --accent:#6B4E2E; --accent-text:#FFFFFF; --selection:#E9E1D6; --tint:#F7F2E9;
+      --focus:#6B4E2E; --edge:#756B60; --node:#6B4E2E; --warning:#8A5A00; --success:#2F6B4F;
+      --shadow:0 1px 2px rgba(36,33,29,.07),0 10px 28px rgba(36,33,29,.05);
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
+    }
+    * { box-sizing:border-box; }
+    html { -webkit-text-size-adjust:100%; }
+    body { margin:0; min-width:320px; background:#E8E4DE; color:var(--text); }
+    button,input { font:inherit; color:inherit; }
+    button:focus-visible,input:focus-visible,[tabindex]:focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
+    h1,h2,h3,h4,p { margin:0; }
+    .sheet { width:min(1720px,100%); margin:0 auto; padding:32px clamp(12px,2.5vw,42px) 56px; }
+    .sheet-head { display:flex; justify-content:space-between; align-items:end; gap:28px; margin-bottom:18px; }
+    .eyebrow { margin-bottom:7px; color:var(--accent); font-size:12px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
+    .sheet h1 { font-size:clamp(28px,4vw,44px); letter-spacing:-.045em; }
+    .sheet-note { max-width:64ch; color:var(--muted); font-size:14px; line-height:1.5; }
+    .window { overflow:hidden; border:1px solid var(--boundary); border-radius:14px; background:var(--canvas); box-shadow:var(--shadow); }
+    .titlebar { height:38px; display:grid; grid-template-columns:80px 1fr 80px; align-items:center; padding:0 12px; border-bottom:1px solid var(--divider); background:var(--sidebar); }
+    .traffic { display:flex; gap:7px; }
+    .traffic i { width:11px; height:11px; border-radius:50%; }
+    .traffic i:nth-child(1){background:#D64B43}.traffic i:nth-child(2){background:#C88710}.traffic i:nth-child(3){background:#21883A}
+    .window-title { text-align:center; color:var(--muted); font-size:12px; font-weight:600; }
+    .kbd { justify-self:end; padding:3px 6px; border:1px solid var(--boundary); border-radius:6px; background:var(--surface); color:var(--muted); font:600 10px ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .app { height:820px; min-height:0; display:grid; grid-template-columns:180px minmax(0,1fr); }
+    .project-sidebar { min-height:0; display:flex; flex-direction:column; padding:10px 9px; border-right:1px solid var(--boundary); background:var(--sidebar); }
+    .side-button,.nav-item { position:relative; width:100%; min-height:30px; display:flex; align-items:center; gap:8px; padding:6px 8px; border:0; border-radius:7px; background:transparent; text-align:left; font-size:11px; }
+    .project-switcher { margin-top:5px; border:1px solid var(--boundary); background:var(--surface); }
+    .theme-marker { width:18px; height:18px; flex:none; border-radius:5px; background:var(--accent); }
+    .project-copy { min-width:0; flex:1; }
+    .project-copy strong,.project-copy small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .project-copy small { margin-top:2px; color:var(--muted); font-size:9px; }
+    .command { margin-top:6px; color:var(--muted); }
+    .command .kbd { margin-left:auto; }
+    .nav-groups { margin-top:10px; }
+    .nav-group + .nav-group { margin-top:7px; padding-top:7px; border-top:1px solid var(--divider); }
+    .group-label { display:block; padding:0 8px 4px; color:var(--muted); font-size:8px; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }
+    .nav-item { color:var(--muted); }
+    .nav-item.active { border:1px solid var(--boundary); background:var(--selection); color:var(--text); font-weight:700; }
+    .nav-item.active::before { content:""; position:absolute; left:3px; top:7px; bottom:7px; width:3px; border-radius:2px; background:var(--accent); }
+    .nav-icon { width:16px; text-align:center; }
+    .nav-label { min-width:0; flex:1; }
+    .sidebar-footer { margin-top:auto; padding-top:7px; border-top:1px solid var(--divider); }
+    .map-page { min-width:0; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr); }
+    .map-header { padding:14px 16px 12px; border-bottom:1px solid var(--boundary); background:var(--canvas); }
+    .header-row { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+    .header-row h2 { font-size:22px; letter-spacing:-.03em; }
+    .header-row p { margin-top:4px; color:var(--muted); font-size:10px; }
+    .controls { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:7px; }
+    .button { min-width:30px; min-height:30px; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:6px 10px; border:1px solid var(--boundary); border-radius:8px; background:var(--surface); font-size:10px; font-weight:650; }
+    .button.primary { border-color:var(--accent); background:var(--accent); color:var(--accent-text); }
+    .button.selected { background:var(--selection); border-color:var(--accent); }
+    .search { min-height:30px; display:flex; align-items:center; gap:6px; padding:5px 8px; border:1px solid var(--boundary); border-radius:8px; background:var(--surface); }
+    .search input { width:130px; border:0; outline:0; background:transparent; font-size:10px; }
+    .lens-row { display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-top:10px; }
+    .lens-row > strong { margin-right:2px; font-size:9px; text-transform:uppercase; letter-spacing:.06em; }
+    .badge { min-height:23px; display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border:1px solid var(--boundary); border-radius:999px; background:var(--surface); font-size:9px; font-weight:700; }
+    .badge::before { content:"●"; font-size:7px; }
+    .badge.current::before { content:"✓"; color:var(--success); }
+    .badge.review::before { content:"!"; color:var(--warning); }
+    .badge.historical::before { content:"◷"; }
+    .badge.proposed { border-style:dashed; }
+    .badge.proposed::before { content:"◇"; }
+    .map-workspace { min-width:0; min-height:0; display:grid; grid-template-columns:minmax(450px,1.2fr) minmax(280px,.62fr) minmax(300px,.64fr); }
+    .map-canvas { position:relative; min-width:0; min-height:0; overflow:hidden; border-right:1px solid var(--boundary); background:var(--canvas); }
+    .canvas-label { position:absolute; z-index:2; left:12px; top:11px; padding:5px 8px; border:1px solid var(--boundary); border-radius:7px; background:var(--surface); color:var(--muted); font-size:9px; }
+    .map-canvas svg { width:100%; height:100%; display:block; }
+    .edge { fill:none; stroke:var(--edge); stroke-width:2; marker-end:url(#arrow); }
+    .edge.review { stroke-dasharray:7 5; }
+    .edge-label { fill:var(--muted); font-size:11px; font-weight:600; }
+    .node rect { fill:var(--surface); stroke:var(--node); stroke-width:2; }
+    .node.selected rect { fill:var(--selection); stroke:var(--focus); stroke-width:4; }
+    .node.review rect { stroke:var(--warning); stroke-dasharray:7 5; }
+    .node.conversation rect { fill:var(--tint); stroke:var(--boundary); stroke-dasharray:4 4; }
+    .node.faded { opacity:.35; }
+    .node-type { fill:var(--accent); font-size:10px; font-weight:800; letter-spacing:.05em; }
+    .node-title { fill:var(--text); font-size:14px; font-weight:700; }
+    .node-state { fill:var(--muted); font-size:10px; font-weight:650; }
+    .zoom { position:absolute; z-index:2; left:12px; bottom:12px; display:flex; gap:6px; }
+    .outline { min-width:0; min-height:0; overflow:auto; border-right:1px solid var(--boundary); background:var(--sidebar); }
+    .pane-head { position:sticky; top:0; z-index:1; padding:14px 13px 11px; border-bottom:1px solid var(--boundary); background:var(--sidebar); }
+    .pane-head h3 { font-size:14px; }
+    .pane-head p { margin-top:4px; color:var(--muted); font-size:9px; line-height:1.4; }
+    .artifact-outline { padding:9px; }
+    .outline-row { width:100%; min-height:34px; display:flex; align-items:center; gap:7px; padding:7px 8px; border:0; border-radius:7px; background:transparent; text-align:left; font-size:10px; }
+    .outline-row.selected { border:1px solid var(--boundary); background:var(--selection); font-weight:700; }
+    .outline-row .state { margin-left:auto; color:var(--muted); font-size:8px; }
+    .relationship-group { margin:7px 0 9px 20px; padding-left:9px; border-left:2px solid var(--boundary); }
+    .relationship-group h4 { padding:5px 3px; font-size:9px; text-transform:uppercase; letter-spacing:.06em; }
+    .relationship-row { width:100%; min-height:48px; padding:7px; border:1px solid var(--boundary); border-radius:7px; background:var(--surface); text-align:left; font-size:9px; line-height:1.35; }
+    .relationship-row + .relationship-row { margin-top:6px; }
+    .relationship-row strong { display:block; }
+    .relationship-row span { display:block; margin-top:3px; color:var(--muted); }
+    .relationship-row.review { border-style:dashed; }
+    .inspector { min-width:0; min-height:0; overflow:auto; padding:15px; background:var(--raised); }
+    .inspector-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+    .inspector h3 { font-size:18px; letter-spacing:-.025em; }
+    .inspector-type { margin-bottom:4px; color:var(--accent); font-size:9px; font-weight:750; text-transform:uppercase; letter-spacing:.06em; }
+    .section { margin-top:14px; padding-top:13px; border-top:1px solid var(--divider); }
+    .section h4 { font-size:10px; }
+    .section p,.section li { margin-top:5px; color:var(--muted); font-size:10px; line-height:1.48; }
+    .section ul { margin:5px 0 0; padding-left:18px; }
+    .relation-list { display:grid; gap:6px; margin-top:7px; }
+    .relation-item { padding:8px; border:1px solid var(--boundary); border-radius:7px; background:var(--surface); font-size:9px; line-height:1.4; }
+    .relation-item b { display:block; }
+    .action-boundary { margin-top:14px; padding:11px; border:1px solid var(--boundary); border-radius:8px; background:var(--tint); }
+    .action-boundary strong { font-size:10px; }
+    .action-boundary p { margin-top:4px; color:var(--muted); font-size:9px; line-height:1.45; }
+    .inspector-actions { display:grid; gap:7px; margin-top:10px; }
+    .inspector-actions .button { width:100%; justify-content:flex-start; text-align:left; }
+    .context-preview { margin-top:10px; padding:10px; border:1px solid var(--boundary); border-radius:8px; background:var(--surface); }
+    .context-preview h4 { font-size:10px; }
+    .context-preview dl { display:grid; grid-template-columns:auto 1fr; gap:4px 7px; margin:7px 0 0; font-size:9px; line-height:1.35; }
+    .context-preview dt { color:var(--accent); font-weight:700; }
+    .context-preview dd { margin:0; color:var(--muted); }
+    .map-note { margin-top:12px; padding:11px 13px; border:1px solid var(--boundary); border-radius:8px; background:var(--tint); color:var(--muted); font-size:11px; line-height:1.45; }
+    @media (max-width:1260px) { .app { grid-template-columns:56px minmax(0,1fr); } .project-copy,.nav-label,.group-label,.command .kbd { display:none; } .side-button,.nav-item { justify-content:center; } .map-workspace { grid-template-columns:minmax(420px,1fr) minmax(280px,.68fr); } .inspector { grid-column:1 / -1; border-top:1px solid var(--boundary); } }
+    @media (max-width:880px) { .map-workspace { grid-template-columns:1fr; } .map-canvas { min-height:580px; border-right:0; border-bottom:1px solid var(--boundary); } .outline { border-right:0; border-bottom:1px solid var(--boundary); } }
+    @media (max-width:620px) { .sheet-head,.header-row { flex-direction:column; align-items:flex-start; } .app { height:auto; grid-template-columns:1fr; } .project-sidebar { display:none; } .controls { justify-content:flex-start; } }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <header class="sheet-head">
+      <div><p class="eyebrow">ProjectOS · Key screen 04</p><h1>Project Map</h1></div>
+      <p class="sheet-note">A selected Topic and its one-hop neighborhood stay synchronized across the spatial canvas, the canonical non-spatial outline, and one shared Inspector.</p>
+    </header>
+    <section class="window" aria-label="Project Map with selected Topic">
+      <div class="titlebar"><span class="traffic"><i></i><i></i><i></i></span><span class="window-title">ProjectOS — ProjectOS UX — Project Map</span><span class="kbd">⌘2</span></div>
+      <div class="app">
+        <aside class="project-sidebar" aria-label="Project navigation">
+          <button class="side-button"><span class="nav-icon">‹</span><span class="nav-label">All Projects</span></button>
+          <button class="side-button project-switcher"><span class="theme-marker"></span><span class="project-copy"><strong>ProjectOS UX</strong><small>Studio Paper</small></span><span>⌄</span></button>
+          <button class="side-button command"><span class="nav-icon">⌕</span><span class="nav-label">Search</span><span class="kbd">⌘K</span></button>
+          <nav class="nav-groups">
+            <div class="nav-group"><span class="group-label">Orientation</span><button class="nav-item"><span class="nav-icon">⌂</span><span class="nav-label">Overview</span></button><button class="nav-item active" aria-current="page"><span class="nav-icon">◇</span><span class="nav-label">Project Map</span></button></div>
+            <div class="nav-group"><span class="group-label">Active work</span><button class="nav-item"><span class="nav-icon">◉</span><span class="nav-label">Conversation</span></button><button class="nav-item"><span class="nav-icon">●</span><span class="nav-label">Topics</span></button><button class="nav-item"><span class="nav-icon">✓</span><span class="nav-label">Tasks</span></button></div>
+            <div class="nav-group"><span class="group-label">Accepted knowledge</span><button class="nav-item"><span class="nav-icon">◆</span><span class="nav-label">Decisions</span></button><button class="nav-item"><span class="nav-icon">▱</span><span class="nav-label">Research</span></button><button class="nav-item"><span class="nav-icon">?</span><span class="nav-label">Questions</span></button></div>
+          </nav>
+          <footer class="sidebar-footer"><button class="nav-item"><span class="nav-icon">◌</span><span class="nav-label">Notifications</span></button><button class="nav-item"><span class="nav-icon">⚙</span><span class="nav-label">Project Settings</span></button></footer>
+        </aside>
+        <section class="map-page">
+          <header class="map-header">
+            <div class="header-row"><div><h2>Project Map</h2><p>Current accepted state · Focus: Trusted re-entry · 5 visible records</p></div><div class="controls"><label class="search"><span>⌕</span><input aria-label="Search Project Map" placeholder="Search Map"></label><button class="button selected">Outline shown</button><button class="button">Fit map</button></div></div>
+            <div class="lens-row" aria-label="Project Map lenses"><strong>Lenses</strong><button class="button selected">Current state</button><button class="button">Unresolved</button><button class="button selected">Provenance</button><button class="button">History</button><button class="button">Proposals</button><span class="badge current">Current</span><span class="badge review">Needs review</span><span class="badge historical">Historical</span><span class="badge proposed">Proposed</span></div>
+          </header>
+          <div class="map-workspace">
+            <section class="map-canvas" aria-label="Project Map canvas. Use the synchronized outline for a non-spatial equivalent.">
+              <span class="canvas-label">Focus mode · one hop · Provenance lens on</span>
+              <svg viewBox="0 0 760 700" role="img" aria-label="Trusted re-entry Topic selected. Incoming Research and Conversation provenance; outgoing Decision, Open Question, and Task relationships.">
+                <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#756B60"/></marker></defs>
+                <path class="edge" d="M205 175 C300 175 300 285 382 285"/><text class="edge-label" x="258" y="201">supports</text>
+                <path class="edge" d="M379 315 C298 315 292 426 207 426"/><text class="edge-label" x="246" y="397">governs</text>
+                <path class="edge review" d="M516 314 C596 314 600 182 667 182"/><text class="edge-label" x="559" y="263">blocks · needs review</text>
+                <path class="edge" d="M514 336 C598 336 601 484 665 484"/><text class="edge-label" x="566" y="410">advances</text>
+                <path class="edge" d="M209 564 C305 564 300 356 384 356"/><text class="edge-label" x="249" y="535">provenance</text>
+                <g class="node" transform="translate(54 122)"><rect width="152" height="106" rx="11"/><text class="node-type" x="14" y="24">RESEARCH · CURRENT</text><text class="node-title" x="14" y="50">Return-point</text><text class="node-title" x="14" y="69">continuity study</text><text class="node-state" x="14" y="91">Accepted evidence</text></g>
+                <g class="node selected" transform="translate(380 258)"><rect width="138" height="116" rx="11"/><text class="node-type" x="14" y="25">TOPIC · SELECTED</text><text class="node-title" x="14" y="53">Trusted</text><text class="node-title" x="14" y="72">re-entry</text><text class="node-state" x="14" y="98">Current · focus root</text></g>
+                <g class="node" transform="translate(54 376)"><rect width="156" height="102" rx="11"/><text class="node-type" x="14" y="24">DECISION · GOVERNING</text><text class="node-title" x="14" y="51">Overview is the</text><text class="node-title" x="14" y="70">landing surface</text><text class="node-state" x="14" y="90">Current</text></g>
+                <g class="node review" transform="translate(612 128)"><rect width="132" height="106" rx="11"/><text class="node-type" x="13" y="24">OPEN QUESTION</text><text class="node-title" x="13" y="50">How much context</text><text class="node-title" x="13" y="69">is enough?</text><text class="node-state" x="13" y="91">Needs review</text></g>
+                <g class="node" transform="translate(612 434)"><rect width="132" height="102" rx="11"/><text class="node-type" x="13" y="24">TASK · OPEN</text><text class="node-title" x="13" y="50">Validate a</text><text class="node-title" x="13" y="69">five-minute return</text><text class="node-state" x="13" y="90">Current</text></g>
+                <g class="node conversation" transform="translate(54 520)"><rect width="156" height="90" rx="11"/><text class="node-type" x="14" y="24">CONVERSATION · PROVENANCE</text><text class="node-title" x="14" y="51">Re-entry review</text><text class="node-state" x="14" y="73">Shown by Provenance lens</text></g>
+                <g class="node faded" transform="translate(612 592)"><rect width="132" height="78" rx="11"/><text class="node-type" x="13" y="24">TOPIC</text><text class="node-title" x="13" y="50">Notification model</text></g>
+              </svg>
+              <div class="zoom"><button class="button" aria-label="Zoom out">−</button><button class="button" aria-label="Fit map">100%</button><button class="button" aria-label="Zoom in">＋</button></div>
+            </section>
+            <section class="outline" aria-label="Expandable relationship outline">
+              <header class="pane-head"><h3>Relationship outline</h3><p>Stable type-and-title order · synchronized with canvas selection</p></header>
+              <div class="artifact-outline">
+                <button class="outline-row"><span>▸</span><strong>Decision</strong><span>Overview is the landing surface</span><span class="state">Current</span></button>
+                <button class="outline-row"><span>▸</span><strong>Open Question</strong><span>How much context is enough?</span><span class="state">Needs review</span></button>
+                <button class="outline-row"><span>▸</span><strong>Research</strong><span>Return-point continuity study</span><span class="state">Current</span></button>
+                <button class="outline-row"><span>▸</span><strong>Task</strong><span>Validate a five-minute return</span><span class="state">Open</span></button>
+                <button class="outline-row selected" aria-expanded="true"><span>▾</span><strong>Topic</strong><span>Trusted re-entry</span><span class="state">Selected</span></button>
+                <section class="relationship-group" aria-label="Incoming relationships"><h4>Incoming</h4><button class="relationship-row"><strong>supports · Current</strong><span>Return-point continuity study → Trusted re-entry</span></button><button class="relationship-row"><strong>provenance · Current</strong><span>Conversation “Re-entry review” → Trusted re-entry</span></button></section>
+                <section class="relationship-group" aria-label="Outgoing relationships"><h4>Outgoing</h4><button class="relationship-row"><strong>governs · Current</strong><span>Trusted re-entry → Overview is the landing surface</span></button><button class="relationship-row review"><strong>blocks · Needs review</strong><span>Trusted re-entry → How much context is enough?</span></button><button class="relationship-row"><strong>advances · Current</strong><span>Trusted re-entry → Validate a five-minute return</span></button></section>
+              </div>
+            </section>
+            <aside class="inspector" aria-label="Artifact Inspector">
+              <div class="inspector-top"><div><p class="inspector-type">Topic · Current</p><h3>Trusted re-entry</h3></div><span class="badge current">Current</span></div>
+              <section class="section"><h4>Purpose and scope</h4><p>Help Wouter regain trustworthy project context and continue meaningful work without reconstructing decisions, rationale, unresolved questions, and affected tasks.</p></section>
+              <section class="section"><h4>Immediate neighborhood</h4><div class="relation-list"><div class="relation-item"><b>Incoming · supports · Current</b>Return-point continuity study</div><div class="relation-item"><b>Outgoing · blocks · Needs review</b>How much context is enough?</div><div class="relation-item"><b>Outgoing · advances · Current</b>Validate a five-minute return</div></div></section>
+              <section class="section"><h4>Provenance</h4><p>Conversation “Re-entry review” · exact generating turn available. Conversation is provenance, not Canonical State.</p><button class="button" style="margin-top:8px">Open exact source turn · local</button></section>
+              <div class="action-boundary"><strong>Local inspection and OpenAI work are separate.</strong><p>Opening details, relationships, history, and source turns stays on this Mac. Starting grounded work first opens Context Preview.</p></div>
+              <div class="inspector-actions"><button class="button">Open Topic details · local</button><button class="button">Inspect Needs review relationship · local</button><button class="button primary">Preview grounded Conversation · OpenAI</button></div>
+              <section class="context-preview" aria-label="Context Preview"><h4>Context Preview · not started</h4><dl><dt>Selection</dt><dd>Trusted re-entry</dd><dt>Included</dt><dd>4 directly connected current accepted artifacts</dd><dt>Excluded</dt><dd>Historical, Proposed, and all two-hop items</dd><dt>Provider</dt><dd>Codex App Server → OpenAI</dd><dt>Action</dt><dd>Wouter may narrow or add explicit records before Start</dd></dl></section>
+            </aside>
+          </div>
+        </section>
+      </div>
+    </section>
+    <p class="map-note"><strong>Equivalent understanding:</strong> the outline exposes the same selection, lenses, Incoming/Outgoing relationships, states, Inspector, and local/provider actions without depending on canvas position, color, pan, or drag.</p>
+  </main>
+</body>
+</html>

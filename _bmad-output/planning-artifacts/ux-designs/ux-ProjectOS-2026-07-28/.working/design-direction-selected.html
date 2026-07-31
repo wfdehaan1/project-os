@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ProjectOS — Selected Overview direction</title>
+  <style>
+    /* Selected direction: Reference Focused header + Reference Relational body.
+       Studio Paper light: canvas #FCFBF8, rail #F3F0EA, card #FFFFFF,
+       text #24211D, muted #686158, quiet #837A70, border #D8D2C8,
+       line #ECE7DF, accent #6B4E2E, accentText #FFFFFF,
+       accentSoft #E9E1D6, tint #F7F2E9, success #2F6B4F, warning #8A5A00.
+       Dark-ready: canvas #1C1A17, rail #24211D, card #28241F,
+       text #F3EFE8, muted #BBB2A6, border #4B443B, accent #D6B98B,
+       accentText #20180F, accentSoft #3B3126, tint #29231C. */
+    :root {
+      color-scheme:light dark;
+      --page:#171512;
+      --page-text:#F5F1EB;
+      --page-muted:#C6BDB3;
+      --canvas:#FCFBF8;
+      --rail:#F3F0EA;
+      --card:#FFFFFF;
+      --text:#24211D;
+      --muted:#686158;
+      --quiet:#837A70;
+      --border:#D8D2C8;
+      --line:#ECE7DF;
+      --accent:#6B4E2E;
+      --accent-text:#FFFFFF;
+      --accent-soft:#E9E1D6;
+      --tint:#F7F2E9;
+      --success:#2F6B4F;
+      --warning:#8A5A00;
+      --shadow:0 1px 2px rgba(35,28,20,.06);
+      --window-shadow:0 28px 70px -28px rgba(0,0,0,.64),0 2px 5px rgba(0,0,0,.16);
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
+    }
+    * { box-sizing:border-box; }
+    html { -webkit-text-size-adjust:100%; }
+    body { margin:0; min-width:320px; background:radial-gradient(circle at 12% -8%,#3B332B 0,transparent 34rem),var(--page); color:var(--page-text); }
+    button { font:inherit; cursor:default; }
+    button:focus-visible,[tabindex]:focus-visible { outline:3px solid #B68049; outline-offset:2px; }
+    h1,h2,h3,h4,p { margin:0; }
+    .page { width:min(2540px,100%); margin:0 auto; padding:42px clamp(16px,2.4vw,54px) 64px; }
+    .page-head { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(320px,.95fr); gap:42px; align-items:end; margin-bottom:30px; }
+    .eyebrow { margin-bottom:10px; color:#D6B98B; font-size:11px; font-weight:760; letter-spacing:.14em; text-transform:uppercase; }
+    h1 { max-width:17ch; font-size:clamp(34px,4vw,58px); line-height:1; letter-spacing:-.052em; }
+    .intro { max-width:70ch; color:var(--page-muted); font-size:14px; line-height:1.62; }
+    .contract { display:flex; flex-wrap:wrap; gap:7px; margin-top:15px; }
+    .contract span { padding:5px 8px; border:1px solid #554C43; border-radius:999px; color:#D8D0C6; font-size:10px; }
+    .states { display:grid; grid-template-columns:repeat(3,minmax(720px,1fr)); gap:24px; align-items:start; }
+    .state { min-width:0; padding:17px; border:1px solid #403A34; border-radius:21px; background:rgba(37,33,29,.91); box-shadow:0 20px 56px rgba(0,0,0,.17); }
+    .state-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:11px; }
+    .state-index { color:#D6B98B; font:700 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.12em; }
+    .state h2 { margin-top:3px; font-size:19px; letter-spacing:-.025em; }
+    .state-head p { margin-top:4px; max-width:52ch; color:#C7BFB5; font-size:10.5px; line-height:1.45; }
+    .state-tag { flex:0 0 auto; padding:5px 7px; border:1px solid #554C43; border-radius:6px; color:#D2C9BF; font-size:8.5px; white-space:nowrap; }
+
+    .window { height:610px; overflow:hidden; border:1px solid var(--border); border-radius:14px; background:var(--canvas); color:var(--text); box-shadow:var(--window-shadow); }
+    .titlebar { height:32px; display:grid; grid-template-columns:72px 1fr 72px; align-items:center; padding:0 11px; border-bottom:1px solid var(--border); background:color-mix(in srgb,var(--rail) 93%,white 7%); }
+    .traffic { display:flex; gap:6px; }
+    .traffic i { width:9px; height:9px; border-radius:50%; }
+    .traffic i:nth-child(1){background:#FF5F57}.traffic i:nth-child(2){background:#FEBC2E}.traffic i:nth-child(3){background:#28C840}
+    .window-title { text-align:center; color:var(--muted); font-size:9px; font-weight:620; }
+    .title-action { text-align:right; }
+    .kbd { display:inline-flex; align-items:center; width:max-content; min-height:17px; padding:1px 5px; border:1px solid var(--border); border-bottom-width:2px; border-radius:5px; background:var(--card); color:var(--muted); font:600 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .app { height:calc(100% - 32px); min-height:0; display:grid; grid-template-columns:145px minmax(0,1fr); background:var(--canvas); }
+
+    .btn,.text-btn {
+      width:max-content; max-width:100%; height:auto; min-height:0; flex:0 0 auto; align-self:center; justify-self:start;
+      display:inline-flex; align-items:center; justify-content:center; gap:6px; font-weight:680;
+    }
+    .btn { min-height:28px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:8.5px; box-shadow:var(--shadow); }
+    .btn.primary { border-color:var(--accent); background:var(--accent); color:var(--accent-text); }
+    .btn.ghost { border-color:transparent; background:transparent; box-shadow:none; }
+    .btn[disabled] { opacity:.5; }
+    .text-btn { min-height:20px; padding:2px 0; border:0; border-bottom:1px solid currentColor; border-radius:0; background:transparent; color:var(--accent); font-size:8px; }
+    .chip { display:inline-flex; align-items:center; width:max-content; max-width:100%; height:auto; min-height:18px; flex:0 0 auto; padding:2px 6px; border:1px solid var(--border); border-radius:999px; background:var(--card); color:var(--muted); font-size:7px; white-space:nowrap; }
+    .chip::before { content:""; width:5px; height:5px; margin-right:5px; border-radius:50%; background:var(--accent); }
+    .chip.success::before { background:var(--success); }
+    .chip.warning::before { background:var(--warning); }
+    .chip.offline { border-color:#D7C39B; background:#FBF2DF; color:#6E4800; }
+    .chip.offline::before { background:var(--warning); }
+
+    .project-side { min-height:0; display:flex; flex-direction:column; padding:12px 9px 10px; border-right:1px solid var(--border); background:var(--rail); }
+    .brand-mark { width:22px; height:22px; margin:1px 0 10px 6px; border:4px solid var(--text); border-radius:50%; }
+    .person { display:flex; align-items:center; gap:7px; padding:5px 6px; border-radius:7px; font-size:8.5px; }
+    .avatar { width:21px; height:21px; display:grid; place-items:center; border-radius:50%; background:var(--accent); color:#fff; font-size:8px; font-weight:750; }
+    .person i { margin-left:auto; color:var(--quiet); font-style:normal; }
+    .project-group { margin-top:11px; padding:5px; border:1px solid var(--border); border-radius:9px; background:var(--card); box-shadow:var(--shadow); }
+    .group-head { padding:5px 6px; color:var(--muted); font-size:7.5px; font-weight:680; }
+    .project-link { display:flex; align-items:center; gap:7px; min-height:25px; padding:4px 6px; border-radius:6px; color:var(--muted); font-size:8px; }
+    .project-link.active { background:var(--accent-soft); color:var(--text); font-weight:680; }
+    .project-dot { width:6px; height:6px; flex:0 0 auto; border-radius:50%; background:var(--accent); }
+    .side-foot { margin-top:auto; display:grid; gap:7px; }
+    .side-add { width:100%; justify-self:stretch; }
+    .search { display:flex; align-items:center; gap:6px; padding:3px 5px; color:var(--muted); font-size:7.5px; }
+    .search .kbd { margin-left:auto; }
+
+    .overview { min-width:0; padding:13px 16px 18px; overflow:hidden; }
+    .masthead { display:grid; grid-template-columns:minmax(0,1fr) 226px; gap:12px; align-items:start; }
+    .identity { min-width:0; }
+    .cover { position:relative; height:120px; overflow:hidden; border:1px solid var(--border); border-radius:10px; background:var(--tint); box-shadow:var(--shadow); }
+    .cover svg { display:block; width:100%; height:100%; }
+    .cover-caption { position:absolute; left:10px; bottom:8px; color:var(--muted); font:650 6.8px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.1em; text-transform:uppercase; }
+    .identity-head { display:flex; align-items:flex-start; gap:10px; margin-top:8px; }
+    .identity-head h3 { font-size:18px; line-height:1.08; letter-spacing:-.035em; }
+    .project-sub { margin-top:3px; color:var(--quiet); font:650 7px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.07em; text-transform:uppercase; }
+    .identity-head .btn { margin-left:auto; align-self:flex-start; }
+
+    .return-block { min-height:120px; height:120px; max-height:120px; align-self:start; display:flex; flex-direction:column; align-items:flex-start; padding:10px 11px; border:1px solid var(--border); border-radius:10px; background:var(--card); box-shadow:var(--shadow); }
+    .up-next { width:100%; margin:0; padding:0; border:0; }
+    .up-next-head { display:flex; align-items:center; justify-content:flex-start; gap:6px; }
+    .up-next-label { color:var(--quiet); font:700 6.8px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.12em; text-transform:uppercase; }
+    .up-next strong { display:block; margin-top:5px; font-size:9px; line-height:1.3; }
+    .up-next p { margin-top:3px; color:var(--muted); font-size:7px; line-height:1.35; }
+    .return-actions { display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin-top:7px; }
+    .return-actions .btn { min-height:25px; padding:5px 8px; font-size:7.5px; }
+    .provider-note { margin-top:5px; color:var(--quiet); font-size:6.4px; line-height:1.3; }
+
+    .tabs { display:flex; align-items:flex-end; gap:1px; overflow:hidden; margin-top:10px; border-bottom:1px solid var(--border); }
+    .tab { min-height:26px; display:inline-flex; align-items:center; flex:0 0 auto; padding:5px 6px; border-radius:6px 6px 0 0; color:var(--muted); font-size:7.6px; border-bottom:2px solid transparent; }
+    .tab.active { color:var(--text); border-bottom-color:var(--accent); font-weight:700; }
+
+    .content { display:grid; grid-template-columns:minmax(0,1fr) 198px; gap:15px; align-items:start; margin-top:10px; }
+    .relational { min-width:0; }
+    .project-description { padding:8px 9px; border:1px solid var(--border); border-radius:8px; background:var(--card); }
+    .section-title { font-size:8.3px; font-weight:700; }
+    .description { margin-top:4px; color:var(--muted); font-size:7.7px; line-height:1.42; }
+    .relation-step { display:grid; grid-template-columns:23px minmax(0,1fr); gap:8px; align-items:start; padding:7px 0; border-bottom:1px solid var(--line); }
+    .relation-step:last-child { border-bottom:0; }
+    .step-num { width:22px; height:22px; display:grid; place-items:center; border-radius:50%; background:var(--accent-soft); color:var(--accent); font:700 7px ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .relation-step.current .step-num { background:var(--accent); color:var(--accent-text); }
+    .relation-step strong { display:block; font-size:8.4px; }
+    .relation-step p { margin-top:3px; color:var(--muted); font-size:7.2px; line-height:1.38; }
+    .rail-stack { display:flex; flex-direction:column; align-items:stretch; gap:7px; }
+    .rail-card { height:auto; align-self:stretch; padding:9px 10px; border:1px solid var(--border); border-radius:8px; background:var(--card); box-shadow:var(--shadow); }
+    .rail-head { display:flex; align-items:center; gap:6px; margin-bottom:6px; font-size:8.2px; font-weight:700; }
+    .rail-head .count { margin-left:auto; color:var(--quiet); font:650 7px ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .mini { list-style:none; margin:0; padding:0; }
+    .mini li { padding:5px 0; border-top:1px solid var(--line); font-size:7.4px; line-height:1.35; }
+    .mini li:first-child { padding-top:0; border-top:0; }
+    .lineage { display:grid; grid-template-columns:auto minmax(0,1fr); gap:5px 7px; font-size:7px; line-height:1.35; }
+    .lineage b { color:var(--accent); }
+    .lineage span { color:var(--muted); }
+    .local-note { margin-top:5px; color:var(--success); font-size:6.8px; font-weight:650; }
+
+    .screen-note { margin-top:11px; padding:9px 10px; border:1px solid #4D463F; border-radius:9px; color:#C8BFB5; background:rgba(31,28,24,.72); font-size:9px; line-height:1.45; }
+    .governing-note { margin-top:25px; padding:16px 18px; border:1px solid #403A34; border-radius:15px; color:var(--page-muted); background:rgba(37,33,29,.91); font-size:11px; line-height:1.5; }
+    .governing-note strong { color:var(--page-text); }
+
+    @media (prefers-reduced-motion:no-preference) {
+      .btn,.tab,.project-link,.return-block,.relation-step,.rail-card { transition:background-color 150ms ease,border-color 150ms ease,transform 150ms ease,box-shadow 150ms ease; }
+      .btn:hover { transform:translateY(-1px); }
+      .rail-card:hover { box-shadow:0 5px 16px rgba(35,28,20,.1); }
+    }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; scroll-behavior:auto!important; } }
+    @media (max-width:2320px) { .states { grid-template-columns:minmax(720px,1fr); } }
+    @media (max-width:780px) {
+      .page { padding-inline:10px; }
+      .page-head { grid-template-columns:1fr; gap:18px; }
+      .states { display:block; overflow-x:auto; }
+      .state { min-width:720px; margin-bottom:22px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="page-head">
+      <div><p class="eyebrow">ProjectOS · Selected governing direction</p><h1>One Overview, three honest states.</h1></div>
+      <div><p class="intro">The selected hybrid joins Reference Focused’s split masthead with Reference Relational’s context-and-provenance body. The action block owns re-entry, What’s up next, and continuation; the content below explains accepted truth and its relationships without duplicating those actions.</p><div class="contract"><span>Studio Paper</span><span>Same structure</span><span>Current-state honest</span><span>Intrinsic controls</span><span>WCAG 2.2 AA floor</span></div></div>
+    </header>
+
+    <section class="states" aria-label="Selected Project Overview state variants">
+      <article class="state">
+        <header class="state-head"><div><span class="state-index">STATE 01</span><h2>Canonical State changed</h2><p>The saved recap is invalidated; ProjectOS asks before contacting the provider again.</p></div><span class="state-tag">No current recap</span></header>
+        <section class="window" aria-label="Project Overview after Canonical State changed">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">ProjectOS — ProjectOS UX</div><div class="title-action"><span class="kbd">⌘ K</span></div></div>
+          <div class="app"><aside class="project-side"><div class="brand-mark"></div><div class="person"><span class="avatar">W</span><b>Wouter</b><i>⌄</i></div><div class="project-group"><div class="group-head">Projects</div><div class="project-link active"><i class="project-dot"></i>ProjectOS UX</div></div><div class="side-foot"><button class="btn side-add">＋ Add project</button><div class="search">⌕ Search <span class="kbd">⌘ F</span></div></div></aside>
+            <section class="overview"><div class="masthead"><div class="identity"><div class="cover"><svg viewBox="0 0 520 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Project continuity line from sources to accepted state to affected work"><rect width="520" height="120" fill="#F7F2E9"/><path d="M38 78C120 20 182 100 260 57S386 28 482 52" fill="none" stroke="#A98259" stroke-width="2" stroke-dasharray="6 6"/><g fill="#6B4E2E"><circle cx="38" cy="78" r="10"/><circle cx="260" cy="57" r="14"/><circle cx="482" cy="52" r="11"/></g><g fill="#D6B98B"><circle cx="154" cy="54" r="6"/><circle cx="372" cy="47" r="7"/></g></svg><span class="cover-caption">Context chain · sources to affected work</span></div><div class="identity-head"><div><h3>ProjectOS UX</h3><p class="project-sub">Commercial MVP · saved locally on this Mac</p></div><button class="btn">Settings</button></div></div>
+                <aside class="return-block"><div class="up-next"><div class="up-next-head"><span class="up-next-label">What’s up next</span><span class="chip warning">Needs recap</span></div><strong>Available after regeneration</strong><p>No stale recommendation is shown after Canonical State changes.</p></div><div class="return-actions"><button class="btn primary">Generate recap</button></div><p class="provider-note">Explicit action · sends selected current context to OpenAI</p></aside></div>
+              <nav class="tabs" aria-label="Project"><span class="tab active">Overview</span><span class="tab">Project Map</span><span class="tab">Conversation</span><span class="tab">Topics</span><span class="tab">Tasks</span><span class="tab">Decisions</span><span class="tab">Research</span><span class="tab">Questions</span></nav>
+              <div class="content"><section class="relational"><div class="project-description"><h4 class="section-title">What this project is</h4><p class="description">A local-first macOS workspace that helps Wouter resume consequential project work without rebuilding the mental model.</p></div><div class="relation-step"><span class="step-num">1</span><div><strong>Recent accepted history</strong><p>Project Map joined the MVP, Source Material moved beside Research, and Studio Paper became the default.</p></div></div><div class="relation-step"><span class="step-num">2</span><div><strong>Accepted relationships</strong><p>Canonical changes require approval; accepted Decisions link back to resolved Questions and provenance.</p></div></div><div class="relation-step current"><span class="step-num">3</span><div><strong>Affected work</strong><p>The notification Question blocks its Settings Task and is grounded in the low-noise requirement.</p></div></div></section><aside class="rail-stack"><div class="rail-card"><div class="rail-head">Related state <span class="count">Current</span></div><ul class="mini"><li>18 accepted Decisions</li><li>2 linked Open Questions</li><li>3 pending Proposals</li></ul></div><div class="rail-card"><div class="rail-head">Provenance</div><div class="lineage"><b>Question</b><span>Notification boundary</span><b>Blocks</b><span>Settings Task</span><b>Grounded in</b><span>Low-noise requirement</span></div><button class="text-btn" style="margin-top:7px">Inspect locally →</button></div></aside></div>
+            </section></div>
+        </section><p class="screen-note">Canonical State remains fully inspectable locally. Only the state-bound generated recap and recommendation were invalidated.</p>
+      </article>
+
+      <article class="state">
+        <header class="state-head"><div><span class="state-index">STATE 02</span><h2>Saved return point available</h2><p>The persisted recap matches Canonical State, so history and continuation are immediately ready.</p></div><span class="state-tag">Current return point</span></header>
+        <section class="window" aria-label="Project Overview with saved return point">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">ProjectOS — ProjectOS UX</div><div class="title-action"><span class="kbd">⌘ K</span></div></div>
+          <div class="app"><aside class="project-side"><div class="brand-mark"></div><div class="person"><span class="avatar">W</span><b>Wouter</b><i>⌄</i></div><div class="project-group"><div class="group-head">Projects</div><div class="project-link active"><i class="project-dot"></i>ProjectOS UX</div></div><div class="side-foot"><button class="btn side-add">＋ Add project</button><div class="search">⌕ Search <span class="kbd">⌘ F</span></div></div></aside>
+            <section class="overview"><div class="masthead"><div class="identity"><div class="cover"><svg viewBox="0 0 520 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Project continuity line from sources to accepted state to affected work"><rect width="520" height="120" fill="#F7F2E9"/><path d="M38 78C120 20 182 100 260 57S386 28 482 52" fill="none" stroke="#A98259" stroke-width="2" stroke-dasharray="6 6"/><g fill="#6B4E2E"><circle cx="38" cy="78" r="10"/><circle cx="260" cy="57" r="14"/><circle cx="482" cy="52" r="11"/></g><g fill="#D6B98B"><circle cx="154" cy="54" r="6"/><circle cx="372" cy="47" r="7"/></g></svg><span class="cover-caption">Context chain · sources to affected work</span></div><div class="identity-head"><div><h3>ProjectOS UX</h3><p class="project-sub">Commercial MVP · saved locally on this Mac</p></div><button class="btn">Settings</button></div></div>
+                <aside class="return-block"><div class="up-next"><div class="up-next-head"><span class="up-next-label">What’s up next</span><span class="chip success">Current</span></div><strong>Resolve the notification boundary</strong><p>It blocks notification Settings and urgency controls.</p></div><div class="return-actions"><button class="btn primary">Continue work</button><button class="btn">Inspect context</button></div><p class="provider-note">Continue work starts a grounded Conversation with current context.</p></aside></div>
+              <nav class="tabs" aria-label="Project"><span class="tab active">Overview</span><span class="tab">Project Map</span><span class="tab">Conversation</span><span class="tab">Topics</span><span class="tab">Tasks</span><span class="tab">Decisions</span><span class="tab">Research</span><span class="tab">Questions</span></nav>
+              <div class="content"><section class="relational"><div class="project-description"><h4 class="section-title">What this project is</h4><p class="description">A local-first macOS workspace that helps Wouter resume consequential project work without rebuilding the mental model.</p></div><div class="relation-step"><span class="step-num">1</span><div><strong>Recent accepted history</strong><p>Project Map joined the MVP, Source Material moved beside Research, and Studio Paper became the default.</p></div></div><div class="relation-step"><span class="step-num">2</span><div><strong>Accepted relationships</strong><p>Canonical changes require approval; accepted Decisions link back to resolved Questions and provenance.</p></div></div><div class="relation-step current"><span class="step-num">3</span><div><strong>Affected work</strong><p>The notification Question blocks its Settings Task and is grounded in the low-noise requirement.</p></div></div></section><aside class="rail-stack"><div class="rail-card"><div class="rail-head">Related state <span class="count">Current</span></div><ul class="mini"><li>18 accepted Decisions</li><li>2 linked Open Questions</li><li>3 pending Proposals</li></ul></div><div class="rail-card"><div class="rail-head">Provenance</div><div class="lineage"><b>Question</b><span>Notification boundary</span><b>Blocks</b><span>Settings Task</span><b>Grounded in</b><span>Low-noise requirement</span></div><button class="text-btn" style="margin-top:7px">Inspect provenance →</button></div></aside></div>
+            </section></div>
+        </section><p class="screen-note">The action block is the single home for the saved historical return point, future recommendation, and transition into work.</p>
+      </article>
+
+      <article class="state">
+        <header class="state-head"><div><span class="state-index">STATE 03</span><h2>Offline with local return point</h2><p>Persisted orientation remains useful; provider-dependent generation and continuation are unavailable.</p></div><span class="state-tag">Limited operation</span></header>
+        <section class="window" aria-label="Project Overview offline with local return point">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div><div class="window-title">ProjectOS — ProjectOS UX</div><div class="title-action"><span class="kbd">⌘ K</span></div></div>
+          <div class="app"><aside class="project-side"><div class="brand-mark"></div><div class="person"><span class="avatar">W</span><b>Wouter</b><i>⌄</i></div><div class="project-group"><div class="group-head">Projects</div><div class="project-link active"><i class="project-dot"></i>ProjectOS UX</div></div><div class="side-foot"><button class="btn side-add">＋ Add project</button><div class="search">⌕ Search <span class="kbd">⌘ F</span></div></div></aside>
+            <section class="overview"><div class="masthead"><div class="identity"><div class="cover"><svg viewBox="0 0 520 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Project continuity line from sources to accepted state to affected work"><rect width="520" height="120" fill="#F7F2E9"/><path d="M38 78C120 20 182 100 260 57S386 28 482 52" fill="none" stroke="#A98259" stroke-width="2" stroke-dasharray="6 6"/><g fill="#6B4E2E"><circle cx="38" cy="78" r="10"/><circle cx="260" cy="57" r="14"/><circle cx="482" cy="52" r="11"/></g><g fill="#D6B98B"><circle cx="154" cy="54" r="6"/><circle cx="372" cy="47" r="7"/></g></svg><span class="cover-caption">Context chain · available locally</span></div><div class="identity-head"><div><h3>ProjectOS UX</h3><p class="project-sub">Commercial MVP · saved locally on this Mac</p></div><button class="btn">Settings</button></div></div>
+                <aside class="return-block"><div class="up-next"><div class="up-next-head"><span class="up-next-label">What’s up next</span><span class="chip offline">Offline</span></div><strong>Resolve the notification boundary</strong><p>Saved recommendation · inspectable without provider access.</p></div><div class="return-actions"><button class="btn primary" disabled>Continue work</button><button class="btn">Inspect question</button></div><p class="provider-note">Agent calls are unavailable offline. Nothing is silently queued.</p></aside></div>
+              <nav class="tabs" aria-label="Project"><span class="tab active">Overview</span><span class="tab">Project Map</span><span class="tab">Conversation</span><span class="tab">Topics</span><span class="tab">Tasks</span><span class="tab">Decisions</span><span class="tab">Research</span><span class="tab">Questions</span></nav>
+              <div class="content"><section class="relational"><div class="project-description"><h4 class="section-title">What this project is</h4><p class="description">A local-first macOS workspace that helps Wouter resume consequential project work without rebuilding the mental model.</p></div><div class="relation-step"><span class="step-num">1</span><div><strong>Recent accepted history</strong><p>Project Map joined the MVP, Source Material moved beside Research, and Studio Paper became the default.</p></div></div><div class="relation-step"><span class="step-num">2</span><div><strong>Accepted relationships</strong><p>Canonical Decisions, resolved Questions, and provenance remain browsable offline.</p></div></div><div class="relation-step current"><span class="step-num">3</span><div><strong>Affected work</strong><p>The notification Question and blocked Settings Task can be inspected, but not discussed with the agent.</p></div></div></section><aside class="rail-stack"><div class="rail-card"><div class="rail-head">Related state <span class="count">Local</span></div><ul class="mini"><li>18 accepted Decisions</li><li>2 linked Open Questions</li><li>3 pending Proposals</li></ul><p class="local-note">Available on this Mac</p></div><div class="rail-card"><div class="rail-head">Provenance</div><div class="lineage"><b>Question</b><span>Notification boundary</span><b>Blocks</b><span>Settings Task</span><b>Grounded in</b><span>Low-noise requirement</span></div><button class="text-btn" style="margin-top:7px">Inspect locally →</button></div></aside></div>
+            </section></div>
+        </section><p class="screen-note">Reading, search, Project Map inspection, Sources, artifacts, proposals, and provenance remain locally available; provider actions are visibly disabled.</p>
+      </article>
+    </section>
+
+    <p class="governing-note"><strong>Conversation and proposal review:</strong> the existing approved contract remains governing—conversation list, active transcript, persisted proposal rail, exact source-turn links, explicit acceptance, dependency handling, and offline inspection behavior are unchanged by this Overview selection.</p>
+  </main>
+</body>
+</html>
