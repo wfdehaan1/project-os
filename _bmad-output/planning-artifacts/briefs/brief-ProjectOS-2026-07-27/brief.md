@@ -2,7 +2,7 @@
 title: "Product Brief: ProjectOS"
 status: final
 created: 2026-07-27
-updated: 2026-07-28
+updated: 2026-07-31
 ---
 
 # Product Brief: ProjectOS
@@ -13,17 +13,18 @@ _Working name._
 
 ProjectOS is a local-first macOS application for AI-experienced individuals managing complex, long-running projects. It solves the continuity failure of AI chat: useful research, decisions, questions, and tasks accumulate across conversations, but the user must reconstruct the project's current state whenever work resumes.
 
-ProjectOS turns conversations into user-reviewed updates to an explicit, versioned project model. It preserves governing decisions and their rationale, keeps research and open work connected, and recommends the next useful action from project state. The MVP is sold once through the Mac App Store and stores canonical project data on the user's Mac. Users connect their own OpenAI account and pay its usage charges directly, or run a local model through Ollama at no usage cost.
+ProjectOS turns conversations into user-reviewed updates to an explicit, versioned project model. It preserves governing decisions and their rationale, keeps research and open work connected, and recommends the next useful action from project state. The MVP is sold once through the Mac App Store and stores canonical project data on the user's Mac. AI capabilities sit behind a provider-independent boundary. The first adapter uses Codex App Server and Codex-managed ChatGPT sign-in so eligible usage draws from the user's ChatGPT plan allowance; future adapters can support other cloud services and local models without changing the core product workflow.
 
 ## Open Decisions
 
 - Final product name; ProjectOS remains a placeholder.
-- Recommended and minimum Ollama models, to be settled during development against the extraction-correctness gate. (Provider choice was decided 2026-07-28: OpenAI via API key plus local models via Ollama — see the addendum.)
+- Which local-model runtime and minimum models should become the first post-validation local adapter, to be settled against the extraction-correctness gate.
+- Whether a commercial build may rely on an installed compatible Codex runtime or must bundle and update a pinned runtime; the validation build may require an installed Codex CLI.
 - One-time Mac App Store launch price. The market research recommends testing $39.99 / $59.99 / $79.99 with $59.99 as the starting hypothesis.
 
 ## Customer and Problem
 
-The first customer is a self-directed, AI-experienced Mac user who is comfortable configuring provider access. The user manages a complex personal, commercial, or technical project involving unfamiliar research, consequential decisions, and follow-through across multiple AI sessions. The user owns the outcome and wants reliable continuity without designing or maintaining a project-management system.
+The first customer is a self-directed, AI-experienced Mac user who is comfortable connecting an eligible AI account. For the initial adapter, that means completing a browser-based ChatGPT sign-in and having access to Codex through their plan. The user manages a complex personal, commercial, or technical project involving unfamiliar research, consequential decisions, and follow-through across multiple AI sessions. The user owns the outcome and wants reliable continuity without designing or maintaining a project-management system.
 
 Chat organizes work by session rather than maintaining an explicit project state. When the user returns, governing decisions, their rationale, unresolved questions, and remaining tasks are fragmented across conversations. The user must reread threads, repeat research, or rely on incomplete memory before progressing. Delegating research to an AI agent can deepen the problem: the work is faster, but conclusions the user did not personally derive are less likely to be remembered.
 
@@ -46,7 +47,8 @@ The MVP validates one loop: start a project — from scratch or from existing ma
 It includes:
 
 - A local-first macOS application with no ProjectOS-hosted project-content backend.
-- Two AI backends behind one provider-neutral adapter: OpenAI as the cloud default, authenticated with a user-supplied API key, and Ollama for local inference with no credentials, no usage charges, and no project content leaving the Mac. Guided onboarding — validation, plain-language errors, and usage-cost visibility for the cloud path — is a launch requirement, not polish: the beachhead segment is broader than users who routinely configure API keys.
+- A provider-independent AI boundary with Codex App Server as the first adapter. Codex owns browser-based ChatGPT authentication, token persistence, and plan-allowance reporting; ProjectOS owns the provider-neutral workflow, Canonical State, and user review. Guided onboarding—runtime detection, sign-in, plan and allowance visibility, and plain-language recovery—is a launch requirement, not polish.
+- A capability-aware adapter contract that can add other cloud providers and local-model runtimes after validation without rewriting Conversation, Change Proposal, Re-entry, export, or deletion workflows.
 - Lightweight import of existing project material: the user can paste or drop existing conversations, notes, and documents into a project's first session, and the AI proposes an initial structured state from them. Most target users arrive mid-project; a blank-slate-only start would test a weaker version of the continuity hypothesis and undermine the first-useful-state activation moment.
 - Topics, Conversations, Research, Decisions, Open Questions, and Tasks as the core artifacts.
 - AI-proposed changes with explicit acceptance or rejection; no autonomous changes to project truth.
@@ -59,14 +61,15 @@ It explicitly excludes:
 - Automated bulk reconstruction of projects from AI-provider conversation exports or account integrations. Import in the MVP is limited to user-supplied pasted or dropped material.
 - Shared projects, collaboration, assignments, roles, and permissions.
 - Web or mobile applications and cross-device synchronization.
-- AI providers beyond the two supported backends (OpenAI and Ollama); Anthropic is deferred until its third-party access policy stabilizes.
+- Provider adapters beyond the initial Codex App Server integration. Local models and additional cloud providers are intended extensions, but they are deferred until the continuity loop is validated.
+- Direct OpenAI API-key setup, ProjectOS-managed ChatGPT tokens, API-credit purchase, or automatic credit top-up.
 - ProjectOS-hosted AI inference, provider billing, or cloud storage of project content.
 - Requirements, Risks, Purchases, Measurements, Files, Photos, and Notes as first-class artifact types.
 - Arbitrary typography, custom logos, or a full theme editor.
 
 ## Business Model and Evolution
 
-The initial product is distributed through the Mac App Store as a one-time purchase. Users bring their own AI: an OpenAI account whose usage charges they pay directly, or free local inference through Ollama. Either way, ProjectOS carries no variable inference costs.
+The initial product is distributed through the Mac App Store as a one-time purchase. Users bring their own AI entitlement. The first adapter uses an eligible ChatGPT plan through Codex; future adapters may use other user-owned cloud entitlements or local inference. ProjectOS neither resells inference nor carries variable model-usage costs.
 
 If the MVP proves that explicit project state helps individuals make progress and complete complex work, ProjectOS evolves into a managed, multi-surface service. The service removes provider configuration, broadens access, and can fund recurring capabilities such as synchronization, sharing, and collaboration.
 
@@ -83,7 +86,7 @@ The north-star outcome is meaningful project progress followed by successful res
 | Continuity | After time away, the user understands governing decisions, unresolved work, and the next useful action without rereading conversations. |
 | Trust | Accepted AI proposals preserve accurate project state with limited correction, and users can inspect rationale and provenance. |
 | Guided action | Explainable recommendations change project state or lead to completed real-world tasks instead of producing more suggestions. |
-| Commercial signal | Target users pay once for the local application and accept separate provider usage costs. |
+| Commercial signal | Target users pay once for the local application and accept connecting their own eligible AI account or runtime. |
 
 ### Quantitative Decision Gates
 

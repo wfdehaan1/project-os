@@ -2,7 +2,7 @@
 title: ProjectOS Product Requirements Document
 status: final
 created: 2026-07-28
-updated: 2026-07-28
+updated: 2026-07-31
 ---
 
 # PRD: ProjectOS Validation Build
@@ -41,7 +41,7 @@ The validation build is for Wouter as the primary tester: an AI-experienced, sel
 - Teams requiring collaboration, roles, permissions, assignments, or synchronized shared state.
 - People seeking autonomous execution without reviewing consequential state changes.
 - People requiring web, mobile, or multi-device access.
-- People unwilling to configure and separately pay for an AI provider during validation.
+- People without an eligible ChatGPT/Codex plan for the validation adapter. Future cloud or local adapters may widen eligibility after validation.
 
 ### 2.4 Key User Journeys
 
@@ -65,7 +65,11 @@ The validation build is for Wouter as the primary tester: an AI-experienced, sel
 - **Provenance** — Inspectable links from an Artifact or Change Proposal to the Conversation or Source Material that supports it.
 - **Re-entry View** — The current-state-first presentation used to resume a Project after an absence.
 - **Next Action** — An optional recommendation grounded in Canonical State, with an inspectable explanation of how it would advance or intentionally close part of the Project.
-- **AI Provider** — The external model service used for Conversation and Change Proposals. OpenAI is the only AI Provider in the validation build.
+- **AI Provider** — A cloud service or local runtime capable of supplying AI generation to ProjectOS.
+- **AI Provider Adapter** — The replaceable implementation that translates the ProjectOS AI capability contract to one provider or runtime. Codex App Server is the only adapter in the validation build.
+- **Provider Capability** — A feature an adapter declares it can perform, such as structured output, streaming, persistent sessions, usage reporting, model selection, or local execution.
+- **Provider Session Binding** — A replaceable link from a ProjectOS Conversation to provider-owned session state, such as a Codex thread ID. It is not the canonical Conversation identity.
+- **Codex Runtime** — The locally running Codex App Server process used by the initial adapter. It owns its authentication lifecycle and communicates with OpenAI.
 - **First Useful State** — The first accepted Canonical State that correctly captures enough of the Project to support a real decision, question, task, or Next Action.
 - **Qualifying Return** — Opening a Project after at least seven consecutive days without working in it.
 - **Meaningful Work** — A real-world step that advances or intentionally closes part of the Project, rather than merely reorganizing ProjectOS content.
@@ -217,28 +221,31 @@ The user can record whether a Qualifying Return produced clear understanding, tr
 
 ### 4.5 Provider, Privacy, and Portability
 
-**Description:** The validation build uses OpenAI through a user-supplied credential. ProjectOS makes the provider boundary explicit, minimizes transmitted context, and keeps Canonical State locally owned and recoverable. Realizes UJ-1 and UJ-4.
+**Description:** ProjectOS accesses AI through a provider-independent capability boundary. The validation build supplies one Codex App Server adapter using ChatGPT subscription access. ProjectOS makes the active provider and execution boundary explicit, minimizes transmitted context, and keeps Canonical State locally owned and recoverable. Realizes UJ-1 and UJ-4.
 
 #### FR-14: Configure and validate the AI Provider
 
-The user can enter and validate an OpenAI API credential and receive plain-language guidance for invalid credentials, unavailable service, rate limits, or insufficient credit.
+The user can configure and validate the available AI Provider Adapter. For the validation build, ProjectOS detects a compatible Codex Runtime and starts a Codex-managed ChatGPT browser sign-in.
 
 **Consequences (testable):**
 
-- The credential is not stored inside Project data or included in Project exports.
-- Failed validation does not damage Project State.
-- Provider usage is identified as separately billed by OpenAI.
-- The user can inspect the selected model and a best-effort usage and cost estimate for initiated provider requests; ProjectOS identifies OpenAI's billing records as authoritative and discloses estimate limitations.
+- ProjectOS does not request an OpenAI API key or read, persist, log, or export ChatGPT access or refresh tokens; the Codex Runtime owns its authentication state.
+- A cancelled, expired, or failed sign-in does not damage Project State and returns the user to the interrupted action when recovery succeeds.
+- The interface distinguishes a missing or incompatible runtime, signed-out state, ineligible account or plan, network or provider failure, rate limit, and exhausted plan allowance.
+- The user can inspect the signed-in account and plan plus the allowance windows, usage percentage, and reset times exposed by Codex. ProjectOS does not fabricate a weekly schedule when the runtime reports a different window.
+- ProjectOS does not purchase API credits, prompt for automatic credit top-up, or silently fall back to usage-based API-key billing.
+- Local project capabilities remain available when the provider is unavailable or the plan allowance is exhausted.
 
 #### FR-15: Disclose external transmission
 
-Before sending Project content to OpenAI, ProjectOS identifies the AI Provider, shows or summarizes the selected transmission scope, and requires user initiation.
+Before sending Project content through an AI Provider Adapter, ProjectOS identifies the provider and whether processing is local or external, shows or summarizes the selected transmission scope, and requires user initiation.
 
 **Consequences (testable):**
 
 - No Project content is transmitted merely by opening or browsing a Project.
-- Local-only actions remain distinguishable from actions that contact OpenAI.
+- Local-only actions remain distinguishable from actions that contact an external provider or local model runtime.
 - ProjectOS does not claim that local-first operation eliminates all privacy obligations.
+- The initial Codex adapter discloses that the selected context is sent through the local Codex Runtime to OpenAI and may consume the user's shared Codex plan allowance.
 
 #### FR-16: Export and recover a Project
 
@@ -246,7 +253,7 @@ The user can export a complete, human-inspectable representation of the Project 
 
 **Consequences (testable):**
 
-- Export excludes the AI Provider credential.
+- Export excludes provider credentials, authentication tokens, runtime caches, and unsanitized provider logs.
 - A validation check can compare restored Project State with the source Project.
 - Export failure leaves the source Project unchanged.
 
@@ -261,9 +268,26 @@ The user can remove an Artifact from current Canonical State and can permanently
 **Consequences (testable):**
 
 - Removing an Artifact is an accepted state transition: it disappears from current Canonical State, while its prior version and the deletion transition remain inspectable until the Project itself is permanently deleted.
-- Permanently deleting a Project requires confirmation that explains the effect and offers export first; completion removes the Project, its history, Source Material, Conversations, and validation records from ProjectOS-managed local storage.
-- Project deletion does not remove the AI Provider credential or claim to delete data retained independently by OpenAI, macOS backups, or user-created exports.
-- No deletion action transmits Project content to the AI Provider.
+- Permanently deleting a Project requires confirmation that explains the effect and offers export first; completion removes the Project, its history, Source Material, Conversations, validation records, Provider Session Bindings, and provider-side session data managed by the active adapter.
+- The Codex adapter must confirm successful deletion of each associated persisted Codex thread before ProjectOS reports provider-side cleanup complete. If cleanup cannot complete, local deletion may continue only with a clear residual-data warning and a retry path.
+- Project deletion does not remove account-level provider authentication or claim to delete data retained independently by OpenAI, macOS backups, or user-created exports.
+- Provider-side session cleanup is a lifecycle operation and does not send new Project content for generation.
+
+### 4.7 Provider Independence
+
+**Description:** The initial Codex integration must prove the provider boundary without making Codex the shape of ProjectOS. This preserves the intended path to additional cloud providers and local models.
+
+#### FR-18: Keep AI providers replaceable
+
+ProjectOS can add an AI Provider Adapter without changing its Canonical State model or core Conversation, Change Proposal, Re-entry, export, and deletion workflows.
+
+**Consequences (testable):**
+
+- A fake provider can execute the provider contract in automated tests without importing Codex protocol types into ProjectOS domain modules.
+- ProjectOS Conversations retain provider-neutral identities; provider session identifiers are stored as replaceable Provider Session Bindings.
+- Adapters advertise capabilities, and the product disables or explains unsupported functions instead of assuming every provider supports structured output, persistent sessions, model selection, usage reporting, or local execution.
+- Provider-specific account, runtime, model, and usage settings are contributed through the shared provider settings surface rather than hard-coded across product screens.
+- Switching or removing an adapter never silently changes accepted Canonical State.
 
 ## 5. Cross-Cutting Non-Functional Requirements
 
@@ -282,14 +306,15 @@ The user can remove an Artifact from current Canonical State and can permanently
 ### 5.3 Privacy and Security
 
 - **NFR-7:** Canonical project content must remain stored on the user's Mac; the validation build has no ProjectOS-hosted project-content backend.
-- **NFR-8:** AI Provider credentials must be protected using macOS-appropriate secure credential storage and excluded from logs and exports.
-- **NFR-9:** Only user-selected context required for a requested provider operation may be transmitted to OpenAI.
+- **NFR-8:** Provider authentication must remain owned by the adapter or its runtime. ProjectOS must not read, log, export, or store provider access or refresh tokens in Project data. The initial Codex adapter must use Codex-managed authentication and macOS-appropriate secure storage.
+- **NFR-9:** Only user-selected context required for a requested provider operation may cross the configured provider boundary. Cloud adapters may transmit it externally; local adapters must not make an external transmission unless they declare and disclose that capability.
 
 ### 5.4 Usability and Responsiveness
 
 - **NFR-10:** Browsing locally stored Canonical State, Rationale, Provenance, and the Re-entry View must remain available without network access.
 - **NFR-11:** Current state must be the default presentation; history and evidence must be available on demand without overwhelming the primary workflow.
-- **NFR-12:** Product-generated language must be calm, concise, inspectable, and honest about uncertainty, data transmission, provider cost, and failure.
+- **NFR-12:** Product-generated language must be calm, concise, inspectable, and honest about uncertainty, data transmission, provider identity, plan allowance or provider cost when applicable, runtime state, and failure.
+- **NFR-13:** ProjectOS domain workflows and persisted Canonical State must depend only on the provider-independent AI capability contract. Provider-specific protocol types, authentication, sessions, usage models, and errors must be confined to adapters and normalized at the boundary.
 
 ## 6. Non-Goals
 
@@ -306,7 +331,8 @@ The user can remove an Artifact from current Canonical State and can permanently
 - Local-first macOS application for one owner.
 - One or two real, cross-domain Projects used over four to six weeks.
 - Fresh Project creation and lightweight pasted-text input.
-- Conversation through OpenAI using a user-supplied API credential.
+- Conversation through the Codex App Server adapter using Codex-managed ChatGPT sign-in and an eligible ChatGPT plan allowance.
+- A provider-independent capability contract, adapter registry, normalized events and errors, and contract tests using the Codex adapter plus a fake provider.
 - Topics, Research, Decisions, Open Questions, and Tasks as typed Artifacts.
 - User-reviewed Change Proposals with accept, edit, and reject.
 - Rationale, Provenance, relationships, version history, and decision supersession.
@@ -317,7 +343,8 @@ The user can remove an Artifact from current Canonical State and can permanently
 
 ### 7.2 Out of Scope for the Validation Build
 
-- Ollama and other AI Providers. Ollama remains part of the broader product direction but follows proof of the continuity loop.
+- Additional AI Provider Adapters, including local models. A local adapter remains part of the broader product direction but follows proof of the continuity loop.
+- Direct OpenAI API-key setup, API-credit billing, automatic credit purchase, or a hidden API-key fallback.
 - Mac App Store submission, payment, pricing tests, trial mechanics, and commercial licensing.
 - Collaboration, sharing, roles, permissions, assignments, hosted synchronization, and multi-device use.
 - Web and mobile applications.
@@ -335,7 +362,7 @@ The validation window lasts four to six weeks across one or two real Projects. C
 
 ### 8.1 Primary Metrics
 
-- **SM-0: Fast first value.** Each validation Project reaches a First Useful State without outside assistance within 15 minutes of Project creation, excluding initial AI Provider credential setup. Validates FR-1 through FR-5.
+- **SM-0: Fast first value.** Each validation Project reaches a First Useful State without outside assistance within 15 minutes of Project creation, excluding initial provider runtime and sign-in setup. Validates FR-1 through FR-5.
 - **SM-1: Successful re-entry.** At least 80% of Qualifying Returns, across a minimum of three recorded returns, lead to Meaningful Work within five minutes. `[ASSUMPTION — owner: Wouter; revisit before the validation window begins: Three Qualifying Returns provide enough signal for this personal validation cycle.]` Validates FR-11, FR-12, and FR-13.
 - **SM-2: Materially easier continuity.** After each Qualifying Return, the user rates understanding of current state and ease of continuation at least 4/5, and compares the result with the observed incumbent baseline where one is available; a hypothetical comparison is recorded separately and is not treated as equivalent evidence. Validates FR-11 and FR-13.
 - **SM-3: Trustworthy extraction.** At least 85% of material facts and Decisions in Change Proposals are correct before user correction, measured against Source Material and the user's intended meaning. Validates FR-4 through FR-6.
@@ -364,13 +391,13 @@ The validation window lasts four to six weeks across one or two real Projects. C
 ### 9.1 Before the Relevant Validation Step
 
 1. Which one or two real Projects will constitute the validation set? **Owner:** builder. **Resolve:** before the four-to-six-week validation window starts.
-2. Which OpenAI model and cost ceiling are appropriate for the validation build? **Owner:** builder. **Resolve:** before implementing or validating provider integration.
+2. Which Codex Runtime versions and plan-available models meet the validation quality and compatibility gates? **Owner:** builder. **Resolve:** during the Codex App Server validation spike and before implementation is pinned to a runtime version.
 3. What maintenance-burden threshold triggers a rethink rather than continued validation? **Owner:** Wouter. **Resolve:** before the first Qualifying Return; until then, record burden without treating it as a fixed pass/fail threshold.
 
 ### 9.2 After Core Validation
 
 4. Which local file formats should extend pasted-text Source Material input? **Owner:** builder. **Revisit:** only after the pasted-text continuity loop works.
-5. Should Ollama be introduced first to test privacy and local-inference demand, or only as part of the commercial MVP? **Owner:** builder. **Revisit:** at the continue/rethink/stop gate.
+5. Which local runtime should become the first local-model adapter, and when should it be introduced to test privacy, quality, and local-inference demand? **Owner:** builder. **Revisit:** at the continue/rethink/stop gate.
 6. Does the broader product keep the ProjectOS name? **Owner:** builder. **Revisit:** before commercial identity work begins.
 
 ## 10. Assumptions Index

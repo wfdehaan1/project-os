@@ -7,9 +7,10 @@ This addendum preserves supporting context, deferred product decisions, market e
 Inputs, in descending authority:
 
 1. The current working-tree [product brief](../../briefs/brief-ProjectOS-2026-07-27/brief.md) and [brief addendum](../../briefs/brief-ProjectOS-2026-07-27/addendum.md).
-2. User decisions recorded in the PRD run's `.memlog.md`.
-3. [ProjectOS market-opportunity research](../../research/market-projectos-market-opportunity-research-2026-07-27.md) as supporting market evidence.
-4. A focused 2026-07-28 competitive refresh performed during PRD Discovery.
+2. The dated [Codex subscription-access reconciliation](reconcile-codex-subscription-access-2026-07-31.md) for the current provider decision.
+3. User decisions recorded in the PRD run's `.memlog.md`.
+4. [ProjectOS market-opportunity research](../../research/market-projectos-market-opportunity-research-2026-07-27.md) as supporting market evidence.
+5. A focused 2026-07-28 competitive refresh performed during PRD Discovery.
 
 `docs/ProjectWorkspace.md` is excluded because the current product brief supersedes it. Where market research assumes an older scope, the brief and memlog govern.
 
@@ -84,26 +85,46 @@ Avoid positioning ProjectOS as merely “AI that remembers,” “chat with proj
 
 ### 5.1 Validation Build
 
-- OpenAI is the only AI Provider.
-- The user supplies the API credential and pays OpenAI separately.
+- Codex App Server is the only AI Provider Adapter implemented for validation; it is not the permanent shape of ProjectOS's AI boundary.
+- ProjectOS starts and communicates with a ProjectOS-owned Codex App Server process over local stdio JSON-RPC.
+- The user signs in through the Codex-managed ChatGPT browser flow. Eligible AI usage draws from the user's ChatGPT/Codex plan allowance rather than from an API key supplied to ProjectOS.
+- Codex owns token persistence and refresh. ProjectOS must not collect, read, log, export, or directly refresh ChatGPT tokens.
 - Canonical project data remains on the Mac.
 - Only user-selected context is transmitted for an initiated provider request.
-- Provider identity, transmission scope, error state, and separate billing are explicit.
-- The selected model and a best-effort request-level usage and cost estimate are inspectable; OpenAI billing remains authoritative and estimate limitations are explicit.
+- Provider identity, external-versus-local execution, transmission scope, account/plan state, runtime state, and allowance state are explicit.
+- The allowance windows, usage percentage, and reset times displayed by ProjectOS come from the adapter. ProjectOS does not promise a fixed weekly window and does not offer API-credit purchase or automatic top-up.
 - There is no ProjectOS-hosted project-content backend or inference service.
 
-Provider/model adapter design, storage format, and credential implementation belong to architecture. The PRD constrains their observable behavior and security properties.
+OpenAI's documentation distinguishes [ChatGPT subscription access from API-key usage-based access](https://developers.openai.com/codex/auth). The [Codex App Server protocol](https://developers.openai.com/codex/app-server) supplies managed browser login, account and plan state, rate-limit windows, structured per-turn output, streamed events, and persisted-thread deletion. These are adapter mechanisms, not ProjectOS domain concepts.
 
-### 5.2 Deferred Broader Direction
+Provider/model adapter design, storage format, runtime isolation, version pinning, and Provider Session Binding implementation belong to architecture. The PRD constrains their observable behavior and security properties.
 
-The current brief includes Ollama as the local AI Provider option. Ollama is deferred from the validation build so that provider variance and local-model setup do not obscure the semantic-continuity test. If the core loop succeeds, Ollama should be evaluated separately for:
+### 5.2 Provider-Independent Contract
+
+ProjectOS owns a narrow, capability-oriented provider contract for its product jobs rather than a generic copy of any vendor API. The contract covers:
+
+- provider discovery, configuration, health, and capability reporting;
+- project-grounded generation with streaming and cancellation;
+- structured Change Proposal output with ProjectOS-owned schemas;
+- normalized completion, interruption, authentication, runtime, network, rate-limit, and allowance errors;
+- optional account, model, usage, and reset information;
+- provider-session create, resume, and delete lifecycle; and
+- explicit local-versus-external execution disclosure.
+
+The Codex adapter translates this contract to App Server threads, turns, events, account endpoints, and output schemas. A future local adapter may implement the same product jobs without authentication or usage reporting. Capability negotiation prevents the contract from collapsing to either OpenAI assumptions or a lowest common denominator.
+
+ProjectOS owns canonical Conversation identity and history. Provider thread or session identifiers are replaceable bindings. Export and restore must remain useful without access to the original provider session, and switching providers must not rewrite accepted Canonical State.
+
+### 5.3 Deferred Broader Direction
+
+Additional cloud adapters and local-model adapters are deferred from the validation build so provider variance does not obscure the semantic-continuity test. Ollama is one candidate runtime, not a permanent commitment. The first local adapter should be evaluated separately for:
 
 - extraction correctness against the same 85% gate;
 - honest degradation when a local model is insufficient;
 - onboarding and model-selection burden;
 - privacy value and real user demand.
 
-Anthropic, ChatGPT account authentication, ProjectOS-hosted inference, and managed provider billing remain deferred.
+Other cloud providers, direct OpenAI API-key access, ProjectOS-hosted inference, and managed provider billing remain deferred. ChatGPT account authentication is active only inside the initial Codex adapter.
 
 Local-first reduces the ProjectOS data footprint but does not eliminate privacy or GDPR obligations. Selected content still leaves the Mac when sent to OpenAI, and future licensing, support, updates, or diagnostics may process personal data.
 
@@ -115,7 +136,7 @@ The following product-brief decisions remain preserved but do not belong in the 
 - one-time purchase rather than a subscription for the initial product;
 - a working price hypothesis around $59.99, with $39.99 and $79.99 as test anchors;
 - commercial onboarding, price-bearing activation, purchase, and conversion testing;
-- support for OpenAI and Ollama behind a provider-neutral boundary;
+- support for multiple cloud and local AI adapters behind the provider-independent boundary;
 - a restrained hero image and accent identity for emotional project ownership;
 - possible paid major upgrades to support ongoing macOS/provider compatibility;
 - a future managed subscription only if recurring hosted value such as synchronization, additional surfaces, sharing, or collaboration is later proven.
@@ -140,8 +161,8 @@ UX work should focus on the proposal-review interaction, clear distinction betwe
 
 ### Architecture
 
-Architecture must establish invariants for atomic accepted-state transitions, stable Artifact identity, version, supersession and deletion history, permanent local Project deletion, Provenance integrity, local persistence, backup/export/restore, secure credentials, usage-cost estimation boundaries, and provider isolation. The canonical storage technology and provider-adapter mechanism are intentionally not specified here.
+Architecture must establish invariants for atomic accepted-state transitions, stable Artifact identity, version, supersession and deletion history, permanent local Project deletion, Provenance integrity, local persistence, backup/export/restore, provider-neutral domain dependencies, adapter capability negotiation, runtime lifecycle, authentication isolation, Provider Session Bindings, provider-side thread deletion, structured-output validation, restrictive sandboxing, normalized errors, and protocol/version compatibility. The current Codex mechanism is specified in the companion [AI provider architecture spine](../../architecture/architecture-ProjectOS-2026-07-31/ARCHITECTURE-SPINE.md); future adapters remain free to use different transports and session models.
 
 ### Epics and Implementation
 
-Implementation sequencing should prove the closed continuity loop before adding provider breadth, distribution, pricing, or visual identity. A vertical slice should cover Project creation, Conversation/Source Material, one or more Change Proposals, explicit review, Canonical State, Re-entry View, and verified persistence.
+Implementation sequencing should first prove the provider contract with a fake adapter, then validate the Codex adapter end to end, and only then use it for the closed continuity loop. A vertical slice should cover Project creation, Conversation/Source Material, one or more Change Proposals, explicit review, Canonical State, Re-entry View, verified persistence, and provider-session cleanup. Provider breadth, distribution, pricing, and visual identity follow proof of that slice.
