@@ -1,0 +1,20 @@
+{
+  "name": "@projectos/codex-app-server-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.18.1"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types 'test/**/*.test.ts'",
+    "test:live": "PROJECTOS_LIVE_CODEX=1 node --test --experimental-strip-types test/live-macos.smoke.test.ts",
+    "validate": "npm run typecheck && npm test",
+    "validate:full": "npm run validate && npm run test:live"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.12",
+    "typescript": "~7.0.2"
+  }
+}

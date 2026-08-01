@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectos.local/schemas/codex-harness-summary-v1.json",
+  "title": "ProjectOS Codex App Server Harness Sanitized Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runId",
+    "correlationId",
+    "startedAt",
+    "completedAt",
+    "harnessVersion",
+    "nodeVersion",
+    "runtimeVersion",
+    "executableName",
+    "executableFingerprint",
+    "strictConfigurationFingerprint",
+    "allowedEnvironmentNames",
+    "environmentFingerprints",
+    "lifecycle",
+    "handshakeOutcome",
+    "shutdownOutcome",
+    "isolationComparison",
+    "result",
+    "reproductionCommand"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1 },
+    "correlationId": { "type": "string", "minLength": 1 },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "completedAt": { "type": "string", "format": "date-time" },
+    "harnessVersion": { "type": "string", "minLength": 1 },
+    "nodeVersion": { "type": "string", "minLength": 1 },
+    "runtimeVersion": { "type": ["string", "null"], "minLength": 1 },
+    "executableName": { "type": ["string", "null"], "minLength": 1 },
+    "executableFingerprint": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "strictConfigurationFingerprint": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "allowedEnvironmentNames": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "environmentFingerprints": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    },
+    "lifecycle": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "undiscovered",
+          "discovered",
+          "starting",
+          "initializing",
+          "initialized",
+          "stopping",
+          "stopped",
+          "failed"
+        ]
+      }
+    },
+    "handshakeOutcome": { "enum": ["initialized", "failed"] },
+    "shutdownOutcome": {
+      "enum": [
+        "not_started",
+        "clean_exit",
+        "graceful_termination",
+        "forced_termination",
+        "unexpected_exit",
+        "shutdown_failure"
+      ]
+    },
+    "isolationComparison": { "enum": ["unchanged", "changed", "not_completed"] },
+    "result": { "enum": ["passed", "failed"] },
+    "failureCode": {
+      "enum": [
+        "runtime_not_found",
+        "runtime_not_executable",
+        "version_probe_failed",
+        "spawn_failed",
+        "initialization_rejected",
+        "malformed_handshake_response",
+        "initialization_timeout",
+        "unexpected_exit_or_eof",
+        "shutdown_timeout",
+        "shutdown_failed",
+        "isolation_failed",
+        "evidence_write_failed"
+      ]
+    },
+    "reproductionCommand": { "const": "npm ci && npm run validate:full" }
+  }
+}
