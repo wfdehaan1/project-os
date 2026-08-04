@@ -3,7 +3,8 @@ title: 'Story 1.3: Prove Subscription Authentication Without Credential Ownershi
 type: 'feature'
 created: '2026-08-04'
 baseline_revision: '9d31f3026aed058b3ea91a255828a7deb6891a3f'
-status: 'in-review'
+final_revision: '68e1e69'
+status: 'done'
 review_loop_iteration: 0
 followup_review_recommended: true
 context:
