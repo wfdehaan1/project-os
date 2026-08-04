@@ -7,7 +7,9 @@ import {
 } from "./executable-snapshot.ts";
 import {
   compareSupportedProtocol,
+  createAuthenticationProtocolBoundary,
   extractGeneratedProtocolMethods,
+  generatedLoginSchemaSupportsDeviceCodeRecovery,
   createProtocolBoundary,
   isSafeRuntimeBuild,
   parseSupportedRuntimeManifest,
@@ -35,6 +37,7 @@ interface CompatibilityCapabilityFacts {
   readonly binaryContentSha256: string;
   readonly manifestDigest: string;
   readonly protocolBoundary: ProtocolBoundary;
+  readonly authenticationProtocolBoundary?: ProtocolBoundary;
   consumed: boolean;
 }
 
@@ -80,6 +83,9 @@ export interface SnapshotCompatibilitySuccess {
   readonly generated: GeneratedProtocolSchemas;
   readonly detectedMethods: Awaited<ReturnType<typeof extractGeneratedProtocolMethods>>;
   readonly protocolBoundary: ProtocolBoundary;
+  readonly authenticationProtocolBoundary?: ProtocolBoundary;
+  /** True only when the exact generated-and-pinned login schema exposes the branch. */
+  readonly deviceCodeRecoverySupported: boolean;
   readonly ownedProcessesReaped: true;
 }
 
@@ -209,6 +215,13 @@ export async function validateSnapshotCompatibility(
     );
   }
   const protocolBoundary = createProtocolBoundary(manifest, detectedMethods);
+  let authenticationProtocolBoundary: ProtocolBoundary | undefined;
+  if (manifest.authentication !== undefined) {
+    try { authenticationProtocolBoundary = createAuthenticationProtocolBoundary(manifest, detectedMethods); }
+    catch { return failure("missing_required_method", detectedBuild, manifest.runtime.build, manifest, manifestDigest, generated, detectedMethods, true); }
+  }
+  const deviceCodeRecoverySupported = manifest.authentication !== undefined &&
+    await generatedLoginSchemaSupportsDeviceCodeRecovery(generated.jsonDirectory);
   return Object.freeze({
     ok: true,
     capability: mintCompatibilityCapability({
@@ -217,6 +230,7 @@ export async function validateSnapshotCompatibility(
       binaryContentSha256: ownedSnapshot.binaryContentSha256,
       manifestDigest,
       protocolBoundary,
+      ...(authenticationProtocolBoundary ? { authenticationProtocolBoundary } : {}),
       consumed: false,
     }),
     detectedBuild,
@@ -225,6 +239,8 @@ export async function validateSnapshotCompatibility(
     generated,
     detectedMethods,
     protocolBoundary,
+    ...(authenticationProtocolBoundary ? { authenticationProtocolBoundary } : {}),
+    deviceCodeRecoverySupported,
     ownedProcessesReaped: true,
   });
 }
@@ -232,6 +248,7 @@ export async function validateSnapshotCompatibility(
 export function authorizeCompatibleAppServerSpawn(
   capability: unknown,
   attemptId: string,
+  mode: "protocol" | "authentication" = "protocol",
 ): CompatibleAppServerSpawnAuthorization {
   if (typeof capability !== "object" || capability === null) throw compatibilityRequired();
   const facts = compatibilityCapabilityFacts.get(capability);
@@ -241,7 +258,9 @@ export function authorizeCompatibleAppServerSpawn(
     executablePath: facts.executablePath,
     binaryContentSha256: facts.binaryContentSha256,
     manifestDigest: facts.manifestDigest,
-    protocolBoundary: facts.protocolBoundary,
+    protocolBoundary: mode === "authentication"
+      ? facts.authenticationProtocolBoundary ?? (() => { throw compatibilityRequired(); })()
+      : facts.protocolBoundary,
   });
 }
 

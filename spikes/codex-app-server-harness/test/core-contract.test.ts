@@ -77,6 +77,13 @@ test("provider failures use every distinct stable story code and safe remediatio
     "shutdown_failed",
     "isolation_failed",
     "evidence_write_failed",
+    "authentication_unsupported",
+    "authentication_timeout",
+    "authentication_cancelled",
+    "authentication_expired",
+    "authentication_failed",
+    "secure_storage_unavailable",
+    "credential_ownership_rejected",
   ]);
 
   const failure = createProviderFailure({

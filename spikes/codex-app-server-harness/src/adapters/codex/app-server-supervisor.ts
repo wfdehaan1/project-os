@@ -33,7 +33,9 @@ export interface AppServerSupervisorOptions {
   readonly correlationId: string;
   readonly attemptId: string;
   readonly compatibility: CompatibilityCapability;
-  readonly postInitializeCheck?: () => void;
+  readonly authenticationMode?: boolean;
+  /** Runs on the one compatibility-authorized child before owned cleanup. */
+  readonly postInitializeCheck?: (connection: JsonlRpcConnection) => Promise<void> | void;
 }
 
 export interface AppServerSupervisorSuccess {
@@ -90,6 +92,7 @@ export async function superviseCodexAppServer(
     authorization = authorizeCompatibleAppServerSpawn(
       options.compatibility,
       options.attemptId,
+      options.authenticationMode ? "authentication" : "protocol",
     );
     lifecycle.transition("starting");
     child = spawnOwned(options, authorization);
@@ -110,8 +113,10 @@ export async function superviseCodexAppServer(
     });
     await connection.initialize(options.initializationTimeoutMs);
     try {
-      options.postInitializeCheck?.();
-    } catch {
+      const postInitializeResult = options.postInitializeCheck?.(connection);
+      if (postInitializeResult) await postInitializeResult;
+    } catch (error: unknown) {
+      if (error instanceof HandshakeProtocolError) throw error;
       throw new SupervisorAssertionError();
     }
     lifecycle.transition("initialized");

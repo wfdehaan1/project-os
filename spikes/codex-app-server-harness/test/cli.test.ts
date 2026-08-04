@@ -71,3 +71,26 @@ test("protocol CLI returns 2 and writes usage to stderr for invalid arguments", 
   assert.equal(writes.stdout, "");
   assert.match(writes.stderr, /^Usage:/u);
 });
+
+test("authentication CLI exits nonzero for normalized non-success validation", async () => {
+  const writes = { stdout: "", stderr: "" };
+  const provider: AiProviderPort = {
+    validateRuntime: async () => { throw new Error("unexpected runtime call"); },
+    validateAuthentication: async () => ({
+      ok: false,
+      code: "authentication_cancelled",
+      correlationId: "auth-cli-cancelled",
+      remediation: { action: "retry_validation", reference: "cancelled" },
+      providerActionEnabled: false,
+      canonicalStateOperationEnabled: false,
+    }),
+  };
+  const exitCode = await main(["auth-validate", "--interactive"], {
+    provider,
+    stdout: { write: (value) => { writes.stdout += String(value); return true; } },
+    stderr: { write: (value) => { writes.stderr += String(value); return true; } },
+  });
+  assert.equal(exitCode, 1);
+  assert.match(writes.stdout, /authentication_cancelled/u);
+  assert.equal(writes.stderr, "");
+});

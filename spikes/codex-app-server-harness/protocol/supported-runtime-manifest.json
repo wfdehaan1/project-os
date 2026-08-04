@@ -1,5 +1,17 @@
 {
   "formatVersion": 1,
+  "authentication": {
+    "clientRequests": [
+      "account/login/cancel",
+      "account/login/start",
+      "account/logout",
+      "account/read"
+    ],
+    "serverNotifications": [
+      "account/login/completed",
+      "account/updated"
+    ]
+  },
   "manifestId": "projectos-codex-spike-darwin-arm64-0.145.0",
   "runtime": {
     "build": "codex-cli 0.145.0",

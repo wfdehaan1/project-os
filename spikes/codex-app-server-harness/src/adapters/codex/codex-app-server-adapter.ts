@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 
 import type {
   AiProviderPort,
+  AuthenticationValidationRequest,
+  AuthenticationValidationResult,
   RuntimeHealthResult,
   RuntimeValidationRequest,
 } from "../../core/ai-provider-port.ts";
@@ -43,12 +45,15 @@ import {
 } from "./runtime-compatibility.ts";
 import {
   assertFixtureUnchanged,
+  auditProjectOSProfileCredentialOwnership,
   createIsolatedRuntimeProfile,
   createSyntheticNormalProfileFixture,
   snapshotFixture,
   type FixtureSnapshot,
   type IsolatedRuntimeProfile,
 } from "./runtime-profile.ts";
+import type { AuthenticationExchangeResult } from "./jsonl-rpc-connection.ts";
+import { writeAuthenticationEvidence } from "../../evidence/authentication-evidence-recorder.ts";
 
 type EvidenceWriter = (
   evidence: PrivateRunEvidence,
@@ -65,6 +70,8 @@ export interface CodexAppServerAdapterDependencies {
   readonly now?: () => Date;
   readonly runId?: () => string;
   readonly correlationId?: () => string;
+  /** Receives the managed browser URL transiently; callers must not retain it. */
+  readonly openLoginUrl?: (url: string) => Promise<void> | void;
 }
 
 interface AttemptState {
@@ -97,6 +104,7 @@ const REPRODUCTION_COMMAND = "npm ci && npm run validate:full";
 const PROTOCOL_REPRODUCTION_COMMAND = "npm ci && npm run protocol:validate";
 const PROTOCOL_RESTART_REPRODUCTION_COMMAND =
   "npm ci && npm run protocol:validate -- --restart";
+const AUTH_REPRODUCTION_COMMAND = "PROJECTOS_LIVE_AUTH=1 npm run test:auth:live";
 
 export class CodexAppServerAdapter implements AiProviderPort {
   readonly #discover: typeof discoverCodexExecutable;
@@ -107,6 +115,7 @@ export class CodexAppServerAdapter implements AiProviderPort {
   readonly #now: () => Date;
   readonly #runId: () => string;
   readonly #correlationId: () => string;
+  readonly #openLoginUrl: ((url: string) => Promise<void> | void) | undefined;
 
   constructor(dependencies: CodexAppServerAdapterDependencies = {}) {
     this.#discover = dependencies.discover ?? discoverCodexExecutable;
@@ -117,6 +126,7 @@ export class CodexAppServerAdapter implements AiProviderPort {
     this.#now = dependencies.now ?? (() => new Date());
     this.#runId = dependencies.runId ?? (() => `run-${randomUUID()}`);
     this.#correlationId = dependencies.correlationId ?? createCorrelationId;
+    this.#openLoginUrl = dependencies.openLoginUrl;
   }
 
   async validateRuntime(request: RuntimeValidationRequest): Promise<RuntimeHealthResult> {
@@ -270,7 +280,157 @@ export class CodexAppServerAdapter implements AiProviderPort {
     });
   }
 
-  async #runAttempt(context: AttemptContext, generation: 1 | 2): Promise<AttemptState> {
+  async validateAuthentication(
+    request: AuthenticationValidationRequest,
+  ): Promise<AuthenticationValidationResult> {
+    const correlationId = this.#correlationId();
+    let sentinel: ChildProcess | undefined;
+    try {
+      const fixtureRoot = await mkdtemp(join(tmpdir(), "projectos-auth-fixture-"));
+      const normalProfile = await createSyntheticNormalProfileFixture(join(fixtureRoot, "normal-profile"));
+      const normalProfileBefore = await snapshotFixture(normalProfile);
+      sentinel = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+        detached: process.platform !== "win32", env: {}, stdio: "ignore",
+      });
+      const context: AttemptContext = { request, correlationId, fixtureRoot, normalProfile, normalProfileBefore, sentinel };
+      const authentication: { result?: AuthenticationExchangeResult } = {};
+      const attempt = await this.#runAttempt(context, 1, {
+        interactive: request.interactive === true,
+        timeoutMs: request.authenticationTimeoutMs ?? 120_000,
+        deviceCodeRecovery: request.deviceCodeRecovery === true,
+        result: authentication,
+      });
+      if (attempt.failure) return this.#recordAuthenticationFailure(attempt.failure);
+      if (!attempt.profile || !attempt.supervisor?.ok || !authentication.result) {
+        return this.#recordAuthenticationFailure(createProviderFailure({
+          code: "authentication_failed",
+          correlationId,
+          remediation: { action: "inspect_local_evidence", reference: "authentication" },
+        }));
+      }
+      const credentialOwnership = await auditProjectOSProfileCredentialOwnership(attempt.profile);
+      await assertFixtureUnchanged(normalProfileBefore, await snapshotFixture(normalProfile));
+      if (!isAlive(sentinel.pid)) throw new Error("isolation_failed");
+      const deviceCodeCapability = attempt.compatibility?.ok &&
+        attempt.compatibility.deviceCodeRecoverySupported === true
+        ? "supported"
+        : "unsupported";
+      const result = Object.freeze({
+        ok: true,
+        correlationId,
+        authenticationState: authentication.result.state,
+        planCategory: authentication.result.planCategory,
+        expectedPro: authentication.result.expectedPro,
+        deviceCodeCapability,
+        logoutOutcome: authentication.result.logoutOutcome,
+        profileIsolation: "unchanged",
+        credentialOwnership,
+        retryable: ["cancelled", "expired", "failed", "secure_storage_unavailable"].includes(authentication.result.state),
+        shutdownOutcome: attempt.supervisor.shutdownOutcome,
+        providerActionEnabled: false,
+        canonicalStateOperationEnabled: false,
+      });
+      const rejection = authenticationRejection(authentication.result);
+      if (rejection) {
+        return this.#recordAuthenticationRejection(result, rejection);
+      }
+      try {
+        await writeAuthenticationEvidence({
+          schemaVersion: 1, runId: this.#runId(), correlationId,
+          result: "proceed", authenticationState: result.authenticationState,
+          planCategory: result.planCategory, expectedPro: result.expectedPro,
+          deviceCodeCapability: result.deviceCodeCapability, logoutOutcome: result.logoutOutcome,
+          profileIsolation: result.profileIsolation, credentialOwnership: result.credentialOwnership,
+          retryable: false, failureCode: null, reproductionCommand: AUTH_REPRODUCTION_COMMAND,
+        }, this.#evidenceRoot);
+      } catch {
+        return createProviderFailure({
+          code: "evidence_write_failed",
+          correlationId,
+          remediation: { action: "check_permissions", reference: "evidence_directory" },
+        });
+      }
+      return result;
+    } catch {
+      return this.#recordAuthenticationFailure(createProviderFailure({
+        code: "credential_ownership_rejected", correlationId,
+        remediation: { action: "check_permissions", reference: "credential_ownership" },
+      }));
+    } finally {
+      stopSentinel(sentinel);
+    }
+  }
+
+  async #recordAuthenticationFailure(failure: ProviderFailure): Promise<ProviderFailure> {
+    if (failure.code === "evidence_write_failed") return failure;
+    try {
+      await writeAuthenticationEvidence({
+        schemaVersion: 1,
+        runId: this.#runId(),
+        correlationId: failure.correlationId,
+        result: "reject",
+        authenticationState: null,
+        planCategory: "unknown",
+        expectedPro: "unknown",
+        deviceCodeCapability: "unsupported",
+        logoutOutcome: "not_needed",
+        profileIsolation: "not_completed",
+        credentialOwnership: "rejected",
+        retryable: false,
+        failureCode: failure.code,
+        reproductionCommand: AUTH_REPRODUCTION_COMMAND,
+      }, this.#evidenceRoot);
+      return failure;
+    } catch {
+      return createProviderFailure({
+        code: "evidence_write_failed",
+        correlationId: failure.correlationId,
+        remediation: { action: "check_permissions", reference: "evidence_directory" },
+      });
+    }
+  }
+
+  async #recordAuthenticationRejection(
+    result: Extract<AuthenticationValidationResult, { readonly ok: true }>,
+    rejection: { readonly code: ProviderFailure["code"]; readonly retryable: boolean; readonly remediation: ProviderFailure["remediation"] },
+  ): Promise<ProviderFailure> {
+    const failure = createProviderFailure({
+      code: rejection.code,
+      correlationId: result.correlationId,
+      remediation: rejection.remediation,
+    });
+    try {
+      await writeAuthenticationEvidence({
+        schemaVersion: 1,
+        runId: this.#runId(),
+        correlationId: result.correlationId,
+        result: "reject",
+        authenticationState: result.authenticationState,
+        planCategory: result.planCategory,
+        expectedPro: result.expectedPro,
+        deviceCodeCapability: result.deviceCodeCapability,
+        logoutOutcome: result.logoutOutcome,
+        profileIsolation: result.profileIsolation,
+        credentialOwnership: result.credentialOwnership,
+        retryable: rejection.retryable,
+        failureCode: rejection.code,
+        reproductionCommand: AUTH_REPRODUCTION_COMMAND,
+      }, this.#evidenceRoot);
+      return failure;
+    } catch {
+      return createProviderFailure({
+        code: "evidence_write_failed",
+        correlationId: result.correlationId,
+        remediation: { action: "check_permissions", reference: "evidence_directory" },
+      });
+    }
+  }
+
+  async #runAttempt(
+    context: AttemptContext,
+    generation: 1 | 2,
+    authentication?: { readonly interactive: boolean; readonly timeoutMs: number; readonly deviceCodeRecovery: boolean; result: { result?: AuthenticationExchangeResult } },
+  ): Promise<AttemptState> {
     const attemptId = `attempt-${generation}-${randomUUID()}`;
     const correlationId = attemptCorrelation(context.correlationId, attemptId);
     let discovery: ExecutableDiscoveryResult | undefined;
@@ -326,6 +486,12 @@ export class CodexAppServerAdapter implements AiProviderPort {
           });
           if (!compatibility.ok) {
             failure = compatibilityFailure(compatibility, correlationId);
+          } else if (authentication?.deviceCodeRecovery === true &&
+            compatibility.deviceCodeRecoverySupported !== true) {
+            failure = createProviderFailure({
+              code: "authentication_unsupported", correlationId,
+              remediation: { action: "sign_in_with_chatgpt", reference: "device_code_unsupported" },
+            });
           } else {
             supervisor = await superviseCodexAppServer({
               workingDirectory: profile.workingDirectory,
@@ -335,6 +501,17 @@ export class CodexAppServerAdapter implements AiProviderPort {
               correlationId,
               attemptId,
               compatibility: compatibility.capability,
+              ...(authentication ? {
+                authenticationMode: true,
+                postInitializeCheck: async (connection) => {
+                  authentication.result.result = await connection.validateManagedChatgptAuthentication({
+                    interactive: authentication.interactive,
+                    timeoutMs: authentication.timeoutMs,
+                    ...(authentication.deviceCodeRecovery ? { deviceCodeRecovery: true } : {}),
+                    ...(this.#openLoginUrl ? { openLoginUrl: this.#openLoginUrl } : {}),
+                  });
+                },
+              } : {}),
             });
             if (!supervisor.ok) failure = supervisor;
           }
@@ -579,6 +756,41 @@ function compatibilityFailureCode(
       return "unsupported_dispatch";
     case "runtime_terminated":
       return "runtime_terminated_during_checking";
+  }
+}
+
+function authenticationRejection(
+  result: AuthenticationExchangeResult,
+): { readonly code: ProviderFailure["code"]; readonly retryable: boolean; readonly remediation: ProviderFailure["remediation"] } | undefined {
+  if (
+    result.state === "authenticated_chatgpt" &&
+    result.planCategory === "pro" &&
+    result.expectedPro === "matched" &&
+    result.logoutOutcome === "completed" &&
+    !result.preexistingAuthentication
+  ) {
+    return undefined;
+  }
+  switch (result.state) {
+    case "cancelled":
+      return { code: "authentication_cancelled", retryable: true, remediation: { action: "retry_validation", reference: "cancelled" } };
+    case "expired":
+      return { code: "authentication_expired", retryable: true, remediation: { action: "retry_validation", reference: "expired" } };
+    case "secure_storage_unavailable":
+      return { code: "secure_storage_unavailable", retryable: true, remediation: { action: "repair_secure_storage", reference: "secure_storage" } };
+    case "signed_out":
+      return { code: "authentication_failed", retryable: true, remediation: { action: "sign_in_with_chatgpt", reference: "signed_out" } };
+    case "authenticated_chatgpt":
+      return {
+        code: "authentication_failed",
+        retryable: !result.preexistingAuthentication,
+        remediation: {
+          action: result.preexistingAuthentication ? "inspect_local_evidence" : "sign_in_with_chatgpt",
+          reference: result.preexistingAuthentication ? "preexisting_disposable_profile" : "subscription_not_pro",
+        },
+      };
+    case "failed":
+      return { code: "authentication_failed", retryable: true, remediation: { action: "retry_validation", reference: "failed" } };
   }
 }
 

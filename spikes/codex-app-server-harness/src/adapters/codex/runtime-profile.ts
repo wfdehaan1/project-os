@@ -63,6 +63,29 @@ export interface FixtureSnapshot {
   readonly files: Readonly<Record<string, FixtureFileSnapshot>>;
 }
 
+/** Metadata-only audit: credential contents are never opened or inspected. */
+export async function auditProjectOSProfileCredentialOwnership(
+  profile: IsolatedRuntimeProfile,
+): Promise<"codex_keyring_only"> {
+  const names = await collectRelativeNames(profile.runtimeRoot, profile.runtimeRoot);
+  if (names.some((name) => !isExpectedProfileArtifact(name))) {
+    throw isolationError();
+  }
+  // The forced config is written by us and is the only credential-storage assertion.
+  const config = await readFile(profile.configPath, "utf8");
+  if (config !== STRICT_CONFIG) throw isolationError();
+  return "codex_keyring_only";
+}
+
+function isExpectedProfileArtifact(name: string): boolean {
+  // The harness controls snapshots and generated schemas. Every file in the disposable
+  // CODEX_HOME/HOME/SQLite/work/tmp roots is unexpected except this exact forced config.
+  // This stays metadata-only: no credential file is opened to classify its contents.
+  return name === "codex-home/config.toml" ||
+    name.startsWith("executable-snapshot/") ||
+    name.startsWith("protocol-generated/");
+}
+
 export async function createIsolatedRuntimeProfile(
   options: RuntimeProfileOptions = {},
 ): Promise<IsolatedRuntimeProfile> {
@@ -231,6 +254,18 @@ async function collectFixtureEntries(
     else throw isolationError();
   }
   return { directories: directories.sort(), files: files.sort() };
+}
+
+async function collectRelativeNames(root: string, directory: string): Promise<readonly string[]> {
+  const names: string[] = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = `${directory}/${entry.name}`;
+    if (entry.isSymbolicLink()) throw isolationError();
+    if (entry.isDirectory()) names.push(...await collectRelativeNames(root, path));
+    else if (entry.isFile()) names.push(relative(root, path));
+    else throw isolationError();
+  }
+  return names;
 }
 
 function isSameOrWithin(candidate: string, parent: string): boolean {

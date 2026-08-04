@@ -45,6 +45,10 @@ export async function createFakeRuntimeManifest(behavior: FakeCodexBehavior, mar
     schemas: { json: generated.jsonBundle, typescript: generated.typescriptBundle },
     requiredMethods: { ...methods, recognizedForbidden: ["item/tool/call"] },
     enabledDispatch: { clientRequests: ["initialize"], clientNotifications: ["initialized"] },
+    authentication: {
+      clientRequests: ["account/login/cancel", "account/login/start", "account/logout", "account/read"],
+      serverNotifications: ["account/login/completed", "account/updated"],
+    },
   };
   const manifestPath = join(root, "manifest.json");
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });

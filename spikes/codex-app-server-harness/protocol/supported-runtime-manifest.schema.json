@@ -11,7 +11,8 @@
     "generation",
     "schemas",
     "requiredMethods",
-    "enabledDispatch"
+    "enabledDispatch",
+    "authentication"
   ],
   "properties": {
     "formatVersion": { "const": 1 },
@@ -84,6 +85,19 @@
       "properties": {
         "clientRequests": { "const": ["initialize"] },
         "clientNotifications": { "const": ["initialized"] }
+      }
+    },
+    "authentication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clientRequests", "serverNotifications"],
+      "properties": {
+        "clientRequests": {
+          "const": ["account/login/cancel", "account/login/start", "account/logout", "account/read"]
+        },
+        "serverNotifications": {
+          "const": ["account/login/completed", "account/updated"]
+        }
       }
     }
   },

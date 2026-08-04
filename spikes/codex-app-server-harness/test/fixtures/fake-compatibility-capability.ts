@@ -60,6 +60,10 @@ export async function fakeCompatibilityCapability(
       clientRequests: ["initialize"],
       clientNotifications: ["initialized"],
     },
+    authentication: {
+      clientRequests: ["account/login/cancel", "account/login/start", "account/logout", "account/read"],
+      serverNotifications: ["account/login/completed", "account/updated"],
+    },
   };
   const manifestPath = join(profile.runtimeRoot, "test-manifest.json");
   await writeFile(manifestPath, `${JSON.stringify(manifest)}\n`, { mode: 0o600 });

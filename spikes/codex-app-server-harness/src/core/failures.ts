@@ -24,6 +24,13 @@ export const FAILURE_CODES = [
   "shutdown_failed",
   "isolation_failed",
   "evidence_write_failed",
+  "authentication_unsupported",
+  "authentication_timeout",
+  "authentication_cancelled",
+  "authentication_expired",
+  "authentication_failed",
+  "secure_storage_unavailable",
+  "credential_ownership_rejected",
 ] as const;
 
 export type ProviderFailureCode = (typeof FAILURE_CODES)[number];
@@ -34,7 +41,9 @@ export interface RemediationMetadata {
     | "repair_runtime"
     | "retry_validation"
     | "inspect_local_evidence"
-    | "check_permissions";
+    | "check_permissions"
+    | "sign_in_with_chatgpt"
+    | "repair_secure_storage";
   readonly reference?: string;
 }
 

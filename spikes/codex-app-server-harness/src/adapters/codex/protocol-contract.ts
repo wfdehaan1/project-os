@@ -43,6 +43,13 @@ export interface ProtocolBoundary {
   ): InboundMethodClassification;
 }
 
+export interface AuthenticationProtocolContract {
+  readonly clientRequests: readonly [
+    "account/login/cancel", "account/login/start", "account/logout", "account/read",
+  ];
+  readonly serverNotifications: readonly ["account/login/completed", "account/updated"];
+}
+
 export interface SupportedRuntimeManifest {
   readonly formatVersion: typeof PROTOCOL_MANIFEST_FORMAT_VERSION;
   readonly manifestId: string;
@@ -68,6 +75,7 @@ export interface SupportedRuntimeManifest {
     readonly clientRequests: readonly string[];
     readonly clientNotifications: readonly string[];
   };
+  readonly authentication?: AuthenticationProtocolContract;
 }
 
 export interface CollectProtocolSchemaBundleOptions {
@@ -174,6 +182,22 @@ export async function extractGeneratedProtocolMethods(
   });
 }
 
+/**
+ * This is intentionally conservative. The caller invokes it only after the exact
+ * generated JSON bundle has matched the pinned manifest, so a true result proves
+ * that the pinned `account/login/start` schema itself contains this safe branch.
+ */
+export async function generatedLoginSchemaSupportsDeviceCodeRecovery(
+  jsonSchemaRoot: string,
+): Promise<boolean> {
+  try {
+    const schema = JSON.parse(await readFile(join(jsonSchemaRoot, "ClientRequest.json"), "utf8"));
+    return containsDeviceCodeLoginBranch(schema);
+  } catch {
+    return false;
+  }
+}
+
 export function parseSupportedRuntimeManifest(serialized: string): SupportedRuntimeManifest {
   let value: unknown;
   try {
@@ -182,7 +206,8 @@ export function parseSupportedRuntimeManifest(serialized: string): SupportedRunt
     throw invalidManifest();
   }
   if (
-    !hasExactKeys(value, [
+    !(hasExactKeys(value, [
+      "authentication",
       "enabledDispatch",
       "formatVersion",
       "generation",
@@ -190,7 +215,9 @@ export function parseSupportedRuntimeManifest(serialized: string): SupportedRunt
       "requiredMethods",
       "runtime",
       "schemas",
-    ]) ||
+    ]) || hasExactKeys(value, [
+      "enabledDispatch", "formatVersion", "generation", "manifestId", "requiredMethods", "runtime", "schemas",
+    ])) ||
     value.formatVersion !== PROTOCOL_MANIFEST_FORMAT_VERSION
   ) {
     throw invalidManifest();
@@ -236,7 +263,8 @@ export function parseSupportedRuntimeManifest(serialized: string): SupportedRunt
     !validSortedStrings(manifest.requiredMethods.recognizedForbidden) ||
     !hasExactKeys(manifest.enabledDispatch, ["clientNotifications", "clientRequests"]) ||
     !validSortedStrings(manifest.enabledDispatch.clientRequests) ||
-    !validSortedStrings(manifest.enabledDispatch.clientNotifications)
+    !validSortedStrings(manifest.enabledDispatch.clientNotifications) ||
+    (manifest.authentication !== undefined && !validAuthenticationContract(manifest.authentication))
   ) {
     throw invalidManifest();
   }
@@ -344,6 +372,33 @@ export function createProtocolBoundary(
   });
 }
 
+/** Authentication is opt-in; the default protocol boundary remains init-only. */
+export function createAuthenticationProtocolBoundary(
+  manifest: SupportedRuntimeManifest,
+  detectedMethods: ProtocolMethodSets,
+): ProtocolBoundary {
+  const auth = manifest.authentication;
+  if (!auth || !isSubset(auth.clientRequests, detectedMethods.clientRequests) ||
+      !isSubset(auth.serverNotifications, detectedMethods.serverNotifications)) {
+    throw new Error("authentication_unsupported");
+  }
+  const requests = new Set<string>(["initialize", ...auth.clientRequests]);
+  const notifications = new Set<string>(["initialized"]);
+  const semantic = new Set<string>(auth.serverNotifications);
+  const forbidden = new Set(manifest.requiredMethods.recognizedForbidden);
+  return Object.freeze({
+    enabledClientRequests: Object.freeze([...requests].sort(codePointCompare)),
+    enabledClientNotifications: Object.freeze([...notifications]),
+    assertClientRequest(method: string): void { if (!requests.has(method)) throw new Error("unsupported_dispatch"); },
+    assertClientNotification(method: string): void { if (!notifications.has(method)) throw new Error("unsupported_dispatch"); },
+    classifyInbound(method: string, direction: "server_notification" | "server_request"): InboundMethodClassification {
+      if (direction === "server_request") return forbidden.has(method) ? "forbidden" : "unknown";
+      if (forbidden.has(method)) return "forbidden";
+      return semantic.has(method) ? "semantic_notification" : "unknown";
+    },
+  });
+}
+
 export function schemaTreeAggregateBytes(files: readonly ProtocolSchemaDigestFile[]): Buffer {
   return Buffer.from(
     JSON.stringify({ algorithm: PROTOCOL_DIGEST_ALGORITHM, files }),
@@ -431,10 +486,12 @@ async function extractMethodsFromSchema(path: string): Promise<readonly string[]
   for (const variant of parsed.oneOf) {
     if (!isObject(variant) || !isObject(variant.properties)) throw invalidManifest();
     const method = variant.properties.method;
-    if (!isObject(method) || !Array.isArray(method.enum) || method.enum.length !== 1) {
+    if (!isObject(method)) {
       throw invalidManifest();
     }
-    const name = method.enum[0];
+    const name = Array.isArray(method.enum) && method.enum.length === 1
+      ? method.enum[0]
+      : method.const;
     if (!safeMethod(name)) throw invalidManifest();
     methods.push(name);
   }
@@ -496,6 +553,33 @@ function validMethodSets(value: unknown): value is ProtocolMethodSets {
     validSortedStrings(value.serverNotifications) &&
     validSortedStrings(value.serverRequests)
   );
+}
+
+function validAuthenticationContract(value: unknown): value is AuthenticationProtocolContract {
+  return isObject(value) && hasExactKeys(value, ["clientRequests", "serverNotifications"]) &&
+    exactArray(value.clientRequests, ["account/login/cancel", "account/login/start", "account/logout", "account/read"]) &&
+    exactArray(value.serverNotifications, ["account/login/completed", "account/updated"]);
+}
+
+function containsDeviceCodeLoginBranch(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(containsDeviceCodeLoginBranch);
+  if (!isObject(value)) return false;
+  const properties = isObject(value.properties) ? value.properties : undefined;
+  if (
+    properties !== undefined &&
+    schemaPermitsLiteral(properties.method, "account/login/start") &&
+    isObject(properties.params) &&
+    isObject(properties.params.properties) &&
+    schemaPermitsLiteral(properties.params.properties.type, "device_code")
+  ) {
+    return true;
+  }
+  return Object.values(value).some(containsDeviceCodeLoginBranch);
+}
+
+function schemaPermitsLiteral(value: unknown, literal: string): boolean {
+  return isObject(value) &&
+    (value.const === literal || (Array.isArray(value.enum) && value.enum.includes(literal)));
 }
 
 function validSortedStrings(value: unknown): value is readonly string[] {
@@ -643,6 +727,12 @@ function deepFreezeManifest(manifest: SupportedRuntimeManifest): SupportedRuntim
       clientRequests: Object.freeze([...manifest.enabledDispatch.clientRequests]),
       clientNotifications: Object.freeze([...manifest.enabledDispatch.clientNotifications]),
     }),
+    ...(manifest.authentication ? {
+      authentication: Object.freeze({
+        clientRequests: Object.freeze([...manifest.authentication.clientRequests]) as AuthenticationProtocolContract["clientRequests"],
+        serverNotifications: Object.freeze([...manifest.authentication.serverNotifications]) as AuthenticationProtocolContract["serverNotifications"],
+      }),
+    } : {}),
   });
 }
 

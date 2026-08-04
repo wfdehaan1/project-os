@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectOS authentication validation evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "runId", "correlationId", "result", "authenticationState", "planCategory", "expectedPro", "deviceCodeCapability", "logoutOutcome", "profileIsolation", "credentialOwnership", "retryable", "failureCode", "reproductionCommand"],
+  "properties": {
+    "schemaVersion": { "const": 1 }, "runId": { "type": "string" }, "correlationId": { "type": "string" },
+    "result": { "enum": ["proceed", "reject"] }, "authenticationState": { "enum": ["signed_out", "authenticated_chatgpt", "cancelled", "expired", "failed", "secure_storage_unavailable", "unsupported", null] },
+    "planCategory": { "enum": ["pro", "other", "unknown"] }, "expectedPro": { "enum": ["matched", "not_matched", "unknown"] }, "deviceCodeCapability": { "enum": ["supported", "unsupported"] }, "logoutOutcome": { "enum": ["completed", "not_needed"] }, "profileIsolation": { "enum": ["unchanged", "not_completed"] }, "credentialOwnership": { "enum": ["codex_keyring_only", "rejected"] }, "retryable": { "type": "boolean" }, "failureCode": { "type": ["string", "null"] }, "reproductionCommand": { "const": "PROJECTOS_LIVE_AUTH=1 npm run test:auth:live" }
+  }
+}

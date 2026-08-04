@@ -11,6 +11,8 @@
 
 No shareable file may contain credentials, tokens, API keys, account identifiers, authorization headers, environment values, raw protocol payloads/lines, payload hashes, raw stderr, Project content, prompts/results, real normal-profile contents, or local paths. Private protocol evidence still never retains raw JSON-RPC payloads or stderr: it starts from structural transcript entries rather than persisting sensitive data and attempting to clean it later.
 
+Story 1.3 writes `authentication-summary.json` in a separate atomically-published `*-authentication/` evidence directory. It follows `authentication-validation-run.schema.json` and contains only normalized state, retryability, plan category, expected-Pro result, unsupported/supported device-code capability, logout, profile-isolation, credential-ownership, stop condition, and the opt-in reproduction command (`PROJECTOS_LIVE_AUTH=1 npm run test:auth:live`). It contains no browser URL, login ID, account field, raw notification, token, credential file, local path, or provider error.
+
 The recorder builds the complete base-plus-protocol record in one `0700` sibling staging directory, writes and syncs `0600` files, rejects traversal, symlinks, non-regular files, duplicate attachment destinations, and bounded-size violations, then publishes the run with one directory rename. A failure never publishes the staging directory as a completed run; cleanup of an unpublished staging directory is best-effort if the filesystem itself refuses removal. Evidence-write failure is terminal and is reported only after every owned generator/App Server child has been reaped.
 
 Run deterministic, offline, fake-backed protocol validation with:

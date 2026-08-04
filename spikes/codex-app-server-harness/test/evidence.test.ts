@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, readdir, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -8,6 +8,8 @@ import type { PrivateRunEvidence } from "../src/evidence/evidence-schema.ts";
 import { EvidenceWriteError, writeRunEvidence } from "../src/evidence/evidence-recorder.ts";
 import { CodexAppServerAdapter } from "../src/adapters/codex/codex-app-server-adapter.ts";
 import { createFakeCodexRuntime } from "./fixtures/fake-codex-runtime.ts";
+import { writeAuthenticationEvidence } from "../src/evidence/authentication-evidence-recorder.ts";
+import type { AuthenticationValidationEvidence } from "../src/evidence/authentication-evidence-schema.ts";
 
 const secret = "secret-evidence-value-6bfab7";
 
@@ -59,6 +61,46 @@ function evidence(result: "passed" | "failed" = "passed"): PrivateRunEvidence {
     reproductionCommand: "npm ci && npm run validate:full",
   };
 }
+
+function authenticationEvidence(runId = "auth-run-1234"): AuthenticationValidationEvidence {
+  return {
+    schemaVersion: 1,
+    runId,
+    correlationId: "auth-correlation-1234",
+    result: "reject",
+    authenticationState: "signed_out",
+    planCategory: "unknown",
+    expectedPro: "unknown",
+    deviceCodeCapability: "unsupported",
+    logoutOutcome: "not_needed",
+    profileIsolation: "unchanged",
+    credentialOwnership: "codex_keyring_only",
+    retryable: true,
+    failureCode: "authentication_failed",
+    reproductionCommand: "PROJECTOS_LIVE_AUTH=1 npm run test:auth:live",
+  };
+}
+
+test("authentication evidence rejects unsafe run IDs and non-private or symlinked roots", async () => {
+  const root = await mkdtemp(join(tmpdir(), "projectos-auth-evidence-root-"));
+  await assert.rejects(
+    writeAuthenticationEvidence(authenticationEvidence("../escape"), root),
+    /evidence_write_failed/u,
+  );
+  await writeFile(join(root, "target"), "not a directory", { mode: 0o600 });
+  const linkedRoot = join(root, "linked");
+  await symlink(join(root, "target"), linkedRoot);
+  await assert.rejects(
+    writeAuthenticationEvidence(authenticationEvidence(), linkedRoot),
+    /evidence_write_failed/u,
+  );
+  const publicRoot = await mkdtemp(join(tmpdir(), "projectos-auth-evidence-public-"));
+  await chmod(publicRoot, 0o755);
+  await assert.rejects(
+    writeAuthenticationEvidence(authenticationEvidence(), publicRoot),
+    /evidence_write_failed/u,
+  );
+});
 
 test("evidence writes private and sanitized contracts atomically with restricted modes", async () => {
   const root = await mkdtemp(join(tmpdir(), "projectos-evidence-test-"));

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, stat, symlink } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawn } from "node:child_process";
@@ -7,6 +7,7 @@ import test from "node:test";
 
 import {
   assertFixtureUnchanged,
+  auditProjectOSProfileCredentialOwnership,
   createIsolatedRuntimeProfile,
   createSyntheticNormalProfileFixture,
   snapshotFixture,
@@ -35,6 +36,15 @@ test("runtime profile creates unique restricted paths and strict configuration",
   );
   assert.match(first.strictConfigurationFingerprint, /^[a-f0-9]{64}$/u);
   assert.equal(first.childEnvironment.PATH?.split(":")[0], dirname(process.execPath));
+});
+
+test("credential ownership audit fails closed for unexpected profile files without reading them", async () => {
+  const base = await mkdtemp(join(tmpdir(), "projectos-credential-audit-"));
+  const profile = await createIsolatedRuntimeProfile({ baseDirectory: base });
+  await assert.doesNotReject(auditProjectOSProfileCredentialOwnership(profile));
+  const canary = "uninspected-plaintext-token-4da3";
+  await writeFile(join(profile.disposableHome, "ordinary-notes.txt"), canary, { mode: 0o600 });
+  await assert.rejects(auditProjectOSProfileCredentialOwnership(profile), /isolation_failed/u);
 });
 
 test("child environment is exact, scrubbed, and fingerprints values without exposing them", async () => {

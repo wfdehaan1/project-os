@@ -39,9 +39,11 @@ test("forced cleanup reaps only the recorded process group", async (t) => {
 
 test("post-handshake assertion failure still reaps the owned child", async () => {
   const root = await mkdtemp(join(tmpdir(), "projectos-assertion-process-"));
-  const fake = await createFakeCodexRuntime(root, "success");
+  const fake = await createFakeCodexRuntime(root, "assertion-ready");
   const result = await superviseCodexAppServer({
     ...(await fakeCompatibilityCapability(fake, root, "attempt-assertion")),
+    workingDirectory: root,
+    environment: { PATH: "/usr/bin:/bin" },
     initializationTimeoutMs: 500,
     shutdownTimeoutMs: 100,
     correlationId: "corr-assertion",

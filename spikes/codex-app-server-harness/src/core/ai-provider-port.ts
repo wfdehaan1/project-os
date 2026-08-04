@@ -15,6 +15,41 @@ export interface RuntimeValidationRequest {
   readonly certificateConfiguration?: CertificateConfiguration;
 }
 
+/** Deliberately credential-free authentication validation request. */
+export interface AuthenticationValidationRequest extends RuntimeValidationRequest {
+  readonly interactive?: boolean;
+  readonly authenticationTimeoutMs?: number;
+  /** Explicit opt-in to a manifest-pinned recovery flow; never exposes its code/URL. */
+  readonly deviceCodeRecovery?: boolean;
+}
+
+export type AuthenticationState =
+  | "signed_out"
+  | "authenticated_chatgpt"
+  | "cancelled"
+  | "expired"
+  | "failed"
+  | "secure_storage_unavailable"
+  | "unsupported";
+
+export interface AuthenticationValidationSuccess {
+  readonly ok: true;
+  readonly correlationId: string;
+  readonly authenticationState: AuthenticationState;
+  readonly planCategory: "pro" | "other" | "unknown";
+  readonly expectedPro: "matched" | "not_matched" | "unknown";
+  readonly deviceCodeCapability: "supported" | "unsupported";
+  readonly logoutOutcome: "completed" | "not_needed";
+  readonly profileIsolation: "unchanged";
+  readonly credentialOwnership: "codex_keyring_only";
+  readonly retryable: boolean;
+  readonly shutdownOutcome: ShutdownOutcome;
+  readonly providerActionEnabled: false;
+  readonly canonicalStateOperationEnabled: false;
+}
+
+export type AuthenticationValidationResult = AuthenticationValidationSuccess | ProviderFailure;
+
 export type ShutdownOutcome =
   | "not_started"
   | "clean_exit"
@@ -45,4 +80,7 @@ export type RuntimeHealthResult = RuntimeHealthSuccess | ProviderFailure;
 
 export interface AiProviderPort {
   validateRuntime(request: RuntimeValidationRequest): Promise<RuntimeHealthResult>;
+  validateAuthentication?(
+    request: AuthenticationValidationRequest,
+  ): Promise<AuthenticationValidationResult>;
 }

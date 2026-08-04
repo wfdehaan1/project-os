@@ -1,8 +1,8 @@
 # ProjectOS Codex App Server Harness
 
-Disposable, provider-neutral validation harness for ProjectOS Stories 1.1 and 1.2. It discovers a candidate `codex` executable, snapshots its open-file bytes, verifies the exact committed build/binary/stable-schema/method contract, creates an isolated runtime profile, performs only the App Server `initialize`/`initialized` handshake over stdio, records evidence, and terminates the exact child/process group it started.
+Disposable, provider-neutral validation harness for ProjectOS Stories 1.1–1.3. It discovers a candidate `codex` executable, snapshots its open-file bytes, verifies the exact committed build/binary/stable-schema/method contract, creates an isolated runtime profile, performs the init-only protocol handshake by default, and can explicitly validate managed ChatGPT browser login on that same owned child.
 
-This is not a production app scaffold. It does not authenticate, start a thread or turn, call a model, mutate Canonical State, select the future SwiftUI/AppKit stack, or prove the authentication, allowance, structured-output, preventive-containment, restore, or final provider-neutrality gates owned by Stories 1.3–1.9. Protocol compatibility is not preventive execution containment.
+This is not a production app scaffold. It never handles access/refresh tokens, API keys, authorization headers, account IDs, API credits, device codes, or plaintext credential files; it does not start a thread or turn, call a model, mutate Canonical State, or prove allowance, structured-output, preventive-containment, restore, or final provider-neutrality gates. Protocol compatibility is not preventive execution containment.
 
 ## Prerequisites
 
@@ -24,6 +24,7 @@ npm run protocol:validate -- --restart
 npm run test:live
 npm run test:protocol:live
 npm run validate:protocol:live
+PROJECTOS_LIVE_AUTH=1 npm run test:auth:live
 npm run validate:full
 ```
 
@@ -32,6 +33,8 @@ npm run validate:full
 `npm run protocol:validate` is an explicit installed-runtime validation. It discovers the CLI, uses one immutable snapshot for the version probe, stable schema generation, and App Server spawn, compares the committed exact manifest, initializes with `experimentalApi: false`, shuts down its owned process group, and records evidence. Pass `--path PATH` to control PATH lookup or `--restart` to permit exactly one fresh validation attempt after a safely cleaned failure.
 
 `npm run test:live` retains the Story 1.1 live smoke. `npm run test:protocol:live` is the explicit Story 1.2 macOS live smoke. Both perform only local discovery/checking, initialize/initialized, evidence, and owned shutdown; neither logs in, reads an account, or starts thread/turn/provider work.
+
+`PROJECTOS_LIVE_AUTH=1 npm run test:auth:live` is the sole opt-in interactive browser-login validation. Without that explicit environment setting, `npm run test:auth:live` is skipped; it is never part of `npm test`. It invokes `auth-validate --interactive`, opens only the transient Codex-managed URL, uses the manifest-pinned `account/read`, `account/login/start`, `account/login/cancel`, and `account/logout` subset, then logs out the isolated ProjectOS profile. It prints only a normalized result. Do not run it unless you intend to authenticate an eligible ChatGPT subscription in that disposable profile.
 
 To reproduce the complete evidence run on the same supported macOS environment:
 

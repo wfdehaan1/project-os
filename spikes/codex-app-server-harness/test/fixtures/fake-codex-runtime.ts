@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 export type FakeCodexBehavior =
   | "success"
+  | "assertion-ready"
   | "reject"
   | "malformed"
   | "wrong-id-then-match"
@@ -34,7 +35,16 @@ export type FakeCodexBehavior =
   | "eof"
   | "timeout"
   | "unexpected-exit"
-  | "ignore-term";
+  | "ignore-term"
+  | "auth-cancelled"
+  | "auth-expired"
+  | "auth-failed"
+  | "secure-storage-unavailable"
+  | "device-code-supported"
+  | "auth-already-authenticated"
+  | "auth-malformed-read"
+  | "auth-malformed-login"
+  | "auth-malformed-logout";
 
 export async function createFakeCodexRuntime(
   directory: string,
@@ -102,13 +112,19 @@ if (process.argv[2] === "app-server" && process.argv[3]?.startsWith("generate-")
       writeFileSync(output + "/oversized.json", "x".repeat(16 * 1024 * 1024 + 1));
       process.exit(0);
     }
-    writeFileSync(output + "/ClientRequest.json", schema("ClientRequest", behavior === "experimental-output" ? ["experimental/thread", "initialize"] : ["initialize"]));
+    const clientMethods = behavior === "experimental-output" ? ["experimental/thread", "initialize"] : ["account/login/cancel", "account/login/start", "account/logout", "account/read", "initialize"];
+    const clientSchema = behavior === "device-code-supported"
+      ? JSON.stringify({ title: "ClientRequest", oneOf: clientMethods.map((method) => method === "account/login/start"
+        ? { type: "object", properties: { method: { const: method }, params: { type: "object", properties: { type: { const: "device_code" } } } } }
+        : { type: "object", properties: { method: { type: "string", enum: [method] } } }) }, null, 2) + "\\n"
+      : schema("ClientRequest", clientMethods);
+    writeFileSync(output + "/ClientRequest.json", clientSchema);
     writeFileSync(output + "/ClientNotification.json", schema("ClientNotification", ["initialized"]));
-    writeFileSync(output + "/ServerNotification.json", schema("ServerNotification", ["error", "warning"]));
+    writeFileSync(output + "/ServerNotification.json", schema("ServerNotification", ["account/login/completed", "account/updated", "error", "warning"]));
     if (behavior !== "generator-missing") writeFileSync(output + "/ServerRequest.json", schema("ServerRequest", ["item/tool/call"]));
     if (behavior === "generator-extra") writeFileSync(output + "/Experimental.json", schema("Experimental", ["experimental/thread"]));
   } else {
-    writeFileSync(output + "/ClientRequest.ts", behavior === "schema-drift" ? 'export type ClientRequest = "initialize" | "thread/start";\\n' : 'export type ClientRequest = "initialize";\\n');
+    writeFileSync(output + "/ClientRequest.ts", behavior === "schema-drift" ? 'export type ClientRequest = "initialize" | "thread/start";\\n' : 'export type ClientRequest = "account/login/cancel" | "account/login/start" | "account/logout" | "account/read" | "initialize";\\n');
     writeFileSync(output + "/ServerRequest.ts", 'export type ServerRequest = "item/tool/call";\\n');
   }
   process.exit(0);
@@ -120,6 +136,7 @@ if (behavior === "request-before-initialize") {
   process.stdout.write(JSON.stringify({ id: 88, method: "item/tool/call", params: { secret: "not-persisted" } }) + "\\n");
 }
 let buffer = "";
+let authenticated = behavior === "auth-already-authenticated";
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", (chunk) => {
   buffer += chunk;
@@ -184,8 +201,19 @@ process.stdin.on("data", (chunk) => {
         const response = JSON.stringify({ id: message.id, result: { userAgent: "fake-codex" } }) + "\\n";
         process.stdout.write(behavior === "duplicate-match" ? response + response : response);
       }
+    } else if (message.method === "account/read") {
+      process.stdout.write(JSON.stringify({ id: message.id, result: behavior === "auth-malformed-read" ? { account: {} } : { account: authenticated ? { type: "chatgpt", plan: "pro" } : null } }) + "\\n");
+    } else if (message.method === "account/login/start") {
+      process.stdout.write(JSON.stringify({ id: message.id, result: behavior === "auth-malformed-login" ? {} : { url: "https://login.invalid/managed" } }) + "\\n");
+      const loginStatus = behavior === "auth-cancelled" ? "cancelled" : behavior === "auth-expired" ? "expired" : behavior === "auth-failed" ? "failed" : behavior === "secure-storage-unavailable" ? "secure_storage_unavailable" : "completed";
+      authenticated = loginStatus === "completed";
+      process.stdout.write(JSON.stringify({ method: "account/login/completed", params: { status: loginStatus } }) + "\\n");
+      process.stdout.write(JSON.stringify({ method: "account/updated", params: {} }) + "\\n");
+    } else if (message.method === "account/login/cancel" || message.method === "account/logout") {
+      authenticated = false;
+      process.stdout.write(JSON.stringify({ id: message.id, result: behavior === "auth-malformed-logout" ? { unexpected: true } : {} }) + "\\n");
     } else if (message.method === "initialized") {
-      if (behavior === "success" || behavior === "wrong-id-then-match" || behavior === "semantic-notification" || behavior === "timeout-once" || behavior === "late-old-message") setImmediate(() => process.exit(0));
+      if (behavior === "success" || behavior === "wrong-id-then-match" || behavior === "semantic-notification" || behavior === "timeout-once" || behavior === "late-old-message") setTimeout(() => process.exit(0), 75);
       if (behavior === "leader-exits-child-runs") {
         const descendant = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
         writeFileSync(descendantPidPath, String(descendant.pid), { mode: 0o600 });
