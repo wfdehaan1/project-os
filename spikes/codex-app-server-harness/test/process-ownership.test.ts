@@ -7,6 +7,7 @@ import test from "node:test";
 
 import { superviseCodexAppServer } from "../src/adapters/codex/app-server-supervisor.ts";
 import { createFakeCodexRuntime } from "./fixtures/fake-codex-runtime.ts";
+import { fakeCompatibilityCapability } from "./fixtures/fake-compatibility-capability.ts";
 
 test("forced cleanup reaps only the recorded process group", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "projectos-owned-process-"));
@@ -20,15 +21,19 @@ test("forced cleanup reaps only the recorded process group", async (t) => {
   });
 
   const result = await superviseCodexAppServer({
-    executablePath: fake.executablePath,
-    workingDirectory: root,
-    environment: { PATH: "/usr/bin:/bin" },
+    ...(await fakeCompatibilityCapability(fake, root, "attempt-owned")),
     initializationTimeoutMs: 300,
     shutdownTimeoutMs: 50,
     correlationId: "corr-owned",
   });
   assert.equal(result.ok, false);
-  if (!result.ok) assert.equal(result.shutdownOutcome, "forced_termination");
+  if (!result.ok) {
+    assert.equal(result.shutdownOutcome, "forced_termination");
+    assert.equal(result.processGroupReaped, true);
+    assert.equal(result.processGroupId, result.childPid);
+  }
+  const ownedPid = Number.parseInt(await readFile(fake.pidPath, "utf8"), 10);
+  assert.equal(await stopsWithin(ownedPid, 500), true);
   assert.equal(isAlive(unrelated.pid), true);
 });
 
@@ -36,9 +41,7 @@ test("post-handshake assertion failure still reaps the owned child", async () =>
   const root = await mkdtemp(join(tmpdir(), "projectos-assertion-process-"));
   const fake = await createFakeCodexRuntime(root, "success");
   const result = await superviseCodexAppServer({
-    executablePath: fake.executablePath,
-    workingDirectory: root,
-    environment: { PATH: "/usr/bin:/bin" },
+    ...(await fakeCompatibilityCapability(fake, root, "attempt-assertion")),
     initializationTimeoutMs: 500,
     shutdownTimeoutMs: 100,
     correlationId: "corr-assertion",
@@ -56,14 +59,16 @@ test("clean leader exit still reaps descendants in the owned process group", asy
   const root = await mkdtemp(join(tmpdir(), "projectos-clean-leader-process-"));
   const fake = await createFakeCodexRuntime(root, "leader-exits-child-runs");
   const result = await superviseCodexAppServer({
-    executablePath: fake.executablePath,
-    workingDirectory: root,
-    environment: { PATH: "/usr/bin:/bin" },
+    ...(await fakeCompatibilityCapability(fake, root, "attempt-clean-leader")),
     initializationTimeoutMs: 500,
     shutdownTimeoutMs: 50,
     correlationId: "corr-clean-leader",
   });
   assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.processGroupReaped, true);
+    assert.equal(result.processGroupId, result.childPid);
+  }
   const descendantPid = Number.parseInt(await readFile(fake.descendantPidPath, "utf8"), 10);
   assert.equal(await stopsWithin(descendantPid, 500), true);
 });

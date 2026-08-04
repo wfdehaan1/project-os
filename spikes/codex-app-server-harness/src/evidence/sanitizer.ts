@@ -1,7 +1,23 @@
 import { createHash } from "node:crypto";
 import { basename } from "node:path";
 
+import type { ProviderFailureCode } from "../core/failures.ts";
 import type { PrivateRunEvidence, SanitizedRunSummary } from "./evidence-schema.ts";
+
+const BASE_V1_FAILURE_CODES = new Set<ProviderFailureCode>([
+  "runtime_not_found",
+  "runtime_not_executable",
+  "version_probe_failed",
+  "spawn_failed",
+  "initialization_rejected",
+  "malformed_handshake_response",
+  "initialization_timeout",
+  "unexpected_exit_or_eof",
+  "shutdown_timeout",
+  "shutdown_failed",
+  "isolation_failed",
+  "evidence_write_failed",
+]);
 
 export function sanitizeRunEvidence(evidence: PrivateRunEvidence): SanitizedRunSummary {
   const summary = {
@@ -29,7 +45,9 @@ export function sanitizeRunEvidence(evidence: PrivateRunEvidence): SanitizedRunS
     shutdownOutcome: evidence.shutdownOutcome,
     isolationComparison: evidence.isolationComparison,
     result: evidence.result,
-    ...(evidence.failureCode ? { failureCode: evidence.failureCode } : {}),
+    ...(evidence.failureCode && BASE_V1_FAILURE_CODES.has(evidence.failureCode)
+      ? { failureCode: evidence.failureCode }
+      : {}),
     reproductionCommand: evidence.reproductionCommand,
   } satisfies SanitizedRunSummary;
   return Object.freeze(summary);

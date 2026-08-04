@@ -1,16 +1,8 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const coreFiles = ["ai-provider-port.ts", "failures.ts", "lifecycle.ts"] as const;
-const adapterFiles = [
-  "app-server-supervisor.ts",
-  "codex-app-server-adapter.ts",
-  "executable-discovery.ts",
-  "jsonl-rpc-connection.ts",
-  "protocol.ts",
-  "runtime-profile.ts",
-] as const;
 
 test("public provider modules do not import or expose Codex protocol types", async () => {
   for (const file of coreFiles) {
@@ -20,13 +12,62 @@ test("public provider modules do not import or expose Codex protocol types", asy
 });
 
 test("Codex adapter has no domain repository access or production action methods", async () => {
-  const sources = await Promise.all(
-    adapterFiles.map((file) => readFile(new URL(`../src/adapters/codex/${file}`, import.meta.url), "utf8")),
-  );
-  const combined = sources.join("\n");
+  const sources = await sourceTree();
+  const combined = sources.map(({ source }) => source).join("\n");
   assert.doesNotMatch(
     combined,
     /CanonicalStateRepository|ConversationRepository|ChangeProposalRepository|ExportRepository|DeletionRepository/iu,
   );
   assert.doesNotMatch(combined, /thread\/(start|resume)|turn\/start|model\/call/iu);
 });
+
+test("the only App Server spawn path requires a validated opaque capability", async () => {
+  const sources = await sourceTree();
+  const supervisor = await readFile(
+    new URL("../src/adapters/codex/app-server-supervisor.ts", import.meta.url),
+    "utf8",
+  );
+  const contract = await readFile(
+    new URL("../src/adapters/codex/protocol-contract.ts", import.meta.url),
+    "utf8",
+  );
+  const compatibility = await readFile(
+    new URL("../src/adapters/codex/runtime-compatibility.ts", import.meta.url),
+    "utf8",
+  );
+  const appServerSpawnSources = sources.filter(({ source }) =>
+    /\[\s*"app-server"\s*,\s*"--stdio"\s*,\s*"--strict-config"\s*\]/u.test(source),
+  );
+  assert.deepEqual(
+    appServerSpawnSources.map(({ path }) => path),
+    ["adapters/codex/app-server-supervisor.ts"],
+  );
+  assert.equal(
+    sources.reduce(
+      (count, { source }) =>
+        count + (source.match(/"app-server"\s*,\s*"--stdio"\s*,\s*"--strict-config"/gu)?.length ?? 0),
+      0,
+    ),
+    1,
+  );
+  assert.match(supervisor, /authorizeCompatibleAppServerSpawn\(\s*options\.compatibility/iu);
+  assert.doesNotMatch(supervisor, /export\s+(?:async\s+)?function\s+spawnOwned/iu);
+  assert.doesNotMatch(supervisor, /readonly executablePath:|readonly protocolBoundary:/iu);
+  assert.match(compatibility, /const compatibilityCapabilityBrand/iu);
+  assert.doesNotMatch(compatibility, /export\s+const\s+compatibilityCapabilityBrand/iu);
+  assert.doesNotMatch(compatibility, /export\s+function\s+mintCompatibilityCapability/iu);
+  assert.doesNotMatch(contract, /validateProtocolCompatibility|mintCompatibilityCapability/iu);
+});
+
+async function sourceTree(): Promise<readonly { path: string; source: string }[]> {
+  const root = new URL("../src/", import.meta.url);
+  const paths = (await readdir(root, { recursive: true }))
+    .filter((path) => path.endsWith(".ts"))
+    .sort();
+  return Promise.all(
+    paths.map(async (path) => ({
+      path,
+      source: await readFile(new URL(path, root), "utf8"),
+    })),
+  );
+}

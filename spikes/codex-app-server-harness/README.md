@@ -1,8 +1,8 @@
 # ProjectOS Codex App Server Harness
 
-Disposable, provider-neutral validation harness for ProjectOS Story 1.1. It discovers a supported `codex` executable, creates an isolated runtime profile, performs only the App Server `initialize`/`initialized` handshake over stdio, records evidence, and terminates the exact child it started.
+Disposable, provider-neutral validation harness for ProjectOS Stories 1.1 and 1.2. It discovers a candidate `codex` executable, snapshots its open-file bytes, verifies the exact committed build/binary/stable-schema/method contract, creates an isolated runtime profile, performs only the App Server `initialize`/`initialized` handshake over stdio, records evidence, and terminates the exact child/process group it started.
 
-This is not a production app scaffold. It does not authenticate, start a thread or turn, call a model, mutate Canonical State, select the future SwiftUI/AppKit stack, or prove the compatibility, authentication, allowance, structured-output, preventive-containment, restore, or provider-neutrality gates owned by Stories 1.2–1.9.
+This is not a production app scaffold. It does not authenticate, start a thread or turn, call a model, mutate Canonical State, select the future SwiftUI/AppKit stack, or prove the authentication, allowance, structured-output, preventive-containment, restore, or final provider-neutrality gates owned by Stories 1.3–1.9. Protocol compatibility is not preventive execution containment.
 
 ## Prerequisites
 
@@ -18,11 +18,20 @@ Install the pinned development dependencies with `npm ci`.
 npm run typecheck
 npm test
 npm run validate
+npm run validate:protocol
+npm run protocol:validate
+npm run protocol:validate -- --restart
 npm run test:live
+npm run test:protocol:live
+npm run validate:protocol:live
 npm run validate:full
 ```
 
-`npm test` and `npm run validate` are deterministic, offline, and account-free. `npm run test:live` is opt-in: it discovers the installed CLI and performs version capture plus initialize/initialized/owned shutdown only. It never logs in or starts provider work.
+`npm test`, `npm run validate`, and `npm run validate:protocol` are deterministic, offline, fake-backed, and account-free. The focused protocol command includes exact manifest/schema/method, immutable snapshot, deny-by-default transport, restart, concurrency, ownership, and evidence tests.
+
+`npm run protocol:validate` is an explicit installed-runtime validation. It discovers the CLI, uses one immutable snapshot for the version probe, stable schema generation, and App Server spawn, compares the committed exact manifest, initializes with `experimentalApi: false`, shuts down its owned process group, and records evidence. Pass `--path PATH` to control PATH lookup or `--restart` to permit exactly one fresh validation attempt after a safely cleaned failure.
+
+`npm run test:live` retains the Story 1.1 live smoke. `npm run test:protocol:live` is the explicit Story 1.2 macOS live smoke. Both perform only local discovery/checking, initialize/initialized, evidence, and owned shutdown; neither logs in, reads an account, or starts thread/turn/provider work.
 
 To reproduce the complete evidence run on the same supported macOS environment:
 
@@ -30,12 +39,18 @@ To reproduce the complete evidence run on the same supported macOS environment:
 npm ci && npm run validate:full
 ```
 
+For deterministic protocol-only reproduction without an installed runtime:
+
+```sh
+npm ci && npm run validate:protocol
+```
+
 ## Evidence and exit codes
 
-Live runs write permission-restricted local evidence beneath `.evidence/<run-id>/`. `private.json` contains the exact resolved executable and isolated paths required for local verification; `summary.json` is sanitized and shareable. The directory is ignored and must not be committed.
+Installed-runtime runs write permission-restricted local evidence beneath `.evidence/<run-id>/`. `private.json` and `summary.json` preserve the Story 1.1 base v1 contract. `protocol-private.json` plus `protocol-schemas/` retain exact local protocol inputs; `protocol-summary.json` and `protocol-transcript.json` contain the path-free, structural companion record. The directory is ignored and must not be committed. See `evidence/README.md` for the private/shareable boundary.
 
 - `0`: validation passed and required evidence was retained
-- `1`: discovery, initialization, isolation, shutdown, evidence, or test validation failed
-- `2`: command usage or explicit live-smoke prerequisite failure
+- `1`: snapshot, build/binary/schema/method compatibility, initialization, isolation, shutdown, evidence, or test validation failed
+- `2`: protocol-validation CLI usage failure
 
 Failures include a ProjectOS correlation identifier and stable code. They never enable a production provider action or Canonical State operation.

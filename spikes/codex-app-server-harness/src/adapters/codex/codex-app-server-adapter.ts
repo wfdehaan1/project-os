@@ -1,9 +1,9 @@
+import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn, type ChildProcess } from "node:child_process";
 
 import type {
   AiProviderPort,
@@ -19,6 +19,12 @@ import type { LifecyclePhase } from "../../core/lifecycle.ts";
 import type { PrivateRunEvidence } from "../../evidence/evidence-schema.ts";
 import { writeRunEvidence, type EvidencePaths } from "../../evidence/evidence-recorder.ts";
 import {
+  PROTOCOL_EVIDENCE_SCHEMA_VERSION,
+  type PrivateProtocolAttemptEvidence,
+  type ProtocolEvidenceAttachment,
+  type ProtocolEvidencePackage,
+} from "../../evidence/protocol-evidence-schema.ts";
+import {
   superviseCodexAppServer,
   type AppServerSupervisorResult,
 } from "./app-server-supervisor.ts";
@@ -27,38 +33,77 @@ import {
   type ExecutableDiscoveryResult,
 } from "./executable-discovery.ts";
 import {
+  createExecutableSnapshot,
+  type ExecutableSnapshot,
+} from "./executable-snapshot.ts";
+import {
+  validateSnapshotCompatibility,
+  type SnapshotCompatibilityFailureReason,
+  type SnapshotCompatibilityResult,
+} from "./runtime-compatibility.ts";
+import {
   assertFixtureUnchanged,
   createIsolatedRuntimeProfile,
   createSyntheticNormalProfileFixture,
   snapshotFixture,
+  type FixtureSnapshot,
   type IsolatedRuntimeProfile,
 } from "./runtime-profile.ts";
 
 type EvidenceWriter = (
   evidence: PrivateRunEvidence,
   evidenceRoot: string,
+  protocol?: ProtocolEvidencePackage,
 ) => Promise<EvidencePaths>;
 
 export interface CodexAppServerAdapterDependencies {
   readonly discover?: typeof discoverCodexExecutable;
   readonly createProfile?: typeof createIsolatedRuntimeProfile;
-  readonly supervise?: typeof superviseCodexAppServer;
   readonly writeEvidence?: EvidenceWriter;
   readonly evidenceRoot?: string;
+  readonly manifestPath?: string;
   readonly now?: () => Date;
   readonly runId?: () => string;
   readonly correlationId?: () => string;
 }
 
+interface AttemptState {
+  readonly attemptId: string;
+  readonly correlationId: string;
+  readonly discovery: ExecutableDiscoveryResult | undefined;
+  readonly profile: IsolatedRuntimeProfile | undefined;
+  readonly snapshot: ExecutableSnapshot | undefined;
+  readonly compatibility: SnapshotCompatibilityResult | undefined;
+  readonly supervisor: AppServerSupervisorResult | undefined;
+  readonly failure: ProviderFailure | undefined;
+  readonly underlyingFailure: ProviderFailure | undefined;
+  readonly isolationComparison: PrivateRunEvidence["isolationComparison"];
+}
+
+interface AttemptContext {
+  readonly request: RuntimeValidationRequest;
+  readonly correlationId: string;
+  readonly fixtureRoot: string;
+  readonly normalProfile: string;
+  readonly normalProfileBefore: FixtureSnapshot;
+  readonly sentinel: ChildProcess;
+}
+
 const DEFAULT_EVIDENCE_ROOT = fileURLToPath(new URL("../../../.evidence", import.meta.url));
+const DEFAULT_MANIFEST_PATH = fileURLToPath(
+  new URL("../../../protocol/supported-runtime-manifest.json", import.meta.url),
+);
 const REPRODUCTION_COMMAND = "npm ci && npm run validate:full";
+const PROTOCOL_REPRODUCTION_COMMAND = "npm ci && npm run protocol:validate";
+const PROTOCOL_RESTART_REPRODUCTION_COMMAND =
+  "npm ci && npm run protocol:validate -- --restart";
 
 export class CodexAppServerAdapter implements AiProviderPort {
   readonly #discover: typeof discoverCodexExecutable;
   readonly #createProfile: typeof createIsolatedRuntimeProfile;
-  readonly #supervise: typeof superviseCodexAppServer;
   readonly #writeEvidence: EvidenceWriter;
   readonly #evidenceRoot: string;
+  readonly #manifestPath: string;
   readonly #now: () => Date;
   readonly #runId: () => string;
   readonly #correlationId: () => string;
@@ -66,9 +111,9 @@ export class CodexAppServerAdapter implements AiProviderPort {
   constructor(dependencies: CodexAppServerAdapterDependencies = {}) {
     this.#discover = dependencies.discover ?? discoverCodexExecutable;
     this.#createProfile = dependencies.createProfile ?? createIsolatedRuntimeProfile;
-    this.#supervise = dependencies.supervise ?? superviseCodexAppServer;
     this.#writeEvidence = dependencies.writeEvidence ?? writeRunEvidence;
     this.#evidenceRoot = dependencies.evidenceRoot ?? DEFAULT_EVIDENCE_ROOT;
+    this.#manifestPath = dependencies.manifestPath ?? DEFAULT_MANIFEST_PATH;
     this.#now = dependencies.now ?? (() => new Date());
     this.#runId = dependencies.runId ?? (() => `run-${randomUUID()}`);
     this.#correlationId = dependencies.correlationId ?? createCorrelationId;
@@ -78,66 +123,68 @@ export class CodexAppServerAdapter implements AiProviderPort {
     const startedAt = this.#now().toISOString();
     const runId = this.#runId();
     const correlationId = this.#correlationId();
-    let discovery: ExecutableDiscoveryResult | undefined;
-    let profile: IsolatedRuntimeProfile | undefined;
-    let supervisor: AppServerSupervisorResult | undefined;
-    let failure: ProviderFailure | undefined;
-    let isolationComparison: PrivateRunEvidence["isolationComparison"] = "not_completed";
+    const attempts: AttemptState[] = [];
     let sentinel: ChildProcess | undefined;
+    let finalAttempt: AttemptState;
 
     try {
-      discovery = await this.#discover({
-        ...(request.path ? { path: request.path } : {}),
-        ...(request.executableName ? { executableName: request.executableName } : {}),
+      const fixtureRoot = await mkdtemp(join(tmpdir(), "projectos-harness-fixture-"));
+      const normalProfile = await createSyntheticNormalProfileFixture(
+        join(fixtureRoot, "normal-profile"),
+      );
+      const normalProfileBefore = await snapshotFixture(normalProfile);
+      sentinel = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+        detached: process.platform !== "win32",
+        env: {},
+        stdio: "ignore",
       });
-      if (!discovery.ok) {
-        failure = withCorrelation(discovery, correlationId);
-      } else {
-        const fixtureRoot = await mkdtemp(join(tmpdir(), "projectos-harness-fixture-"));
-        const normalProfile = await createSyntheticNormalProfileFixture(
-          join(fixtureRoot, "normal-profile"),
-        );
-        const before = await snapshotFixture(normalProfile);
-        sentinel = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
-          detached: process.platform !== "win32",
-          env: {},
-          stdio: "ignore",
-        });
-        profile = await this.#createProfile({
-          baseDirectory: join(fixtureRoot, "runs"),
-          normalProfileRoot: normalProfile,
-          ...(request.certificateConfiguration
-            ? { certificateConfiguration: request.certificateConfiguration }
-            : {}),
-        });
-        supervisor = await this.#supervise({
-          executablePath: discovery.executablePath,
-          workingDirectory: profile.workingDirectory,
-          environment: profile.childEnvironment,
-          initializationTimeoutMs: request.initializationTimeoutMs ?? 5_000,
-          shutdownTimeoutMs: request.shutdownTimeoutMs ?? 500,
-          correlationId,
-        });
-        try {
-          await assertFixtureUnchanged(before, await snapshotFixture(normalProfile));
-        } catch {
-          isolationComparison = "changed";
-          throw new Error("isolation_failed");
+      const context: AttemptContext = {
+        request,
+        correlationId,
+        fixtureRoot,
+        normalProfile,
+        normalProfileBefore,
+        sentinel,
+      };
+      const first = await this.#runAttempt(context, 1);
+      attempts.push(first);
+      finalAttempt = first;
+
+      if (request.restart === true && first.failure) {
+        if (!restartIsSafe(first)) {
+          finalAttempt = withRestartFailure(first);
+          attempts[0] = finalAttempt;
+        } else {
+          const second = await this.#runAttempt(context, 2);
+          attempts.push(second);
+          finalAttempt = second.failure ? withRestartFailure(second) : second;
+          attempts[1] = finalAttempt;
         }
-        if (!isAlive(sentinel.pid)) throw new Error("isolation_failed");
-        isolationComparison = "unchanged";
-        if (!supervisor.ok) failure = supervisor;
       }
     } catch {
-      failure = createProviderFailure({
-        code: "isolation_failed",
-        correlationId,
-        remediation: { action: "check_permissions", reference: "isolated_runtime" },
-      });
+      const attemptId = `attempt-1-${randomUUID()}`;
+      const attemptCorrelationId = attemptCorrelation(correlationId, attemptId);
+      finalAttempt = failedAttempt(
+        attemptId,
+        attemptCorrelationId,
+        createProviderFailure({
+          code: "isolation_failed",
+          correlationId: attemptCorrelationId,
+          remediation: { action: "check_permissions", reference: "isolated_runtime" },
+          diagnosticReference: diagnosticReference(attemptCorrelationId),
+        }),
+      );
+      attempts.push(finalAttempt);
     }
 
+    let failure = finalAttempt.failure;
+    const discovery = finalAttempt.discovery;
+    const profile = finalAttempt.profile;
+    const compatibility = finalAttempt.compatibility;
+    const supervisor = finalAttempt.supervisor;
     const lifecycle = supervisor?.lifecycle ?? defaultFailureLifecycle(discovery);
     const shutdownOutcome = supervisor?.shutdownOutcome ?? "not_started";
+    const authoritativeVersion = compatibility?.detectedBuild ?? null;
     const privateEvidence: PrivateRunEvidence = {
       schemaVersion: 1,
       runId,
@@ -146,7 +193,7 @@ export class CodexAppServerAdapter implements AiProviderPort {
       completedAt: this.#now().toISOString(),
       harnessVersion: "0.1.0",
       nodeVersion: process.version,
-      runtimeVersion: discovery?.ok ? discovery.version : null,
+      runtimeVersion: authoritativeVersion,
       candidateExecutablePath: discovery?.ok ? discovery.candidatePath : null,
       resolvedExecutablePath: discovery?.ok ? discovery.executablePath : null,
       runtimePaths: profile
@@ -166,42 +213,372 @@ export class CodexAppServerAdapter implements AiProviderPort {
       lifecycle,
       handshakeOutcome: supervisor?.ok ? "initialized" : "failed",
       shutdownOutcome,
-      isolationComparison,
+      isolationComparison: finalAttempt.isolationComparison,
       result: failure ? "failed" : "passed",
       failureCode: failure?.code,
       reproductionCommand: REPRODUCTION_COMMAND,
     };
 
     try {
-      await this.#writeEvidence(privateEvidence, this.#evidenceRoot);
-    } catch (error: unknown) {
-      void error;
+      await this.#writeEvidence(
+        privateEvidence,
+        this.#evidenceRoot,
+        createProtocolEvidencePackage(
+          runId,
+          correlationId,
+          attempts,
+          failure,
+          request.restart === true,
+        ),
+      );
+    } catch {
       failure = createProviderFailure({
         code: "evidence_write_failed",
         correlationId,
         remediation: { action: "check_permissions", reference: "evidence_directory" },
+        diagnosticReference: diagnosticReference(correlationId),
       });
     } finally {
       stopSentinel(sentinel);
     }
 
     if (failure) return failure;
-    if (!discovery?.ok || !supervisor?.ok) {
+    if (!discovery?.ok || !supervisor?.ok || !compatibility?.ok) {
       return createProviderFailure({
         code: "isolation_failed",
         correlationId,
         remediation: { action: "inspect_local_evidence" },
+        diagnosticReference: diagnosticReference(correlationId),
       });
     }
     return Object.freeze({
       ok: true,
       correlationId,
       lifecycle: supervisor.lifecycle,
-      runtimeVersion: discovery.version,
+      runtimeVersion: compatibility.detectedBuild,
+      compatibilityStatus: "compatible",
+      attemptId: finalAttempt.attemptId,
+      attemptCount: attempts.length as 1 | 2,
+      manifestId: compatibility.manifest.manifestId,
+      schemaDigests: Object.freeze({
+        jsonSha256: compatibility.generated.jsonBundle.aggregateSha256,
+        typescriptSha256: compatibility.generated.typescriptBundle.aggregateSha256,
+      }),
       shutdownOutcome: supervisor.shutdownOutcome,
       providerActionEnabled: false,
       canonicalStateOperationEnabled: false,
     });
+  }
+
+  async #runAttempt(context: AttemptContext, generation: 1 | 2): Promise<AttemptState> {
+    const attemptId = `attempt-${generation}-${randomUUID()}`;
+    const correlationId = attemptCorrelation(context.correlationId, attemptId);
+    let discovery: ExecutableDiscoveryResult | undefined;
+    let profile: IsolatedRuntimeProfile | undefined;
+    let snapshot: ExecutableSnapshot | undefined;
+    let compatibility: SnapshotCompatibilityResult | undefined;
+    let supervisor: AppServerSupervisorResult | undefined;
+    let failure: ProviderFailure | undefined;
+    let isolationComparison: PrivateRunEvidence["isolationComparison"] = "not_completed";
+
+    try {
+      discovery = await this.#discover({
+        ...(context.request.path ? { path: context.request.path } : {}),
+        ...(context.request.executableName
+          ? { executableName: context.request.executableName }
+          : {}),
+      });
+      if (!discovery.ok) {
+        failure = withCorrelation(discovery, correlationId);
+      } else {
+        profile = await this.#createProfile({
+          baseDirectory: join(context.fixtureRoot, "runs"),
+          normalProfileRoot: context.normalProfile,
+          ...(context.request.certificateConfiguration
+            ? { certificateConfiguration: context.request.certificateConfiguration }
+            : {}),
+        });
+        try {
+          snapshot = await createExecutableSnapshot({
+            sourcePath: discovery.executablePath,
+            instanceDirectory: profile.runtimeRoot,
+          });
+        } catch {
+          failure = createProviderFailure({
+            code: "runtime_snapshot_failed",
+            correlationId,
+            remediation: { action: "inspect_local_evidence", reference: "runtime_snapshot" },
+            compatibilityStatus: "incompatible",
+            diagnosticReference: diagnosticReference(correlationId),
+          });
+        }
+        if (snapshot) {
+          compatibility = await validateSnapshotCompatibility({
+            attemptId,
+            snapshot,
+            manifestPath: this.#manifestPath,
+            environment: profile.childEnvironment,
+            workingDirectory: profile.workingDirectory,
+            stagingDirectory: join(profile.runtimeRoot, "protocol-generated"),
+            versionTimeoutMs: 2_000,
+            generatorTimeoutMs: 5_000,
+            generatorShutdownStepMs: 500,
+          });
+          if (!compatibility.ok) {
+            failure = compatibilityFailure(compatibility, correlationId);
+          } else {
+            supervisor = await superviseCodexAppServer({
+              workingDirectory: profile.workingDirectory,
+              environment: profile.childEnvironment,
+              initializationTimeoutMs: context.request.initializationTimeoutMs ?? 5_000,
+              shutdownTimeoutMs: context.request.shutdownTimeoutMs ?? 500,
+              correlationId,
+              attemptId,
+              compatibility: compatibility.capability,
+            });
+            if (!supervisor.ok) failure = supervisor;
+          }
+        }
+      }
+
+      await assertFixtureUnchanged(
+        context.normalProfileBefore,
+        await snapshotFixture(context.normalProfile),
+      );
+      if (!isAlive(context.sentinel.pid)) throw new Error("isolation_failed");
+      isolationComparison = "unchanged";
+    } catch {
+      isolationComparison = profile ? "changed" : "not_completed";
+      failure = createProviderFailure({
+        code: "isolation_failed",
+        correlationId,
+        remediation: { action: "check_permissions", reference: "isolated_runtime" },
+        diagnosticReference: diagnosticReference(correlationId),
+      });
+    }
+
+    return Object.freeze({
+      attemptId,
+      correlationId,
+      discovery,
+      profile,
+      snapshot,
+      compatibility,
+      supervisor,
+      failure,
+      underlyingFailure: undefined,
+      isolationComparison,
+    });
+  }
+}
+
+function createProtocolEvidencePackage(
+  runId: string,
+  correlationId: string,
+  attempts: readonly AttemptState[],
+  failure: ProviderFailure | undefined,
+  restartRequested: boolean,
+): ProtocolEvidencePackage {
+  const privateAttempts = attempts.map((attempt, index) =>
+    createPrivateProtocolAttempt(attempt, (index + 1) as 1 | 2),
+  );
+  const attachments: ProtocolEvidenceAttachment[] = [];
+  for (const [index, attempt] of attempts.entries()) {
+    const generated = generatedSchemas(attempt.compatibility);
+    if (!generated) continue;
+    const generation = index + 1;
+    attachments.push(
+      Object.freeze({
+        kind: "json" as const,
+        sourceDirectory: generated.jsonDirectory,
+        destinationRelativePath: `protocol-schemas/attempt-${generation}/json`,
+        expectedBundle: generated.jsonBundle,
+      }),
+      Object.freeze({
+        kind: "typescript" as const,
+        sourceDirectory: generated.typescriptDirectory,
+        destinationRelativePath: `protocol-schemas/attempt-${generation}/typescript`,
+        expectedBundle: generated.typescriptBundle,
+      }),
+    );
+  }
+  return Object.freeze({
+    privateEvidence: Object.freeze({
+      schemaVersion: PROTOCOL_EVIDENCE_SCHEMA_VERSION,
+      runId,
+      correlationId,
+      result: failure ? "failed" : "passed",
+      failureCode: failure?.code ?? null,
+      reproductionCommand: restartRequested
+        ? PROTOCOL_RESTART_REPRODUCTION_COMMAND
+        : PROTOCOL_REPRODUCTION_COMMAND,
+      attempts: Object.freeze(privateAttempts),
+    }),
+    attachments: Object.freeze(attachments),
+  });
+}
+
+function createPrivateProtocolAttempt(
+  attempt: AttemptState,
+  generation: 1 | 2,
+): PrivateProtocolAttemptEvidence {
+  const compatibility = attempt.compatibility;
+  const manifest = compatibility?.ok ? compatibility.manifest : compatibility?.manifest;
+  const manifestDigest = compatibility?.ok
+    ? compatibility.manifestDigest
+    : compatibility?.manifestDigest;
+  const generated = generatedSchemas(compatibility);
+  const generationAttempted = compatibility?.ok || compatibility?.generationAttempted === true;
+  const schemaRoot = attempt.profile ? join(attempt.profile.runtimeRoot, "protocol-generated") : null;
+  const detectedMethods = compatibility?.detectedMethods;
+  return Object.freeze({
+    generation,
+    attemptId: attempt.attemptId,
+    correlationId: attempt.correlationId,
+    failureCode: attempt.failure?.code ?? null,
+    underlyingFailureCode: attempt.underlyingFailure?.code ?? null,
+    scope: attempt.isolationComparison === "changed" ? "concurrent_instance" : null,
+    compatibilityOutcome: compatibility?.ok ? "compatible" : compatibility ? "incompatible" : "not_checked",
+    detectedBuild: compatibility?.detectedBuild ?? null,
+    platform: process.platform,
+    architecture: process.arch,
+    binaryContentSha256: attempt.snapshot?.binaryContentSha256 ?? null,
+    manifestId: manifest?.manifestId ?? null,
+    manifestDigest: manifestDigest ?? null,
+    manifest: manifest ?? null,
+    resolvedExecutablePath: attempt.discovery?.ok ? attempt.discovery.executablePath : null,
+    snapshotExecutablePath: attempt.snapshot?.executablePath ?? null,
+    jsonSchemaDirectory: generationAttempted && schemaRoot ? join(schemaRoot, "json") : null,
+    typescriptSchemaDirectory: generationAttempted && schemaRoot ? join(schemaRoot, "typescript") : null,
+    exactJsonArgv: generationAttempted && attempt.snapshot && schemaRoot
+      ? [attempt.snapshot.executablePath, "app-server", "generate-json-schema", "--out", join(schemaRoot, "json")]
+      : null,
+    exactTypescriptArgv: generationAttempted && attempt.snapshot && schemaRoot
+      ? [attempt.snapshot.executablePath, "app-server", "generate-ts", "--out", join(schemaRoot, "typescript")]
+      : null,
+    schemas: generated ? Object.freeze({
+      json: generated.jsonBundle,
+      typescript: generated.typescriptBundle,
+    }) : null,
+    requiredMethods: manifest?.requiredMethods ?? null,
+    detectedMethods: detectedMethods ?? null,
+    enabledDispatch: manifest?.enabledDispatch ?? null,
+    lifecycle: attempt.supervisor?.lifecycle ?? defaultFailureLifecycle(attempt.discovery),
+    shutdownOutcome: attempt.supervisor?.shutdownOutcome ?? "not_started",
+    preflightProcessGroupsReaped: compatibility?.ownedProcessesReaped ?? null,
+    processOwnership: attempt.supervisor
+      ? Object.freeze({
+          childPid: attempt.supervisor.childPid,
+          processGroupId: attempt.supervisor.processGroupId,
+          reaped: attempt.supervisor.processGroupReaped,
+        })
+      : null,
+    diagnosticReference: attempt.failure
+      ? attempt.failure.diagnosticReference ?? diagnosticReference(attempt.correlationId)
+      : null,
+    transcript: attempt.supervisor?.transcript ?? [],
+  });
+}
+
+function generatedSchemas(
+  compatibility: SnapshotCompatibilityResult | undefined,
+) {
+  return compatibility?.ok ? compatibility.generated : compatibility?.generated;
+}
+
+function withRestartFailure(attempt: AttemptState): AttemptState {
+  const underlying = attempt.failure;
+  return Object.freeze({
+    ...attempt,
+    underlyingFailure: underlying,
+    failure: createProviderFailure({
+      code: "restart_failed",
+      correlationId: attempt.correlationId,
+      remediation: { action: "inspect_local_evidence", reference: underlying?.code ?? "restart" },
+      compatibilityStatus: "incompatible",
+      ...(underlying?.detectedBuild ? { detectedBuild: underlying.detectedBuild } : {}),
+      ...(underlying?.supportedBuild ? { supportedBuild: underlying.supportedBuild } : {}),
+      diagnosticReference: diagnosticReference(attempt.correlationId),
+    }),
+  });
+}
+
+function restartIsSafe(attempt: AttemptState): boolean {
+  if (attempt.compatibility?.ownedProcessesReaped === false) return false;
+  if (!attempt.supervisor) return true;
+  if (["shutdown_timeout", "shutdown_failed"].includes(attempt.failure?.code ?? "")) return false;
+  return (
+    attempt.supervisor.processGroupReaped &&
+    attempt.supervisor.shutdownOutcome !== "shutdown_failure"
+  );
+}
+
+function failedAttempt(
+  attemptId: string,
+  correlationId: string,
+  failure: ProviderFailure,
+): AttemptState {
+  return Object.freeze({
+    attemptId,
+    correlationId,
+    discovery: undefined,
+    profile: undefined,
+    snapshot: undefined,
+    compatibility: undefined,
+    supervisor: undefined,
+    failure,
+    underlyingFailure: undefined,
+    isolationComparison: "not_completed",
+  });
+}
+
+function attemptCorrelation(runCorrelationId: string, attemptId: string): string {
+  return `${runCorrelationId}:${attemptId}`;
+}
+
+function compatibilityFailure(
+  compatibility: Extract<SnapshotCompatibilityResult, { readonly ok: false }>,
+  correlationId: string,
+): ProviderFailure {
+  const code = compatibilityFailureCode(compatibility.reason);
+  return createProviderFailure({
+    code,
+    correlationId,
+    remediation: {
+      action: ["unsupported_runtime_build", "protocol_binary_mismatch"].includes(code)
+        ? "repair_runtime"
+        : "inspect_local_evidence",
+      reference: code,
+    },
+    compatibilityStatus: "incompatible",
+    ...(compatibility.detectedBuild ? { detectedBuild: compatibility.detectedBuild } : {}),
+    ...(compatibility.supportedBuild ? { supportedBuild: compatibility.supportedBuild } : {}),
+    diagnosticReference: diagnosticReference(correlationId),
+  });
+}
+
+function compatibilityFailureCode(
+  reason: SnapshotCompatibilityFailureReason,
+): ProviderFailure["code"] {
+  switch (reason) {
+    case "unsupported_build":
+    case "unsupported_platform":
+    case "unsupported_architecture":
+      return "unsupported_runtime_build";
+    case "binary_mismatch":
+      return "protocol_binary_mismatch";
+    case "invalid_manifest":
+      return "invalid_protocol_manifest";
+    case "schema_generation_failed":
+      return "schema_generation_failed";
+    case "schema_mismatch":
+      return "protocol_schema_mismatch";
+    case "missing_required_method":
+      return "missing_required_method";
+    case "unsupported_dispatch":
+      return "unsupported_dispatch";
+    case "runtime_terminated":
+      return "runtime_terminated_during_checking";
   }
 }
 
@@ -210,6 +587,7 @@ function withCorrelation(failure: ProviderFailure, correlationId: string): Provi
     code: failure.code,
     correlationId,
     remediation: failure.remediation,
+    diagnosticReference: diagnosticReference(correlationId),
   });
 }
 
@@ -217,6 +595,10 @@ function defaultFailureLifecycle(
   discovery: ExecutableDiscoveryResult | undefined,
 ): readonly LifecyclePhase[] {
   return discovery?.ok ? ["undiscovered", "discovered", "failed"] : ["undiscovered", "failed"];
+}
+
+function diagnosticReference(correlationId: string): string {
+  return `protocol-${Buffer.from(correlationId).toString("base64url").slice(0, 24)}`;
 }
 
 function isAlive(pid: number | undefined): boolean {

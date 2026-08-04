@@ -37,9 +37,19 @@ test("terminal lifecycle states cannot be revived by late events", () => {
   assert.equal(failed.phase, "failed");
 
   const stopped = new LifecycleTracker();
-  assert.equal(stopped.fail(), true);
+  for (const phase of [
+    "discovered",
+    "starting",
+    "initializing",
+    "initialized",
+    "stopping",
+    "stopped",
+  ] as const) {
+    assert.equal(stopped.transition(phase), true);
+  }
   assert.equal(stopped.fail(), false);
   assert.equal(stopped.transition("stopping"), false);
+  assert.equal(stopped.phase, "stopped");
 });
 
 test("provider failures use every distinct stable story code and safe remediation metadata", () => {
@@ -47,6 +57,17 @@ test("provider failures use every distinct stable story code and safe remediatio
     "runtime_not_found",
     "runtime_not_executable",
     "version_probe_failed",
+    "runtime_snapshot_failed",
+    "unsupported_runtime_build",
+    "protocol_binary_mismatch",
+    "schema_generation_failed",
+    "invalid_protocol_manifest",
+    "protocol_schema_mismatch",
+    "missing_required_method",
+    "unsupported_dispatch",
+    "protocol_compatibility_required",
+    "runtime_terminated_during_checking",
+    "restart_failed",
     "spawn_failed",
     "initialization_rejected",
     "malformed_handshake_response",

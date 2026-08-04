@@ -8,13 +8,19 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types 'test/**/*.test.ts'",
+    "test": "PROJECTOS_LIVE_CODEX=0 PROJECTOS_LIVE_PROTOCOL=0 node --test --experimental-strip-types 'test/**/*.test.ts'",
+    "protocol:validate": "node --experimental-strip-types src/cli.ts protocol-validate",
+    "test:protocol": "PROJECTOS_LIVE_CODEX=0 PROJECTOS_LIVE_PROTOCOL=0 node --test --experimental-strip-types test/adapter-boundary.test.ts test/cli.test.ts test/core-contract.test.ts test/executable-snapshot.test.ts test/jsonl-handshake.test.ts test/multi-instance.test.ts test/process-ownership.test.ts test/protocol-contract.test.ts test/protocol-evidence.test.ts test/protocol-restart.test.ts test/runtime-compatibility.test.ts test/workspace.test.ts",
+    "test:protocol:live": "PROJECTOS_LIVE_PROTOCOL=1 node --test --experimental-strip-types test/live-protocol-contract.smoke.test.ts",
     "test:live": "PROJECTOS_LIVE_CODEX=1 node --test --experimental-strip-types test/live-macos.smoke.test.ts",
     "validate": "npm run typecheck && npm test",
-    "validate:full": "npm run validate && npm run test:live"
+    "validate:protocol": "npm run typecheck && npm run test:protocol",
+    "validate:protocol:live": "npm run validate:protocol && npm run test:protocol:live",
+    "validate:full": "npm run validate && npm run test:live && npm run test:protocol:live"
   },
   "devDependencies": {
     "@types/node": "24.10.12",
+    "ajv": "^8.20.0",
     "typescript": "~7.0.2"
   }
 }

@@ -12,29 +12,42 @@ import {
   type ProviderFailureCode,
 } from "../../core/failures.ts";
 import { LifecycleTracker, type LifecyclePhase } from "../../core/lifecycle.ts";
-import { JsonlRpcConnection } from "./jsonl-rpc-connection.ts";
+import {
+  JsonlRpcConnection,
+  type StructuralProtocolTranscriptEntry,
+} from "./jsonl-rpc-connection.ts";
 import { HandshakeProtocolError } from "./protocol.ts";
+import {
+  authorizeCompatibleAppServerSpawn,
+  type CompatibleAppServerSpawnAuthorization,
+  type CompatibilityCapability,
+} from "./runtime-compatibility.ts";
 
 const STDERR_HASH_LIMIT = 64 * 1024;
 
 export interface AppServerSupervisorOptions {
-  readonly executablePath: string;
   readonly workingDirectory: string;
   readonly environment: Readonly<Record<string, string>>;
   readonly initializationTimeoutMs: number;
   readonly shutdownTimeoutMs: number;
   readonly correlationId: string;
+  readonly attemptId: string;
+  readonly compatibility: CompatibilityCapability;
   readonly postInitializeCheck?: () => void;
 }
 
 export interface AppServerSupervisorSuccess {
   readonly ok: true;
   readonly correlationId: string;
+  readonly attemptId: string;
   readonly lifecycle: readonly LifecyclePhase[];
   readonly handshakeOutcome: "initialized";
   readonly shutdownOutcome: ShutdownOutcome;
   readonly childPid: number;
+  readonly processGroupId: number | null;
+  readonly processGroupReaped: boolean;
   readonly stderrFingerprint: string;
+  readonly transcript: readonly StructuralProtocolTranscriptEntry[];
   readonly providerActionEnabled: false;
   readonly canonicalStateOperationEnabled: false;
 }
@@ -43,7 +56,11 @@ export interface AppServerSupervisorFailure extends ProviderFailure {
   readonly lifecycle: readonly LifecyclePhase[];
   readonly handshakeOutcome: "failed";
   readonly shutdownOutcome: ShutdownOutcome;
+  readonly childPid: number | null;
+  readonly processGroupId: number | null;
+  readonly processGroupReaped: boolean;
   readonly stderrFingerprint: string;
+  readonly transcript: readonly StructuralProtocolTranscriptEntry[];
 }
 
 export type AppServerSupervisorResult =
@@ -60,16 +77,22 @@ export async function superviseCodexAppServer(
 ): Promise<AppServerSupervisorResult> {
   const lifecycle = new LifecycleTracker();
   lifecycle.transition("discovered");
-  lifecycle.transition("starting");
   const stderrHash = createHash("sha256");
   let stderrBytes = 0;
   let child: ChildProcessWithoutNullStreams | undefined;
   let connection: JsonlRpcConnection | undefined;
   let failureCode: ProviderFailureCode | undefined;
   let onStderrData: ((chunk: Buffer) => void) | undefined;
+  let authorization: CompatibleAppServerSpawnAuthorization | undefined;
+  const transcript: StructuralProtocolTranscriptEntry[] = [];
 
   try {
-    child = spawnOwned(options);
+    authorization = authorizeCompatibleAppServerSpawn(
+      options.compatibility,
+      options.attemptId,
+    );
+    lifecycle.transition("starting");
+    child = spawnOwned(options, authorization);
     onStderrData = (chunk: Buffer): void => {
       const remaining = STDERR_HASH_LIMIT - stderrBytes;
       if (remaining <= 0) return;
@@ -80,7 +103,11 @@ export async function superviseCodexAppServer(
     child.stderr.on("data", onStderrData);
     await waitForSpawn(child);
     lifecycle.transition("initializing");
-    connection = new JsonlRpcConnection(child);
+    connection = new JsonlRpcConnection(child, {
+      attemptId: options.attemptId,
+      protocolBoundary: authorization.protocolBoundary,
+      transcriptSink: (entry) => transcript.push(entry),
+    });
     await connection.initialize(options.initializationTimeoutMs);
     try {
       options.postInitializeCheck?.();
@@ -111,40 +138,54 @@ export async function superviseCodexAppServer(
     onStderrData,
     options.shutdownTimeoutMs,
   );
+  const childPid = child?.pid ?? null;
+  const processGroupId = process.platform === "win32" ? null : childPid;
+  const processGroupReaped = !isOwnedProcessGroupAlive(child);
 
   if (failureCode !== undefined) {
     const failure = createProviderFailure({
       code: failureCode,
       correlationId: options.correlationId,
       remediation: {
-        action:
-          failureCode === "spawn_failed" ? "repair_runtime" : "inspect_local_evidence",
+        action: failureCode === "spawn_failed" ? "repair_runtime" : "inspect_local_evidence",
         reference: failureCode,
       },
+      diagnosticReference: diagnosticReference(options.correlationId, options.attemptId),
     });
     return Object.freeze({
       ...failure,
       lifecycle: lifecycle.history,
       handshakeOutcome: "failed",
       shutdownOutcome,
+      childPid,
+      processGroupId,
+      processGroupReaped,
       stderrFingerprint,
+      transcript: Object.freeze([...transcript]),
     });
   }
 
   return Object.freeze({
     ok: true,
     correlationId: options.correlationId,
+    attemptId: options.attemptId,
     lifecycle: lifecycle.history,
     handshakeOutcome: "initialized",
     shutdownOutcome,
-    childPid: child?.pid ?? -1,
+    childPid: childPid ?? -1,
+    processGroupId,
+    processGroupReaped,
     stderrFingerprint,
+    transcript: Object.freeze([...transcript]),
     providerActionEnabled: false,
     canonicalStateOperationEnabled: false,
   });
 }
 
-function spawnOwned(options: AppServerSupervisorOptions): ChildProcessWithoutNullStreams {
+function spawnOwned(
+  options: AppServerSupervisorOptions,
+  authorization: CompatibleAppServerSpawnAuthorization,
+): ChildProcessWithoutNullStreams {
   const spawnOptions: SpawnOptionsWithoutStdio = {
     cwd: options.workingDirectory,
     env: { ...options.environment },
@@ -152,7 +193,7 @@ function spawnOwned(options: AppServerSupervisorOptions): ChildProcessWithoutNul
     shell: false,
   };
   return spawn(
-    options.executablePath,
+    authorization.executablePath,
     ["app-server", "--stdio", "--strict-config"],
     { ...spawnOptions, stdio: ["pipe", "pipe", "pipe"] },
   );
@@ -200,8 +241,10 @@ function signalOwned(child: ChildProcessWithoutNullStreams, signal: NodeJS.Signa
   }
 }
 
-function isOwnedProcessGroupAlive(child: ChildProcessWithoutNullStreams): boolean {
-  if (!child.pid) return false;
+function isOwnedProcessGroupAlive(
+  child: ChildProcessWithoutNullStreams | undefined,
+): boolean {
+  if (!child?.pid) return false;
   if (process.platform === "win32") return child.exitCode === null && child.signalCode === null;
   try {
     process.kill(-child.pid, 0);
@@ -275,6 +318,9 @@ function classifyFailure(
 ): ProviderFailureCode {
   if (error instanceof SupervisorAssertionError) return "isolation_failed";
   if (error instanceof HandshakeProtocolError) return error.code;
+  if (error instanceof Error && error.message === "protocol_compatibility_required") {
+    return "protocol_compatibility_required";
+  }
   if (child === undefined || child.pid === undefined) return "spawn_failed";
   return "unexpected_exit_or_eof";
 }
@@ -284,4 +330,11 @@ class SupervisorAssertionError extends Error {
     super("isolation_failed");
     this.name = "SupervisorAssertionError";
   }
+}
+
+function diagnosticReference(correlationId: string, attemptId: string): string {
+  return `protocol-${createHash("sha256")
+    .update(`${correlationId}:${attemptId}`)
+    .digest("hex")
+    .slice(0, 24)}`;
 }

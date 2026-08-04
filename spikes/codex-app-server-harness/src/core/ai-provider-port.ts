@@ -11,6 +11,7 @@ export interface RuntimeValidationRequest {
   readonly path?: string;
   readonly initializationTimeoutMs?: number;
   readonly shutdownTimeoutMs?: number;
+  readonly restart?: boolean;
   readonly certificateConfiguration?: CertificateConfiguration;
 }
 
@@ -27,6 +28,14 @@ export interface RuntimeHealthSuccess {
   readonly correlationId: string;
   readonly lifecycle: readonly LifecyclePhase[];
   readonly runtimeVersion: string;
+  readonly compatibilityStatus: "compatible";
+  readonly attemptId: string;
+  readonly attemptCount: 1 | 2;
+  readonly manifestId: string;
+  readonly schemaDigests: {
+    readonly jsonSha256: string;
+    readonly typescriptSha256: string;
+  };
   readonly shutdownOutcome: ShutdownOutcome;
   readonly providerActionEnabled: false;
   readonly canonicalStateOperationEnabled: false;

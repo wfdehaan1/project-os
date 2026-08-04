@@ -1,0 +1,452 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectos.local/schemas/codex-protocol-validation-summary-v1.json",
+  "title": "ProjectOS Codex Protocol Validation Sanitized Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runId",
+    "correlationId",
+    "result",
+    "failureCode",
+    "detectedBuild",
+    "platform",
+    "architecture",
+    "binaryContentSha256",
+    "manifestId",
+    "manifestDigest",
+    "digestAlgorithm",
+    "schemas",
+    "requiredMethods",
+    "enabledDispatch",
+    "compatibilityOutcome",
+    "attempts",
+    "transcript",
+    "logicalArgv",
+    "reproductionCommand"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": { "result": { "const": "passed" } },
+        "required": ["result"]
+      },
+      "then": {
+        "properties": {
+          "failureCode": { "const": null },
+          "detectedBuild": { "$ref": "#/$defs/runtimeBuild" },
+          "binaryContentSha256": { "$ref": "#/$defs/sha256" },
+          "manifestId": { "$ref": "#/$defs/safeToken" },
+          "manifestDigest": { "$ref": "#/$defs/sha256" },
+          "schemas": { "$ref": "#/$defs/schemaPairs" },
+          "requiredMethods": { "$ref": "#/$defs/requiredMethods" },
+          "enabledDispatch": { "$ref": "#/$defs/enabledDispatch" },
+          "compatibilityOutcome": { "const": "compatible" },
+          "attempts": {
+            "oneOf": [
+              {
+                "maxItems": 1,
+                "prefixItems": [{ "$ref": "#/$defs/successfulGenerationOne" }]
+              },
+              {
+                "minItems": 2,
+                "prefixItems": [
+                  { "$ref": "#/$defs/failedGenerationOne" },
+                  { "$ref": "#/$defs/successfulGenerationTwo" }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": { "failureCode": { "$ref": "#/$defs/failureCode" } },
+        "oneOf": [
+          {
+            "properties": {
+              "attempts": {
+                "maxItems": 1,
+                "prefixItems": [{ "$ref": "#/$defs/failedGenerationOne" }]
+              }
+            }
+          },
+          {
+            "properties": {
+              "failureCode": { "const": "restart_failed" },
+              "attempts": {
+                "minItems": 2,
+                "prefixItems": [
+                  { "$ref": "#/$defs/failedGenerationOne" },
+                  { "$ref": "#/$defs/failedGenerationTwo" }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "runId": { "$ref": "#/$defs/safeToken" },
+    "correlationId": { "$ref": "#/$defs/safeToken" },
+    "result": { "enum": ["passed", "failed"] },
+    "failureCode": { "$ref": "#/$defs/nullableFailureCode" },
+    "detectedBuild": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/runtimeBuild" }]
+    },
+    "platform": { "$ref": "#/$defs/safeToken" },
+    "architecture": { "$ref": "#/$defs/safeToken" },
+    "binaryContentSha256": { "$ref": "#/$defs/nullableSha256" },
+    "manifestId": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/safeToken" }]
+    },
+    "manifestDigest": { "$ref": "#/$defs/nullableSha256" },
+    "digestAlgorithm": { "const": "projectos-schema-tree-sha256-v1" },
+    "schemas": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/schemaPairs" }
+      ]
+    },
+    "requiredMethods": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/requiredMethods" }
+      ]
+    },
+    "enabledDispatch": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/enabledDispatch" }
+      ]
+    },
+    "compatibilityOutcome": { "enum": ["compatible", "incompatible", "not_checked"] },
+    "attempts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "prefixItems": [
+        { "$ref": "#/$defs/generationOneAttempt" },
+        { "$ref": "#/$defs/generationTwoAttempt" }
+      ],
+      "items": false
+    },
+    "transcript": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/transcriptEntry" }
+    },
+    "logicalArgv": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["json", "typescript"],
+      "properties": {
+        "json": {
+          "const": ["$CODEX", "app-server", "generate-json-schema", "--out", "$JSON_OUT"]
+        },
+        "typescript": {
+          "const": ["$CODEX", "app-server", "generate-ts", "--out", "$TS_OUT"]
+        }
+      }
+    },
+    "reproductionCommand": {
+      "enum": [
+        "npm ci && npm run protocol:validate",
+        "npm ci && npm run protocol:validate -- --restart"
+      ]
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "nullableSha256": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }]
+    },
+    "safeToken": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "runtimeBuild": {
+      "type": "string",
+      "pattern": "^codex(?:-cli)?\\s+[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+    },
+    "methodName": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9._/-]{0,255}$"
+    },
+    "methodNames": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/methodName" },
+      "uniqueItems": true
+    },
+    "schemaPairs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["json", "typescript"],
+      "properties": {
+        "json": { "$ref": "#/$defs/schemaBundle" },
+        "typescript": { "$ref": "#/$defs/schemaBundle" }
+      }
+    },
+    "enabledDispatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clientRequests", "clientNotifications"],
+      "properties": {
+        "clientRequests": { "const": ["initialize"] },
+        "clientNotifications": { "const": ["initialized"] }
+      }
+    },
+    "requiredMethods": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clientRequests",
+        "clientNotifications",
+        "serverNotifications",
+        "serverRequests",
+        "recognizedForbidden"
+      ],
+      "properties": {
+        "clientRequests": { "$ref": "#/$defs/methodNames" },
+        "clientNotifications": { "$ref": "#/$defs/methodNames" },
+        "serverNotifications": { "$ref": "#/$defs/methodNames" },
+        "serverRequests": { "$ref": "#/$defs/methodNames" },
+        "recognizedForbidden": { "$ref": "#/$defs/methodNames" }
+      }
+    },
+    "schemaBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "files", "aggregateSha256"],
+      "properties": {
+        "algorithm": { "const": "projectos-schema-tree-sha256-v1" },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "pattern": "^(?!/)(?!.*\\\\)(?!.*//)(?!\\.{1,2}(?:/|$))(?!.*\\/\\.{1,2}(?:/|$))(?!.*\\/$)[^\\u0000-\\u001f\\u007f]+$"
+              },
+              "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+            }
+          }
+        },
+        "aggregateSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generation",
+        "attemptId",
+        "correlationId",
+        "failureCode",
+        "underlyingFailureCode",
+        "scope",
+        "compatibilityOutcome",
+        "lifecycle",
+        "shutdownOutcome",
+        "diagnosticReference"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "failureCode": { "const": "restart_failed" } },
+            "required": ["failureCode"]
+          },
+          "then": {
+            "properties": {
+              "underlyingFailureCode": { "$ref": "#/$defs/failureCode" }
+            }
+          },
+          "else": {
+            "properties": { "underlyingFailureCode": { "const": null } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "scope": { "const": "concurrent_instance" } },
+            "required": ["scope"]
+          },
+          "then": {
+            "anyOf": [
+              { "properties": { "failureCode": { "const": "isolation_failed" } } },
+              { "properties": { "underlyingFailureCode": { "const": "isolation_failed" } } }
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "generation": { "enum": [1, 2] },
+        "attemptId": { "$ref": "#/$defs/safeToken" },
+        "correlationId": { "$ref": "#/$defs/safeToken" },
+        "failureCode": { "$ref": "#/$defs/nullableFailureCode" },
+        "underlyingFailureCode": { "$ref": "#/$defs/nullableFailureCode" },
+        "scope": {
+          "oneOf": [{ "type": "null" }, { "const": "concurrent_instance" }]
+        },
+        "compatibilityOutcome": { "enum": ["compatible", "incompatible", "not_checked"] },
+        "lifecycle": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "undiscovered",
+              "discovered",
+              "starting",
+              "initializing",
+              "initialized",
+              "stopping",
+              "stopped",
+              "failed"
+            ]
+          }
+        },
+        "shutdownOutcome": {
+          "enum": [
+            "not_started",
+            "clean_exit",
+            "graceful_termination",
+            "forced_termination",
+            "unexpected_exit",
+            "shutdown_failure"
+          ]
+        },
+        "diagnosticReference": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/safeToken" }]
+        }
+      }
+    },
+    "generationOneAttempt": {
+      "allOf": [
+        { "$ref": "#/$defs/attempt" },
+        { "properties": { "generation": { "const": 1 } } }
+      ]
+    },
+    "generationTwoAttempt": {
+      "allOf": [
+        { "$ref": "#/$defs/attempt" },
+        { "properties": { "generation": { "const": 2 } } }
+      ]
+    },
+    "successfulGenerationOne": {
+      "allOf": [
+        { "$ref": "#/$defs/generationOneAttempt" },
+        {
+          "properties": {
+            "failureCode": { "const": null },
+            "underlyingFailureCode": { "const": null },
+            "compatibilityOutcome": { "const": "compatible" }
+          }
+        }
+      ]
+    },
+    "successfulGenerationTwo": {
+      "allOf": [
+        { "$ref": "#/$defs/generationTwoAttempt" },
+        {
+          "properties": {
+            "failureCode": { "const": null },
+            "underlyingFailureCode": { "const": null },
+            "compatibilityOutcome": { "const": "compatible" }
+          }
+        }
+      ]
+    },
+    "failedGenerationOne": {
+      "allOf": [
+        { "$ref": "#/$defs/generationOneAttempt" },
+        { "properties": { "failureCode": { "$ref": "#/$defs/failureCode" } } }
+      ]
+    },
+    "failedGenerationTwo": {
+      "allOf": [
+        { "$ref": "#/$defs/generationTwoAttempt" },
+        {
+          "properties": {
+            "failureCode": { "const": "restart_failed" },
+            "underlyingFailureCode": { "$ref": "#/$defs/failureCode" }
+          }
+        }
+      ]
+    },
+    "transcriptEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attemptId", "sequence", "direction", "method", "requestIdClass", "classification"],
+      "properties": {
+        "attemptId": { "$ref": "#/$defs/safeToken" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "direction": {
+          "enum": [
+            "outbound_request",
+            "outbound_notification",
+            "inbound_response",
+            "inbound_notification",
+            "inbound_request_or_event"
+          ]
+        },
+        "method": {
+          "oneOf": [
+            { "$ref": "#/$defs/methodName" },
+            { "const": "$UNRECOGNIZED" }
+          ]
+        },
+        "requestIdClass": { "enum": ["initialize", "unrelated", "server", "none"] },
+        "classification": {
+          "enum": [
+            "sent_experimental_api_disabled",
+            "sent",
+            "matched",
+            "unrelated",
+            "semantic",
+            "forbidden_side_effect",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "failureCode": {
+      "type": "string",
+      "enum": [
+        "runtime_not_found",
+        "runtime_not_executable",
+        "version_probe_failed",
+        "runtime_snapshot_failed",
+        "unsupported_runtime_build",
+        "protocol_binary_mismatch",
+        "schema_generation_failed",
+        "invalid_protocol_manifest",
+        "protocol_schema_mismatch",
+        "missing_required_method",
+        "unsupported_dispatch",
+        "protocol_compatibility_required",
+        "runtime_terminated_during_checking",
+        "restart_failed",
+        "spawn_failed",
+        "initialization_rejected",
+        "malformed_handshake_response",
+        "initialization_timeout",
+        "unexpected_exit_or_eof",
+        "shutdown_timeout",
+        "shutdown_failed",
+        "isolation_failed",
+        "evidence_write_failed"
+      ]
+    },
+    "nullableFailureCode": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/failureCode" }]
+    }
+  }
+}
