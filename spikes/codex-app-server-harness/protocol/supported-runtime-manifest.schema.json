@@ -14,7 +14,8 @@
     "enabledDispatch",
     "authentication",
     "allowance",
-    "structuredOutput"
+    "structuredOutput",
+    "containment"
   ],
   "properties": {
     "formatVersion": { "const": 1 },
@@ -118,6 +119,18 @@
       "properties": {
         "clientRequests": { "const": ["thread/start", "turn/start"] },
         "serverNotifications": { "const": ["thread/started", "turn/completed", "turn/started"] }
+      }
+    },
+    "containment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clientRequests", "serverNotifications", "approvalPolicy", "experimentalApi", "instructionSources"],
+      "properties": {
+        "clientRequests": { "const": ["thread/start", "turn/start"] },
+        "serverNotifications": { "const": ["thread/started", "turn/completed", "turn/started"] },
+        "approvalPolicy": { "const": "never" },
+        "experimentalApi": { "const": false },
+        "instructionSources": { "const": ["projectos_context_preview"] }
       }
     }
   },

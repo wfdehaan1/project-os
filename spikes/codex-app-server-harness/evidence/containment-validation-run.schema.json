@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["schemaVersion", "runId", "correlationId", "result", "runtimeFingerprint", "manifestFingerprint", "allowedReadRootCount", "writableRootCount", "instructionSources", "boundary", "observations", "stopConditions", "reproductionCommand"],
+  "allOf": [{
+    "if": {"properties": {"result": {"const": "proceed"}}},
+    "then": {
+      "properties": {
+        "runtimeFingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "manifestFingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "allowedReadRootCount": {"minimum": 1},
+        "instructionSources": {"const": ["projectos_context_preview"]},
+        "boundary": {"enum": ["stable_runtime_disable", "verified_macos_boundary"]},
+        "observations": {"properties": {"allowed_read": {"const": "observed"}, "outside_access": {"const": "not_observed"}, "mutation": {"const": "not_observed"}, "capability_effect": {"const": "not_observed"}}},
+        "stopConditions": {"maxItems": 0}
+      }
+    }
+  }],
+  "properties": {
+    "schemaVersion": {"const": 1}, "runId": {"type": "string"}, "correlationId": {"type": "string"}, "result": {"enum": ["proceed", "reject"]},
+    "runtimeFingerprint": {"type": ["string", "null"]}, "manifestFingerprint": {"type": ["string", "null"]}, "allowedReadRootCount": {"type": "integer", "minimum": 0}, "writableRootCount": {"const": 0},
+    "instructionSources": {"type": "array", "maxItems": 1, "items": {"const": "projectos_context_preview"}}, "boundary": {"enum": ["stable_runtime_disable", "verified_macos_boundary", "unavailable"]},
+    "observations": {"type": "object", "additionalProperties": false, "required": ["allowed_read", "outside_access", "mutation", "capability_effect"], "properties": {"allowed_read": {"enum": ["observed", "not_observed", "not_run"]}, "outside_access": {"enum": ["observed", "not_observed", "not_run"]}, "mutation": {"enum": ["observed", "not_observed", "not_run"]}, "capability_effect": {"enum": ["observed", "not_observed", "not_run"]}}},
+    "stopConditions": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,79}$"}}, "reproductionCommand": {"const": "npm run validate:containment"}
+  }
+}

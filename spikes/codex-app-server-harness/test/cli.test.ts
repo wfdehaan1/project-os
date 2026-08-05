@@ -33,6 +33,29 @@ test("structured-output CLI is a nonzero containment denial without a provider a
   assert.equal(exitCode, 1); assert.match(writes.stdout, /containment_attestation_required/u); assert.equal(writes.stderr, "");
 });
 
+test("containment CLI is a nonzero reject when no preventive boundary is available", async () => {
+  const writes = { stdout: "", stderr: "" };
+  const provider: AiProviderPort = {
+    validateRuntime: async () => { throw new Error("unexpected runtime call"); },
+    validatePreventiveExecutionContainment: async () => ({
+      ok: false,
+      code: "containment_boundary_unavailable",
+      correlationId: "containment-cli-denied",
+      stopCondition: "containment_boundary_unavailable",
+      providerActionEnabled: false,
+      canonicalStateOperationEnabled: false,
+    }),
+  };
+  const exitCode = await main(["containment-validate", "--job-id", "containment-only"], {
+    provider,
+    stdout: { write: (value) => { writes.stdout += String(value); return true; } },
+    stderr: { write: (value) => { writes.stderr += String(value); return true; } },
+  });
+  assert.equal(exitCode, 1);
+  assert.match(writes.stdout, /containment_boundary_unavailable/u);
+  assert.equal(writes.stderr, "");
+});
+
 for (const [result, expectedExit] of [
   [{
     ok: true,

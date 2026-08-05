@@ -61,6 +61,51 @@ export interface StructuredOutputProtocolContract {
   readonly serverNotifications: readonly ["thread/started", "turn/completed", "turn/started"];
 }
 
+/** Manifest-pinned subset used only after a consumed containment attestation. */
+export interface ContainmentProtocolContract extends StructuredOutputProtocolContract {
+  readonly approvalPolicy: "never";
+  readonly experimentalApi: false;
+  readonly instructionSources: readonly ["projectos_context_preview"];
+}
+
+/**
+ * ProjectOS-owned wrappers for the only future thread/turn shape the
+ * containment gate may authorize.  They intentionally do not mirror Codex's
+ * broad schema: preview content, prompts, tools and filesystem paths never
+ * cross this boundary.
+ */
+export interface ContainmentThreadStart {
+  readonly approvalPolicy: "never";
+  readonly experimentalApi: false;
+  readonly instructionSources: readonly ["projectos_context_preview"];
+  readonly writableRootCount: 0;
+}
+
+export interface ContainmentTurnStart {
+  readonly approvalPolicy: "never";
+  readonly experimentalApi: false;
+  readonly contextPreviewRecordCount: number;
+  readonly instructionSources: readonly ["projectos_context_preview"];
+}
+
+export function assertContainmentThreadStart(value: ContainmentThreadStart): void {
+  if (!hasExactKeys(value, ["approvalPolicy", "experimentalApi", "instructionSources", "writableRootCount"]) ||
+      value.approvalPolicy !== "never" || value.experimentalApi !== false ||
+      value.writableRootCount !== 0 || value.instructionSources.length !== 1 ||
+      value.instructionSources[0] !== "projectos_context_preview") {
+    throw new Error("containment_request_rejected");
+  }
+}
+
+export function assertContainmentTurnStart(value: ContainmentTurnStart): void {
+  if (!hasExactKeys(value, ["approvalPolicy", "contextPreviewRecordCount", "experimentalApi", "instructionSources"]) ||
+      value.approvalPolicy !== "never" || value.experimentalApi !== false ||
+      !Number.isSafeInteger(value.contextPreviewRecordCount) || value.contextPreviewRecordCount < 1 ||
+      value.instructionSources.length !== 1 || value.instructionSources[0] !== "projectos_context_preview") {
+    throw new Error("containment_request_rejected");
+  }
+}
+
 export interface SupportedRuntimeManifest {
   readonly formatVersion: typeof PROTOCOL_MANIFEST_FORMAT_VERSION;
   readonly manifestId: string;
@@ -89,6 +134,7 @@ export interface SupportedRuntimeManifest {
   readonly authentication?: AuthenticationProtocolContract;
   readonly allowance?: AllowanceProtocolContract;
   readonly structuredOutput?: StructuredOutputProtocolContract;
+  readonly containment?: ContainmentProtocolContract;
 }
 
 export interface CollectProtocolSchemaBundleOptions {
@@ -220,7 +266,7 @@ export function parseSupportedRuntimeManifest(serialized: string): SupportedRunt
   }
   if (
     !(hasExactKeys(value, [
-      "allowance", "authentication", "structuredOutput",
+      "allowance", "authentication", "containment", "structuredOutput",
       "enabledDispatch",
       "formatVersion",
       "generation",
@@ -228,6 +274,8 @@ export function parseSupportedRuntimeManifest(serialized: string): SupportedRunt
       "requiredMethods",
       "runtime",
       "schemas",
+    ]) || hasExactKeys(value, [
+      "allowance", "authentication", "containment", "enabledDispatch", "formatVersion", "generation", "manifestId", "requiredMethods", "runtime", "schemas",
     ]) || hasExactKeys(value, [
       "allowance", "authentication", "enabledDispatch", "formatVersion", "generation", "manifestId", "requiredMethods", "runtime", "schemas",
     ]) || hasExactKeys(value, [
@@ -281,7 +329,8 @@ export function parseSupportedRuntimeManifest(serialized: string): SupportedRunt
     !validSortedStrings(manifest.enabledDispatch.clientNotifications) ||
     (manifest.authentication !== undefined && !validAuthenticationContract(manifest.authentication)) ||
     (manifest.allowance !== undefined && !validAllowanceContract(manifest.allowance)) ||
-    (manifest.structuredOutput !== undefined && !validStructuredOutputContract(manifest.structuredOutput))
+    (manifest.structuredOutput !== undefined && !validStructuredOutputContract(manifest.structuredOutput)) ||
+    (manifest.containment !== undefined && !validContainmentContract(manifest.containment))
   ) {
     throw invalidManifest();
   }
@@ -627,6 +676,15 @@ function validStructuredOutputContract(value: unknown): value is StructuredOutpu
     exactArray(value.serverNotifications, ["thread/started", "turn/completed", "turn/started"]);
 }
 
+function validContainmentContract(value: unknown): value is ContainmentProtocolContract {
+  return isObject(value) && hasExactKeys(value, [
+    "approvalPolicy", "clientRequests", "experimentalApi", "instructionSources", "serverNotifications",
+  ]) && exactArray(value.clientRequests, ["thread/start", "turn/start"]) &&
+    exactArray(value.serverNotifications, ["thread/started", "turn/completed", "turn/started"]) &&
+    value.approvalPolicy === "never" && value.experimentalApi === false &&
+    exactArray(value.instructionSources, ["projectos_context_preview"]);
+}
+
 function containsDeviceCodeLoginBranch(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(containsDeviceCodeLoginBranch);
   if (!isObject(value)) return false;
@@ -809,6 +867,15 @@ function deepFreezeManifest(manifest: SupportedRuntimeManifest): SupportedRuntim
       structuredOutput: Object.freeze({
         clientRequests: Object.freeze([...manifest.structuredOutput.clientRequests]) as StructuredOutputProtocolContract["clientRequests"],
         serverNotifications: Object.freeze([...manifest.structuredOutput.serverNotifications]) as StructuredOutputProtocolContract["serverNotifications"],
+      }),
+    } : {}),
+    ...(manifest.containment ? {
+      containment: Object.freeze({
+        clientRequests: Object.freeze([...manifest.containment.clientRequests]) as ContainmentProtocolContract["clientRequests"],
+        serverNotifications: Object.freeze([...manifest.containment.serverNotifications]) as ContainmentProtocolContract["serverNotifications"],
+        approvalPolicy: "never" as const,
+        experimentalApi: false as const,
+        instructionSources: Object.freeze(["projectos_context_preview"]) as ContainmentProtocolContract["instructionSources"],
       }),
     } : {}),
   });

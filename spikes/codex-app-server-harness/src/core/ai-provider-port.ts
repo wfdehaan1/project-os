@@ -1,5 +1,6 @@
 import type { ProviderFailure } from "./failures.ts";
 import type { LifecyclePhase } from "./lifecycle.ts";
+import type { PreventiveExecutionAttestation } from "./preventive-execution-containment.ts";
 
 export interface CertificateConfiguration {
   readonly nodeExtraCaCerts?: string;
@@ -32,7 +33,36 @@ export interface AllowanceValidationRequest extends RuntimeValidationRequest {
 export interface StructuredOutputValidationRequest extends RuntimeValidationRequest {
   readonly live?: boolean;
   readonly jobId: string;
+  /** Opaque, one-use proof minted only by the preventive containment gate. */
+  readonly containmentAttestation?: PreventiveExecutionAttestation;
 }
+
+export interface PreventiveExecutionContainmentRequest extends RuntimeValidationRequest {
+  readonly jobId: string;
+  /** This does not enable a live provider probe; it is an explicit future opt-in. */
+  readonly live?: boolean;
+}
+
+export interface PreventiveExecutionContainmentSuccess {
+  readonly ok: true;
+  readonly correlationId: string;
+  readonly attemptId: string;
+  readonly containmentAttestation: PreventiveExecutionAttestation;
+  readonly providerActionEnabled: false;
+  readonly canonicalStateOperationEnabled: false;
+}
+
+export interface PreventiveExecutionContainmentRejection {
+  readonly ok: false;
+  readonly code: "containment_boundary_unavailable" | "containment_rejected" | "evidence_write_failed";
+  readonly correlationId: string;
+  readonly stopCondition: string;
+  readonly providerActionEnabled: false;
+  readonly canonicalStateOperationEnabled: false;
+}
+export type PreventiveExecutionContainmentResult =
+  | PreventiveExecutionContainmentSuccess
+  | PreventiveExecutionContainmentRejection;
 
 export interface StructuredOutputValidationRejection {
   readonly ok: false;
@@ -124,4 +154,7 @@ export interface AiProviderPort {
   validateStructuredOutput?(
     request: StructuredOutputValidationRequest,
   ): Promise<StructuredOutputValidationRejection>;
+  validatePreventiveExecutionContainment?(
+    request: PreventiveExecutionContainmentRequest,
+  ): Promise<PreventiveExecutionContainmentResult>;
 }

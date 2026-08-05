@@ -13,6 +13,8 @@ import type {
   AuthenticationValidationResult,
   RuntimeHealthResult,
   RuntimeValidationRequest,
+  PreventiveExecutionContainmentRequest,
+  PreventiveExecutionContainmentResult,
   StructuredOutputValidationRequest,
   StructuredOutputValidationRejection,
 } from "../../core/ai-provider-port.ts";
@@ -60,6 +62,7 @@ import type { AuthenticationExchangeResult } from "./jsonl-rpc-connection.ts";
 import type { AllowanceExchangeResult } from "./jsonl-rpc-connection.ts";
 import { normalizeAllowanceBuckets } from "../../core/allowance.ts";
 import { writeAuthenticationEvidence } from "../../evidence/authentication-evidence-recorder.ts";
+import { writeContainmentEvidence } from "../../evidence/containment-evidence-recorder.ts";
 
 type EvidenceWriter = (
   evidence: PrivateRunEvidence,
@@ -113,6 +116,7 @@ const PROTOCOL_RESTART_REPRODUCTION_COMMAND =
 const AUTH_REPRODUCTION_COMMAND = "PROJECTOS_LIVE_AUTH=1 npm run test:auth:live";
 const ALLOWANCE_REPRODUCTION_COMMAND = "PROJECTOS_LIVE_ALLOWANCE=1 npm run test:allowance:live";
 const STRUCTURED_OUTPUT_REPRODUCTION_COMMAND = "npm run validate:structured-output";
+const CONTAINMENT_REPRODUCTION_COMMAND = "npm run validate:containment";
 
 export class CodexAppServerAdapter implements AiProviderPort {
   readonly #discover: typeof discoverCodexExecutable;
@@ -431,6 +435,41 @@ export class CodexAppServerAdapter implements AiProviderPort {
     // This is still a no-dispatch denial. Do not widen to any provider action if evidence fails.
     return Object.freeze({ ok: false, code: evidenceFailed ? "evidence_write_failed" : "containment_attestation_required", correlationId,
       stopCondition: evidenceFailed ? "evidence_write_failed" : "containment_attestation_required", providerActionEnabled: false,
+      canonicalStateOperationEnabled: false });
+  }
+
+  /**
+   * macOS does not expose a pinned, independently verifiable containment
+   * mechanism in this harness yet.  Refuse before executable discovery or
+   * spawn: post-hoc event handling is not a preventive boundary.  The written
+   * evidence makes this a durable gate rather than an implicit TODO.
+   */
+  async validatePreventiveExecutionContainment(
+    request: PreventiveExecutionContainmentRequest,
+  ): Promise<PreventiveExecutionContainmentResult> {
+    const correlationId = this.#correlationId();
+    const runId = this.#runId();
+    const jobIdIsSafe = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(request.jobId);
+    const stopCondition = jobIdIsSafe
+      ? "containment_boundary_unavailable"
+      : "containment_request_rejected";
+    try {
+      await writeContainmentEvidence({
+        schemaVersion: 1, runId, correlationId, result: "reject",
+        runtimeFingerprint: null, manifestFingerprint: null,
+        allowedReadRootCount: 0, writableRootCount: 0,
+        instructionSources: [], boundary: "unavailable",
+        observations: { allowed_read: "not_run", outside_access: "not_run", mutation: "not_run", capability_effect: "not_run" },
+        stopConditions: [stopCondition], reproductionCommand: CONTAINMENT_REPRODUCTION_COMMAND,
+      }, this.#evidenceRoot);
+    } catch {
+      return Object.freeze({ ok: false, code: "evidence_write_failed", correlationId,
+        stopCondition: "evidence_write_failed", providerActionEnabled: false,
+        canonicalStateOperationEnabled: false });
+    }
+    return Object.freeze({ ok: false,
+      code: jobIdIsSafe ? "containment_boundary_unavailable" : "containment_rejected",
+      correlationId, stopCondition, providerActionEnabled: false,
       canonicalStateOperationEnabled: false });
   }
 

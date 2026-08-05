@@ -1,8 +1,8 @@
 # ProjectOS Codex App Server Harness
 
-Disposable, provider-neutral validation harness for ProjectOS Stories 1.1–1.5. It discovers a candidate `codex` executable, snapshots its open-file bytes, verifies the exact committed build/binary/stable-schema/method contract, creates an isolated runtime profile, performs the init-only protocol handshake by default, and can explicitly validate managed ChatGPT browser login and a read-only allowance surface on that same owned child.
+Disposable, provider-neutral validation harness for ProjectOS Stories 1.1–1.6. It discovers a candidate `codex` executable, snapshots its open-file bytes, verifies the exact committed build/binary/stable-schema/method contract, creates an isolated runtime profile, performs the init-only protocol handshake by default, and can explicitly validate managed ChatGPT browser login and a read-only allowance surface on that same owned child.
 
-This is not a production app scaffold. It never handles access/refresh tokens, API keys, authorization headers, account IDs, API credits, device codes, or plaintext credential files; it does not start a thread or turn, call a model, mutate Canonical State, or prove preventive-containment, restore, or final provider-neutrality gates. Story 1.5 validates ProjectOS-owned structured schemas, deterministic fixtures, scoring, and metric-only evidence offline; a live structured job fails closed before discovery/spawn because Story 1.6 has not proved containment. Protocol compatibility is not preventive execution containment.
+This is not a production app scaffold. It never handles access/refresh tokens, API keys, authorization headers, account IDs, API credits, device codes, or plaintext credential files; it does not start a thread or turn, call a model, mutate Canonical State, restore, or prove final provider neutrality. Story 1.6 adds the typed, one-use containment-attestation contract and evidence gate, but the shipped macOS adapter has no independently verified pre-side-effect boundary yet. It therefore records `containment_boundary_unavailable` and fails closed before discovery/spawn. Fake-backed tests prove the contract, not live-provider containment. Protocol compatibility is not preventive execution containment.
 
 ## Prerequisites
 
@@ -28,6 +28,9 @@ PROJECTOS_LIVE_AUTH=1 npm run test:auth:live
 npm run validate:allowance
 npm run test:structured-output
 npm run validate:structured-output
+npm run test:containment
+npm run validate:containment
+PROJECTOS_LIVE_CONTAINMENT=1 npm run test:containment:live
 npm run structured-output:validate
 PROJECTOS_LIVE_ALLOWANCE=1 npm run test:allowance:live
 npm run validate:full
@@ -42,6 +45,8 @@ npm run validate:full
 `PROJECTOS_LIVE_AUTH=1 npm run test:auth:live` is the sole opt-in interactive browser-login validation. Without that explicit environment setting, `npm run test:auth:live` is skipped; it is never part of `npm test`. It invokes `auth-validate --interactive`, opens only the transient Codex-managed URL, uses the manifest-pinned `account/read`, `account/login/start`, `account/login/cancel`, and `account/logout` subset, then logs out the isolated ProjectOS profile. It prints only a normalized result. Do not run it unless you intend to authenticate an eligible ChatGPT subscription in that disposable profile.
 
 `npm run validate:structured-output` is offline and fake-backed. It exercises the fixed-denominator Garden Office, Used Car, and Technical Supersession fixtures; ProjectOS-owned proposal revalidation; scoring; retry/duplicate protection; and metric-only evidence. `npm run structured-output:validate` is an intentionally opt-in live-shaped command, but always returns `containment_attestation_required` before executable discovery or an App Server child can start. It is excluded from all defaults and must remain so until Story 1.6 proves a preventive containment attestation.
+
+`npm run validate:containment` is deterministic and offline. It proves the restrictive envelope shape (zero writable roots, `approvalPolicy: never`, `experimentalApi: false`, Context Preview-only instruction source, and disabled inherited capability classes), attestation non-forgeability/non-reuse, and sanitized atomic reject evidence. `PROJECTOS_LIVE_CONTAINMENT=1 npm run test:containment:live` is explicit opt-in only; today it truthfully returns `containment_boundary_unavailable` before executable discovery or process spawn because no stable runtime tool-disable mechanism or externally verified macOS boundary has been demonstrated. It must not be interpreted as live containment proof.
 
 `npm run validate:allowance` replays deterministic fake allowance and terminal-job traces. `PROJECTOS_LIVE_ALLOWANCE=1 npm run test:allowance:live` is separately opt-in and calls only the manifest-pinned, read-only allowance surface. It retains safe bucket values and never offers API-credit fallback, sends a turn, or treats fake replay as live subscription proof.
 
