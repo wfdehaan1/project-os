@@ -3,9 +3,10 @@ title: 'Story 1.8: Prove Crash-Safe Provider Session Cleanup'
 type: 'feature'
 created: '2026-08-05'
 baseline_revision: 'c3bd4f5a8a18666dfcfa0bf62aaf1c3571f70406'
-status: 'in-review'
+final_revision: '7995fde669d5ee766f4809a6a14facea691d9b8d'
+status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '/Users/wouter/Projects/Personal/ProjectOS/_bmad-output/implementation-artifacts/epic-1-context.md'
   - '/Users/wouter/Projects/Personal/ProjectOS/_bmad-output/implementation-artifacts/spec-1-7-prove-portable-conversation-ownership-and-restore-separation.md'
@@ -97,3 +98,15 @@ The cleanup receipt is not shareable evidence and is not Project state. It is a 
 - `npm run validate:protocol` -- expected: pinned manifest and default-deny/containment-era protocol boundary remain unchanged.
 - `npm test` -- expected: full offline harness regression passes; live probes remain opt-in/skipped.
 - `git diff --check` -- expected: no whitespace errors.
+
+## Auto Run Result
+
+Summary: Added the deterministic, private Story 1.8 cleanup proof. Each fake-managed session begins with a durable content-free obligation, reconciliation survives interrupted creation/deletion, and local erasure is a separate prerequisite to provider cleanup. Published evidence is aggregate-only and truthfully concludes `reject` because neither preventive containment nor an approved live Codex list/delete contract exists.
+
+Files changed: The cleanup outbox/coordinator and provider-neutral cleanup port; fake filesystem and sanitized atomic evidence schema/recorder; offline CLI, focused package commands, documentation, boundary/CLI/workspace regression tests, and Epic tracker.
+
+Review: 12 review-driven patches applied (10 high, 2 medium); 0 deferred; 0 rejected. Follow-up review recommended because the repairs materially changed deletion ordering, crash recovery, profile isolation, persistence durability, and evidence accounting.
+
+Verification: `npm run validate:provider-cleanup` passed (26 tests); `npm run validate:conversation-ownership` passed (26 tests); `npm run validate:protocol` passed (102 tests); `npm test` passed (171 tests, 4 expected opt-in skips); `git diff --check` passed.
+
+Residual risk: This deterministic fake-backed proof does not establish that the installed Codex App Server can enumerate/delete its persisted rollout sessions. The recorded gate remains `reject` with `live_codex_cleanup_unproven` and `containment_boundary_unavailable`; no live provider action, authentication, turn generation, or protocol-manifest change occurred.
