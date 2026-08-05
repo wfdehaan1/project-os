@@ -3,7 +3,8 @@ title: 'Story 1.7: Prove Portable Conversation Ownership and Restore Separation'
 type: 'feature'
 created: '2026-08-05'
 baseline_revision: 'bef561233d285a90da823424b143be4f345d6ffe'
-status: 'in-review'
+final_revision: 'e4025d3eae0329ca6a492ee28001d460b583a0aa'
+status: 'done'
 review_loop_iteration: 0
 followup_review_recommended: true
 context:
