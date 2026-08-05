@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "runId", "correlationId", "outcome", "exportDigest", "restoreDigest", "counts", "checks", "stopConditions", "reproductionCommand"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "runId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "correlationId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "outcome": {"enum": ["proceed", "reject"]},
+    "exportDigest": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "restoreDigest": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "counts": {"type": "object", "additionalProperties": false, "required": ["projects", "conversations", "transcriptEntries", "acceptedHistoryEntries", "rationales", "provenances", "sources", "relationships"], "properties": {"projects": {"type": "integer", "minimum": 0}, "conversations": {"type": "integer", "minimum": 0}, "transcriptEntries": {"type": "integer", "minimum": 0}, "acceptedHistoryEntries": {"type": "integer", "minimum": 0}, "rationales": {"type": "integer", "minimum": 0}, "provenances": {"type": "integer", "minimum": 0}, "sources": {"type": "integer", "minimum": 0}, "relationships": {"type": "integer", "minimum": 0}}},
+    "checks": {"type": "array", "uniqueItems": true, "items": {"enum": ["binding_excluded", "offline_restore", "remap_complete", "fresh_binding_required"]}},
+    "stopConditions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,79}$"}},
+    "reproductionCommand": {"const": "npm run validate:conversation-ownership"}
+  },
+  "allOf": [{"if": {"properties": {"outcome": {"const": "proceed"}}}, "then": {"properties": {"exportDigest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "restoreDigest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "counts": {"properties": {"projects": {"const": 1}}}, "checks": {"minItems": 4, "maxItems": 4}, "stopConditions": {"maxItems": 0}}}}, {"if": {"properties": {"outcome": {"const": "reject"}}}, "then": {"properties": {"stopConditions": {"minItems": 1}}}}]
+}

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "project-source",
+    "version": 3,
+    "importProvenance": null,
+    "conversations": [{
+      "id": "conversation-source",
+      "version": 2,
+      "transcript": [{"id": "entry-source", "role": "user", "text": "Preserve this local decision.", "version": 1}],
+      "acceptedHistory": [{"id": "accepted-source", "transcriptEntryId": "entry-source", "acceptedAt": "2026-08-05T10:00:00.000Z"}]
+    }],
+    "rationales": [{"id": "rationale-source", "conversationId": "conversation-source", "version": 1, "statement": "The project owns its history."}],
+    "provenances": [{"id": "provenance-source", "sourceId": "source-source", "conversationId": "conversation-source", "version": 1, "note": "Approved local source."}],
+    "sources": [{"id": "source-source", "version": 1, "label": "Decision record"}],
+    "relationships": [{"id": "relationship-source", "fromId": "conversation-source", "toId": "rationale-source", "kind": "supports", "version": 1}]
+  }
+}

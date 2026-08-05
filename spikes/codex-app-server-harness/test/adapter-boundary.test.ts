@@ -2,12 +2,26 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
-const coreFiles = ["ai-provider-port.ts", "failures.ts", "lifecycle.ts"] as const;
+const coreFiles = [
+  "ai-provider-port.ts",
+  "conversation-ownership.ts",
+  "failures.ts",
+  "lifecycle.ts",
+  "project-export.ts",
+  "project-restore.ts",
+] as const;
 
 test("public provider modules do not import or expose Codex protocol types", async () => {
   for (const file of coreFiles) {
     const source = await readFile(new URL(`../src/core/${file}`, import.meta.url), "utf8");
     assert.doesNotMatch(source, /adapters\/codex|protocol\.ts|CodexInitialize|Jsonl/iu, file);
+  }
+});
+
+test("portable ownership and restore remain pure core contracts", async () => {
+  for (const file of ["conversation-ownership.ts", "project-export.ts", "project-restore.ts"] as const) {
+    const source = await readFile(new URL(`../src/core/${file}`, import.meta.url), "utf8");
+    assert.doesNotMatch(source, /AiProviderPort|adapters\/codex|CodexAppServer|thread\/(?:start|resume)|turn\/start/iu, file);
   }
 });
 

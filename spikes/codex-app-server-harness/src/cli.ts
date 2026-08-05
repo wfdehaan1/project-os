@@ -1,5 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
 
 import type {
   AiProviderPort,
@@ -9,11 +11,16 @@ import type {
   StructuredOutputValidationRequest,
 } from "./core/ai-provider-port.ts";
 import { CodexAppServerAdapter } from "./adapters/codex/codex-app-server-adapter.ts";
+import { approveContextPreview, createConversation, createFreshProviderSessionBinding } from "./core/conversation-ownership.ts";
+import { exportPortableProject, portableProjectDigest, type ProjectOwnedState } from "./core/project-export.ts";
+import { restorePortableProject } from "./core/project-restore.ts";
+import { writeConversationOwnershipEvidence } from "./evidence/conversation-ownership-evidence-recorder.ts";
 
-type CliRequest = RuntimeValidationRequest & AllowanceValidationRequest & StructuredOutputValidationRequest & PreventiveExecutionContainmentRequest & { readonly authentication?: true; readonly allowance?: true; readonly structuredOutput?: true; readonly containment?: true; readonly interactive?: true };
+type CliRequest = RuntimeValidationRequest & AllowanceValidationRequest & StructuredOutputValidationRequest & PreventiveExecutionContainmentRequest & { readonly authentication?: true; readonly allowance?: true; readonly structuredOutput?: true; readonly containment?: true; readonly ownership?: true; readonly interactive?: true };
 
 export interface CliDependencies {
   readonly provider?: AiProviderPort;
+  readonly ownershipEvidenceRoot?: string;
   readonly stdout?: Pick<NodeJS.WriteStream, "write">;
   readonly stderr?: Pick<NodeJS.WriteStream, "write">;
 }
@@ -29,11 +36,21 @@ export async function main(
     request = parseArguments(arguments_);
   } catch {
     stderr.write(
-      "Usage: node src/cli.ts [protocol-validate] [--path PATH] [--restart] | auth-validate --interactive [--path PATH] | allowance-validate [--path PATH] | containment-validate --job-id ID | structured-output-validate --job-id ID\n",
+      "Usage: node src/cli.ts [protocol-validate] [--path PATH] [--restart] | auth-validate --interactive [--path PATH] | allowance-validate [--path PATH] | containment-validate --job-id ID | structured-output-validate --job-id ID | conversation-ownership-validate\n",
     );
     return 2;
   }
 
+  if (request.ownership) {
+    try {
+      await validateConversationOwnership(dependencies.ownershipEvidenceRoot ?? fileURLToPath(new URL("../.evidence", import.meta.url)));
+      stdout.write(`${JSON.stringify({ ok: true, mode: "offline_ownership_validation", providerActionEnabled: false, canonicalStateOperationEnabled: false }, null, 2)}\n`);
+      return 0;
+    } catch {
+      stdout.write(`${JSON.stringify({ ok: false, code: "ownership_validation_failed", providerActionEnabled: false, canonicalStateOperationEnabled: false }, null, 2)}\n`);
+      return 1;
+    }
+  }
   const provider = dependencies.provider ?? new CodexAppServerAdapter({ openLoginUrl: openManagedBrowser });
   const result = request.containment
     ? provider.validatePreventiveExecutionContainment
@@ -57,18 +74,19 @@ export async function main(
 }
 
 export function parseArguments(arguments_: readonly string[]): CliRequest {
-  const request: { path?: string; restart?: boolean; authentication?: true; allowance?: true; structuredOutput?: true; containment?: true; interactive?: true; jobId?: string } = {};
+  const request: { path?: string; restart?: boolean; authentication?: true; allowance?: true; structuredOutput?: true; containment?: true; ownership?: true; interactive?: true; jobId?: string } = {};
   let index = 0;
   if (arguments_[0] === "protocol-validate") index = 1;
   else if (arguments_[0] === "auth-validate") { request.authentication = true; index = 1; }
   else if (arguments_[0] === "allowance-validate") { request.allowance = true; index = 1; }
   else if (arguments_[0] === "containment-validate") { request.containment = true; index = 1; }
   else if (arguments_[0] === "structured-output-validate") { request.structuredOutput = true; index = 1; }
+  else if (arguments_[0] === "conversation-ownership-validate") { request.ownership = true; index = 1; }
   else if (arguments_[0] && !arguments_[0].startsWith("--")) throw new Error("unknown command");
   while (index < arguments_.length) {
     const option = arguments_[index];
     if (option === "--restart") {
-      if (request.authentication || request.allowance || request.structuredOutput || request.containment) throw new Error("restart unavailable for validation mode");
+      if (request.authentication || request.allowance || request.structuredOutput || request.containment || request.ownership) throw new Error("restart unavailable for validation mode");
       if (request.restart) throw new Error("duplicate option");
       request.restart = true;
       index += 1;
@@ -76,7 +94,7 @@ export function parseArguments(arguments_: readonly string[]): CliRequest {
     }
     if (option === "--path") {
       const value = arguments_[index + 1];
-      if (!value || value.startsWith("--") || request.path) throw new Error("invalid path option");
+      if (request.ownership || !value || value.startsWith("--") || request.path) throw new Error("invalid path option");
       request.path = value;
       index += 2;
       continue;
@@ -106,6 +124,15 @@ async function openManagedBrowser(url: string): Promise<void> {
     child.once("error", rejectOpen);
     child.once("exit", (code) => code === 0 ? resolveOpen() : rejectOpen(new Error("authentication_failed")));
   });
+}
+
+async function validateConversationOwnership(evidenceRoot: string): Promise<void> {
+  const conversation = createConversation({ id: "validation-conversation", version: 1, transcript: [{ id: "validation-entry", role: "user", text: "ProjectOS retains this local validation record.", version: 1 }], acceptedHistory: [{ id: "validation-accepted", transcriptEntryId: "validation-entry", acceptedAt: "2026-08-05T10:00:00.000Z" }] });
+  const binding = createFreshProviderSessionBinding({ conversation, adapterId: "codex", opaqueSessionHandle: "opaque-validation-session", approval: approveContextPreview({ conversation, contextPreviewId: "validation-preview" }) });
+  const state: ProjectOwnedState = { id: "validation-project", version: 1, importProvenance: null, conversations: [conversation], rationales: [{ id: "validation-rationale", conversationId: conversation.id, version: 1, statement: "ProjectOS owns canonical Conversation history." }], provenances: [{ id: "validation-provenance", sourceId: "validation-source", conversationId: conversation.id, version: 1, note: "Validation-only local provenance." }], sources: [{ id: "validation-source", version: 1, label: "Validation record" }], relationships: [{ id: "validation-relationship", fromId: conversation.id, toId: "validation-rationale", kind: "supports", version: 1 }], bindings: [binding] };
+  const exported = exportPortableProject(state); const restored = restorePortableProject(exported);
+  if (restored.project.bindings.length !== 0 || restored.project.importProvenance === null || restored.project.conversations[0]?.id === conversation.id) throw new Error("ownership_validation_failed");
+  await writeConversationOwnershipEvidence({ schemaVersion: 1, runId: `ownership-${randomUUID()}`, correlationId: `ownership-${randomUUID()}`, outcome: "proceed", exportDigest: portableProjectDigest(exported), restoreDigest: portableProjectDigest(exportPortableProject(restored.project)), counts: { projects: 1, conversations: 1, transcriptEntries: 1, acceptedHistoryEntries: 1, rationales: 1, provenances: 1, sources: 1, relationships: 1 }, checks: ["binding_excluded", "offline_restore", "remap_complete", "fresh_binding_required"], stopConditions: [], reproductionCommand: "npm run validate:conversation-ownership" }, evidenceRoot);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

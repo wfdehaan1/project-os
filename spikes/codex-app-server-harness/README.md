@@ -1,6 +1,6 @@
 # ProjectOS Codex App Server Harness
 
-Disposable, provider-neutral validation harness for ProjectOS Stories 1.1–1.6. It discovers a candidate `codex` executable, snapshots its open-file bytes, verifies the exact committed build/binary/stable-schema/method contract, creates an isolated runtime profile, performs the init-only protocol handshake by default, and can explicitly validate managed ChatGPT browser login and a read-only allowance surface on that same owned child.
+Disposable, provider-neutral validation harness for ProjectOS Stories 1.1–1.7. It discovers a candidate `codex` executable, snapshots its open-file bytes, verifies the exact committed build/binary/stable-schema/method contract, creates an isolated runtime profile, performs the init-only protocol handshake by default, and can explicitly validate managed ChatGPT browser login and a read-only allowance surface on that same owned child.
 
 This is not a production app scaffold. It never handles access/refresh tokens, API keys, authorization headers, account IDs, API credits, device codes, or plaintext credential files; it does not start a thread or turn, call a model, mutate Canonical State, restore, or prove final provider neutrality. Story 1.6 adds the typed, one-use containment-attestation contract and evidence gate, but the shipped macOS adapter has no independently verified pre-side-effect boundary yet. It therefore records `containment_boundary_unavailable` and fails closed before discovery/spawn. Fake-backed tests prove the contract, not live-provider containment. Protocol compatibility is not preventive execution containment.
 
@@ -30,6 +30,9 @@ npm run test:structured-output
 npm run validate:structured-output
 npm run test:containment
 npm run validate:containment
+node --experimental-strip-types src/cli.ts conversation-ownership-validate
+npm run test:conversation-ownership
+npm run validate:conversation-ownership
 PROJECTOS_LIVE_CONTAINMENT=1 npm run test:containment:live
 npm run structured-output:validate
 PROJECTOS_LIVE_ALLOWANCE=1 npm run test:allowance:live
@@ -47,6 +50,8 @@ npm run validate:full
 `npm run validate:structured-output` is offline and fake-backed. It exercises the fixed-denominator Garden Office, Used Car, and Technical Supersession fixtures; ProjectOS-owned proposal revalidation; scoring; retry/duplicate protection; and metric-only evidence. `npm run structured-output:validate` is an intentionally opt-in live-shaped command, but always returns `containment_attestation_required` before executable discovery or an App Server child can start. It is excluded from all defaults and must remain so until Story 1.6 proves a preventive containment attestation.
 
 `npm run validate:containment` is deterministic and offline. It proves the restrictive envelope shape (zero writable roots, `approvalPolicy: never`, `experimentalApi: false`, Context Preview-only instruction source, and disabled inherited capability classes), attestation non-forgeability/non-reuse, and sanitized atomic reject evidence. `PROJECTOS_LIVE_CONTAINMENT=1 npm run test:containment:live` is explicit opt-in only; today it truthfully returns `containment_boundary_unavailable` before executable discovery or process spawn because no stable runtime tool-disable mechanism or externally verified macOS boundary has been demonstrated. It must not be interpreted as live containment proof.
+
+`npm run validate:conversation-ownership` is deterministic, fixture-backed, and offline. It proves ProjectOS-owned immutable Conversations, opaque adapter-keyed bindings, binding omission from versioned exports, pure v1/v0 restore with one complete local-ID map, zero restored bindings, fresh explicit binding creation, and content-free structural evidence. It does not start/resume a thread, call a provider, exercise containment, persist production data, or prove live resume.
 
 `npm run validate:allowance` replays deterministic fake allowance and terminal-job traces. `PROJECTOS_LIVE_ALLOWANCE=1 npm run test:allowance:live` is separately opt-in and calls only the manifest-pinned, read-only allowance surface. It retains safe bucket values and never offers API-credit fallback, sends a turn, or treats fake replay as live subscription proof.
 

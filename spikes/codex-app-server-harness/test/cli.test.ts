@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import type { AiProviderPort, RuntimeHealthResult } from "../src/core/ai-provider-port.ts";
@@ -12,6 +15,7 @@ test("protocol validation CLI accepts only an explicit path and one bounded rest
   });
   assert.deepEqual(parseArguments(["allowance-validate", "--path", "/controlled/bin"]), { allowance: true, path: "/controlled/bin" });
   assert.deepEqual(parseArguments(["structured-output-validate", "--job-id", "validation-only"]), { structuredOutput: true, jobId: "validation-only" });
+  assert.deepEqual(parseArguments(["conversation-ownership-validate"]), { ownership: true });
   assert.deepEqual(parseArguments(["--path", "/controlled/bin"]), { path: "/controlled/bin" });
   for (const arguments_ of [
     ["unknown"],
@@ -21,9 +25,23 @@ test("protocol validation CLI accepts only an explicit path and one bounded rest
     ["protocol-validate", "--path", "/first", "--path", "/second"],
     ["structured-output-validate"],
     ["structured-output-validate", "--job-id", "../../outside"],
+    ["conversation-ownership-validate", "--path", "/ignored"],
   ]) {
     assert.throws(() => parseArguments(arguments_));
   }
+});
+
+test("conversation ownership CLI is offline and never constructs a provider", async () => {
+  const writes = { stdout: "", stderr: "" };
+  const evidenceRoot = await mkdtemp(join(tmpdir(), "projectos-ownership-cli-"));
+  const exitCode = await main(["conversation-ownership-validate"], {
+    provider: { validateRuntime: async () => { throw new Error("provider must not be called"); } },
+    ownershipEvidenceRoot: evidenceRoot,
+    stdout: { write: (value) => { writes.stdout += String(value); return true; } },
+    stderr: { write: (value) => { writes.stderr += String(value); return true; } },
+  });
+  assert.equal(exitCode, 0); assert.match(writes.stdout, /offline_ownership_validation/u); assert.equal(writes.stderr, "");
+  assert.equal((await readdir(evidenceRoot)).filter((name) => name.endsWith("-conversation-ownership")).length, 1);
 });
 
 test("structured-output CLI is a nonzero containment denial without a provider action", async () => {
