@@ -3,9 +3,10 @@ title: 'Story 1.4: Normalize Allowance Failures and Terminal Job Outcomes'
 type: 'feature'
 created: '2026-08-04'
 baseline_revision: 'b347d55'
-status: 'in-review'
+final_revision: '38b57ea'
+status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '/Users/wouter/Projects/Personal/ProjectOS/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: []
@@ -98,7 +99,7 @@ The reducer is a fake-backed harness contract, not a provider-job implementation
 
 ## Auto Run Result
 
-Status: review
+Status: done
 
 - Summary: Added a credential-free, manifest-pinned allowance validation mode and ProjectOS-owned terminal job reducer without enabling provider turns, tools, or Canonical State operations.
 - Files changed: Core allowance/failure/reducer contracts; method-specific Codex allowance boundary and adapter lifecycle; sanitized allowance evidence; fake fixtures; deterministic tests and opt-in docs/scripts; sprint tracking.

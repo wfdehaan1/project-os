@@ -52,7 +52,7 @@ development_status:
   1-1-establish-the-isolated-app-server-harness: done
   1-2-pin-and-exercise-the-runtime-protocol-contract: done
   1-3-prove-subscription-authentication-without-credential-ownership: done
-  1-4-normalize-allowance-failures-and-terminal-job-outcomes: review
+  1-4-normalize-allowance-failures-and-terminal-job-outcomes: done
   1-5-validate-structured-output-for-representative-project-work: backlog
   1-6-prove-preventive-execution-containment: backlog
   1-7-prove-portable-conversation-ownership-and-restore-separation: backlog
