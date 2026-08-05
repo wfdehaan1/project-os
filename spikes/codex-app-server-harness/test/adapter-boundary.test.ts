@@ -9,6 +9,8 @@ const coreFiles = [
   "lifecycle.ts",
   "project-export.ts",
   "project-restore.ts",
+  "provider-cleanup-outbox.ts",
+  "provider-session-cleanup.ts",
 ] as const;
 
 test("public provider modules do not import or expose Codex protocol types", async () => {
@@ -22,6 +24,13 @@ test("portable ownership and restore remain pure core contracts", async () => {
   for (const file of ["conversation-ownership.ts", "project-export.ts", "project-restore.ts"] as const) {
     const source = await readFile(new URL(`../src/core/${file}`, import.meta.url), "utf8");
     assert.doesNotMatch(source, /AiProviderPort|adapters\/codex|CodexAppServer|thread\/(?:start|resume)|turn\/start/iu, file);
+  }
+});
+
+test("cleanup core remains provider-neutral and cannot become a generation or dispatch path", async () => {
+  for (const file of ["provider-cleanup-outbox.ts", "provider-session-cleanup.ts"] as const) {
+    const source = await readFile(new URL(`../src/core/${file}`, import.meta.url), "utf8");
+    assert.doesNotMatch(source, /adapters\/codex|thread\/(?:start|resume)|turn\/start|model\/call|prompt|transcript/iu, file);
   }
 });
 

@@ -43,6 +43,50 @@ export interface PreventiveExecutionContainmentRequest extends RuntimeValidation
   readonly live?: boolean;
 }
 
+/**
+ * Cleanup is deliberately a narrow, provider-neutral capability.  It is not a
+ * thread, turn, or generic RPC dispatch surface: callers may only enumerate
+ * records that were marked as ProjectOS-managed by their own durable outbox
+ * and may only request deletion in the same authentication context.
+ */
+export interface ManagedProviderSession {
+  /** Opaque outbox correlation, used only to recover an interrupted fake create. */
+  readonly cleanupObligationId: string;
+  readonly opaqueSessionId: string;
+  readonly authenticationContextFingerprint: string;
+  readonly providerProfileId: string;
+  readonly managedSource: "projectos_cleanup_outbox_v1";
+}
+
+export interface ProviderSessionCleanupRequest {
+  readonly providerProfileId: string;
+  readonly authenticationContextFingerprint: string;
+  readonly managedSource: "projectos_cleanup_outbox_v1";
+}
+
+export interface ProviderSessionDeleteRequest extends ProviderSessionCleanupRequest {
+  readonly opaqueSessionId: string;
+}
+
+export type ProviderSessionCleanupFailureCode =
+  | "adapter_unavailable"
+  | "reauth_required"
+  | "delete_pending";
+
+export type ProviderSessionListResult =
+  | Readonly<{ readonly ok: true; readonly complete: true; readonly sessions: readonly ManagedProviderSession[] }>
+  | Readonly<{ readonly ok: false; readonly code: ProviderSessionCleanupFailureCode }>;
+
+export type ProviderSessionDeleteResult =
+  | Readonly<{ readonly ok: true; readonly outcome: "deleted" | "absent" }>
+  | Readonly<{ readonly ok: false; readonly code: ProviderSessionCleanupFailureCode }>;
+
+/** Validation-only cleanup surface.  It intentionally has no create, turn, or job method. */
+export interface ProviderSessionCleanupPort {
+  listManagedSessions(request: ProviderSessionCleanupRequest): Promise<ProviderSessionListResult>;
+  deleteManagedSession(request: ProviderSessionDeleteRequest): Promise<ProviderSessionDeleteResult>;
+}
+
 export interface PreventiveExecutionContainmentSuccess {
   readonly ok: true;
   readonly correlationId: string;

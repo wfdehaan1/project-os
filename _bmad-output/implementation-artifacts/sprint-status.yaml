@@ -56,6 +56,6 @@ development_status:
   1-5-validate-structured-output-for-representative-project-work: done
   1-6-prove-preventive-execution-containment: done
   1-7-prove-portable-conversation-ownership-and-restore-separation: done
-  1-8-prove-crash-safe-provider-session-cleanup: backlog
+  1-8-prove-crash-safe-provider-session-cleanup: in-progress
   1-9-prove-provider-neutrality-and-record-the-gate-decision: backlog
   epic-1-retrospective: optional

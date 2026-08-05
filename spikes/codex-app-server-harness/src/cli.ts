@@ -1,6 +1,9 @@
 import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type {
@@ -15,12 +18,16 @@ import { approveContextPreview, createConversation, createFreshProviderSessionBi
 import { exportPortableProject, portableProjectDigest, type ProjectOwnedState } from "./core/project-export.ts";
 import { restorePortableProject } from "./core/project-restore.ts";
 import { writeConversationOwnershipEvidence } from "./evidence/conversation-ownership-evidence-recorder.ts";
+import { MANAGED_SESSION_SOURCE, ProviderCleanupOutbox } from "./core/provider-cleanup-outbox.ts";
+import { FakeProviderSessionFilesystem, ProviderSessionCleanupCoordinator } from "./core/provider-session-cleanup.ts";
+import { writeProviderCleanupEvidence } from "./evidence/provider-cleanup-evidence-recorder.ts";
 
-type CliRequest = RuntimeValidationRequest & AllowanceValidationRequest & StructuredOutputValidationRequest & PreventiveExecutionContainmentRequest & { readonly authentication?: true; readonly allowance?: true; readonly structuredOutput?: true; readonly containment?: true; readonly ownership?: true; readonly interactive?: true };
+type CliRequest = RuntimeValidationRequest & AllowanceValidationRequest & StructuredOutputValidationRequest & PreventiveExecutionContainmentRequest & { readonly authentication?: true; readonly allowance?: true; readonly structuredOutput?: true; readonly containment?: true; readonly ownership?: true; readonly providerCleanup?: true; readonly interactive?: true };
 
 export interface CliDependencies {
   readonly provider?: AiProviderPort;
   readonly ownershipEvidenceRoot?: string;
+  readonly providerCleanupEvidenceRoot?: string;
   readonly stdout?: Pick<NodeJS.WriteStream, "write">;
   readonly stderr?: Pick<NodeJS.WriteStream, "write">;
 }
@@ -36,7 +43,7 @@ export async function main(
     request = parseArguments(arguments_);
   } catch {
     stderr.write(
-      "Usage: node src/cli.ts [protocol-validate] [--path PATH] [--restart] | auth-validate --interactive [--path PATH] | allowance-validate [--path PATH] | containment-validate --job-id ID | structured-output-validate --job-id ID | conversation-ownership-validate\n",
+      "Usage: node src/cli.ts [protocol-validate] [--path PATH] [--restart] | auth-validate --interactive [--path PATH] | allowance-validate [--path PATH] | containment-validate --job-id ID | structured-output-validate --job-id ID | conversation-ownership-validate | provider-cleanup-validate\n",
     );
     return 2;
   }
@@ -48,6 +55,16 @@ export async function main(
       return 0;
     } catch {
       stdout.write(`${JSON.stringify({ ok: false, code: "ownership_validation_failed", providerActionEnabled: false, canonicalStateOperationEnabled: false }, null, 2)}\n`);
+      return 1;
+    }
+  }
+  if (request.providerCleanup) {
+    try {
+      await validateProviderCleanup(dependencies.providerCleanupEvidenceRoot ?? fileURLToPath(new URL("../.evidence", import.meta.url)));
+      stdout.write(`${JSON.stringify({ ok: true, mode: "offline_provider_cleanup_validation", gateDecision: "reject", providerActionEnabled: false, canonicalStateOperationEnabled: false }, null, 2)}\n`);
+      return 0;
+    } catch {
+      stdout.write(`${JSON.stringify({ ok: false, code: "provider_cleanup_validation_failed", providerActionEnabled: false, canonicalStateOperationEnabled: false }, null, 2)}\n`);
       return 1;
     }
   }
@@ -74,7 +91,7 @@ export async function main(
 }
 
 export function parseArguments(arguments_: readonly string[]): CliRequest {
-  const request: { path?: string; restart?: boolean; authentication?: true; allowance?: true; structuredOutput?: true; containment?: true; ownership?: true; interactive?: true; jobId?: string } = {};
+  const request: { path?: string; restart?: boolean; authentication?: true; allowance?: true; structuredOutput?: true; containment?: true; ownership?: true; providerCleanup?: true; interactive?: true; jobId?: string } = {};
   let index = 0;
   if (arguments_[0] === "protocol-validate") index = 1;
   else if (arguments_[0] === "auth-validate") { request.authentication = true; index = 1; }
@@ -82,11 +99,12 @@ export function parseArguments(arguments_: readonly string[]): CliRequest {
   else if (arguments_[0] === "containment-validate") { request.containment = true; index = 1; }
   else if (arguments_[0] === "structured-output-validate") { request.structuredOutput = true; index = 1; }
   else if (arguments_[0] === "conversation-ownership-validate") { request.ownership = true; index = 1; }
+  else if (arguments_[0] === "provider-cleanup-validate") { request.providerCleanup = true; index = 1; }
   else if (arguments_[0] && !arguments_[0].startsWith("--")) throw new Error("unknown command");
   while (index < arguments_.length) {
     const option = arguments_[index];
     if (option === "--restart") {
-      if (request.authentication || request.allowance || request.structuredOutput || request.containment || request.ownership) throw new Error("restart unavailable for validation mode");
+      if (request.authentication || request.allowance || request.structuredOutput || request.containment || request.ownership || request.providerCleanup) throw new Error("restart unavailable for validation mode");
       if (request.restart) throw new Error("duplicate option");
       request.restart = true;
       index += 1;
@@ -94,7 +112,7 @@ export function parseArguments(arguments_: readonly string[]): CliRequest {
     }
     if (option === "--path") {
       const value = arguments_[index + 1];
-      if (request.ownership || !value || value.startsWith("--") || request.path) throw new Error("invalid path option");
+      if (request.ownership || request.providerCleanup || !value || value.startsWith("--") || request.path) throw new Error("invalid path option");
       request.path = value;
       index += 2;
       continue;
@@ -133,6 +151,26 @@ async function validateConversationOwnership(evidenceRoot: string): Promise<void
   const exported = exportPortableProject(state); const restored = restorePortableProject(exported);
   if (restored.project.bindings.length !== 0 || restored.project.importProvenance === null || restored.project.conversations[0]?.id === conversation.id) throw new Error("ownership_validation_failed");
   await writeConversationOwnershipEvidence({ schemaVersion: 1, runId: `ownership-${randomUUID()}`, correlationId: `ownership-${randomUUID()}`, outcome: "proceed", exportDigest: portableProjectDigest(exported), restoreDigest: portableProjectDigest(exportPortableProject(restored.project)), counts: { projects: 1, conversations: 1, transcriptEntries: 1, acceptedHistoryEntries: 1, rationales: 1, provenances: 1, sources: 1, relationships: 1 }, checks: ["binding_excluded", "offline_restore", "remap_complete", "fresh_binding_required"], stopConditions: [], reproductionCommand: "npm run validate:conversation-ownership" }, evidenceRoot);
+}
+
+async function validateProviderCleanup(evidenceRoot: string): Promise<void> {
+  const temporary = await mkdtemp(join(tmpdir(), "projectos-provider-cleanup-"));
+  const fingerprint = `sha256:${"a".repeat(64)}`;
+  const context = { adapterId: "fake", providerProfileId: "validation-profile", authenticationContextFingerprint: fingerprint } as const;
+  try {
+    let outbox = await ProviderCleanupOutbox.open(join(temporary, "outbox"), { now: () => "2026-08-05T12:00:00.000Z" });
+    const fake = await FakeProviderSessionFilesystem.open(join(temporary, "fake"));
+    let coordinator = new ProviderSessionCleanupCoordinator({ outbox, provider: fake, context });
+    await coordinator.createWithDurableIntent({ id: "cleanup-one", createEffect: fake }); await coordinator.recordLocalProjectDeletion({ obligationId: "cleanup-one", eraseLocalProject: async () => {} }); await coordinator.reconcile();
+    await outbox.recordCreateIntent({ id: "cleanup-two", ...context }); await fake.createManagedSession({ cleanupObligationId: "cleanup-two", providerProfileId: context.providerProfileId, authenticationContextFingerprint: fingerprint });
+    outbox = await ProviderCleanupOutbox.open(join(temporary, "outbox"), { now: () => "2026-08-05T12:00:00.000Z" }); coordinator = new ProviderSessionCleanupCoordinator({ outbox, provider: fake, context }); await coordinator.reconcile(); await coordinator.recordLocalProjectDeletion({ obligationId: "cleanup-two", eraseLocalProject: async () => {} }); await coordinator.reconcile();
+    await coordinator.createWithDurableIntent({ id: "cleanup-three", createEffect: fake }); await coordinator.recordLocalProjectDeletion({ obligationId: "cleanup-three", eraseLocalProject: async () => {} }); fake.failRolloutMetadataRemoval(); await coordinator.reconcile(); fake.failRolloutMetadataRemoval(false); await coordinator.reconcile();
+    const absent = await coordinator.createWithDurableIntent({ id: "cleanup-four", createEffect: fake }); await coordinator.recordLocalProjectDeletion({ obligationId: "cleanup-four", eraseLocalProject: async () => {} }); await fake.deleteManagedSession({ providerProfileId: context.providerProfileId, authenticationContextFingerprint: fingerprint, managedSource: MANAGED_SESSION_SOURCE, opaqueSessionId: absent.opaqueSessionId! }); await coordinator.reconcile();
+    const obligations = outbox.list(); const audit = await fake.audit();
+    const counts = { created: audit.created, confirmed: obligations.filter((entry) => entry.lifecycle === "confirmed").length, absent: obligations.filter((entry) => entry.lifecycle === "absent").length, pending: obligations.filter((entry) => entry.lifecycle === "create_intent" || entry.lifecycle === "bound" || entry.lifecycle === "retired" || entry.lifecycle === "delete_pending").length, reauthRequired: obligations.filter((entry) => entry.lifecycle === "reauth_required").length, ledgerGaps: Math.abs(audit.created - obligations.length), rolloutMetadata: audit.rolloutMetadata } as const;
+    if (audit.sessions !== 0 || counts.created !== 4 || counts.confirmed !== 3 || counts.absent !== 1 || counts.pending !== 0) throw new Error("provider_cleanup_validation_failed");
+    await writeProviderCleanupEvidence({ schemaVersion: 1, runId: `cleanup-${randomUUID()}`, correlationId: `cleanup-${randomUUID()}`, decision: "reject", counts, checks: ["intent_before_create", "crash_reconciliation", "local_erasure_separate", "managed_metadata_removed", "sanitized_aggregate"], stopConditions: ["live_codex_cleanup_unproven", "containment_boundary_unavailable"], reproductionCommand: "npm run validate:provider-cleanup" }, evidenceRoot);
+  } finally { await rm(temporary, { recursive: true, force: true }); }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

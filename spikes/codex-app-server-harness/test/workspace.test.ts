@@ -8,6 +8,7 @@ const requiredFiles = [
   "README.md",
   "evidence/protocol-validation-run.schema.json",
   "evidence/conversation-ownership-validation-run.schema.json",
+  "evidence/provider-cleanup-validation-run.schema.json",
   "package-lock.json",
   "protocol/supported-runtime-manifest.json",
   "protocol/supported-runtime-manifest.schema.json",
@@ -37,6 +38,8 @@ test("workspace pins the disposable harness contract", async () => {
   assert.ok(packageJson.scripts["validate:protocol:live"]);
   assert.ok(packageJson.scripts["test:conversation-ownership"]);
   assert.ok(packageJson.scripts["validate:conversation-ownership"]);
+  assert.ok(packageJson.scripts["test:provider-cleanup"]);
+  assert.ok(packageJson.scripts["validate:provider-cleanup"]);
   assert.match(packageJson.scripts.test ?? "", /PROJECTOS_LIVE_CODEX=0/u);
   assert.match(packageJson.scripts.test ?? "", /PROJECTOS_LIVE_PROTOCOL=0/u);
   assert.match(packageJson.scripts["test:protocol"] ?? "", /workspace\.test\.ts/u);

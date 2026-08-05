@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "runId", "correlationId", "decision", "counts", "checks", "stopConditions", "reproductionCommand"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "runId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "correlationId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "decision": {"const": "reject"},
+    "counts": {"type": "object", "additionalProperties": false, "required": ["created", "confirmed", "absent", "pending", "reauthRequired", "ledgerGaps", "rolloutMetadata"], "properties": {"created": {"type": "integer", "minimum": 0}, "confirmed": {"type": "integer", "minimum": 0}, "absent": {"type": "integer", "minimum": 0}, "pending": {"type": "integer", "minimum": 0}, "reauthRequired": {"type": "integer", "minimum": 0}, "ledgerGaps": {"const": 0}, "rolloutMetadata": {"type": "integer", "minimum": 0}}},
+    "checks": {"type": "array", "uniqueItems": true, "minItems": 5, "maxItems": 5, "items": {"enum": ["intent_before_create", "crash_reconciliation", "local_erasure_separate", "managed_metadata_removed", "sanitized_aggregate"]}},
+    "stopConditions": {"type": "array", "uniqueItems": true, "minItems": 2, "maxItems": 2, "items": {"enum": ["live_codex_cleanup_unproven", "containment_boundary_unavailable"]}},
+    "reproductionCommand": {"const": "npm run validate:provider-cleanup"}
+  },
+  "allOf": [{"properties": {"counts": {"properties": {"ledgerGaps": {"const": 0}}}}}]
+}
