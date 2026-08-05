@@ -3,7 +3,8 @@ title: 'Story 1.6: Prove Preventive Execution Containment'
 type: 'feature'
 created: '2026-08-05'
 baseline_revision: 'f387ec17f2ff3afd304662012e74e0a0d291508c'
-status: 'in-review'
+final_revision: '9b5f180'
+status: 'done'
 review_loop_iteration: 0
 followup_review_recommended: true
 context:
