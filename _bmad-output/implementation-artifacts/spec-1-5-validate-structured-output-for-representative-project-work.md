@@ -3,7 +3,8 @@ title: 'Story 1.5: Validate Structured Output for Representative Project Work'
 type: 'feature'
 created: '2026-08-05'
 baseline_revision: '31988e734e11be29d2afdb2628628a2fb129414e'
-status: 'in-review'
+final_revision: '777e6b9'
+status: 'done'
 review_loop_iteration: 0
 followup_review_recommended: false
 context:
@@ -95,7 +96,7 @@ The Story 1.5 live-quality gate is deliberately contingent on preventive contain
 
 ## Auto Run Result
 
-Status: review
+Status: done
 
 Implementation is fake-backed and offline only. The committed protocol manifest declares the bounded structured thread/turn capability, but `structured-output-validate` rejects before discovery, spawn, thread, or turn dispatch because Story 1.6 has not supplied a preventive containment attestation. This is a required `reject` gate outcome, not evidence of live provider quality.
 
@@ -108,3 +109,7 @@ Validation completed on 2026-08-05:
 - `git diff --check` — passed.
 
 Changed implementation areas: core proposal/schema/scoring/coordinator modules; structured metric evidence; bounded manifest/protocol declaration; safe CLI rejection; three annotated fixtures with fixture-specific fake integration; focused tests; harness/evidence documentation and scripts. Follow-up review hardened typed provenance, deep immutability, cross-job rejection, false-positive scoring, strict nested metric allowlisting, evidence-write failure reporting, and manifest deep freezing.
+
+Review: 9 review-driven patches applied; 0 deferred; 0 rejected. Follow-up review recommendation: false; the final repair pass was covered by focused and full offline regression suites.
+
+Residual risk: live provider quality remains intentionally unproven and the adapter path stays `reject` until Story 1.6 supplies preventive containment evidence. This run did not start a live provider process.
