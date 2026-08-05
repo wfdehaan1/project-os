@@ -13,6 +13,8 @@ import type {
   AuthenticationValidationResult,
   RuntimeHealthResult,
   RuntimeValidationRequest,
+  StructuredOutputValidationRequest,
+  StructuredOutputValidationRejection,
 } from "../../core/ai-provider-port.ts";
 import {
   createCorrelationId,
@@ -110,6 +112,7 @@ const PROTOCOL_RESTART_REPRODUCTION_COMMAND =
   "npm ci && npm run protocol:validate -- --restart";
 const AUTH_REPRODUCTION_COMMAND = "PROJECTOS_LIVE_AUTH=1 npm run test:auth:live";
 const ALLOWANCE_REPRODUCTION_COMMAND = "PROJECTOS_LIVE_ALLOWANCE=1 npm run test:allowance:live";
+const STRUCTURED_OUTPUT_REPRODUCTION_COMMAND = "npm run validate:structured-output";
 
 export class CodexAppServerAdapter implements AiProviderPort {
   readonly #discover: typeof discoverCodexExecutable;
@@ -399,6 +402,36 @@ export class CodexAppServerAdapter implements AiProviderPort {
     } catch {
       return this.#recordAllowanceFailure(createProviderFailure({ code: "allowance_malformed", correlationId, remediation: { action: "inspect_local_evidence", reference: "allowance" } }));
     } finally { stopSentinel(sentinel); }
+  }
+
+  /**
+   * Story 1.5 deliberately has no path to a provider thread or turn. A containment
+   * attestation can only be minted by the preventive gate in Story 1.6, so reject
+   * before discovery, profile creation, schema generation, or child process spawn.
+   */
+  async validateStructuredOutput(
+    _request: StructuredOutputValidationRequest,
+  ): Promise<StructuredOutputValidationRejection> {
+    const correlationId = this.#correlationId();
+    let evidenceFailed = false;
+    try {
+      const { writeStructuredOutputEvidence } = await import("../../evidence/structured-output-evidence-recorder.ts");
+      await writeStructuredOutputEvidence({
+        schemaVersion: 1,
+        runId: this.#runId(),
+        correlationId,
+        result: "reject",
+        scorePercent: null,
+        scores: [],
+        stopConditions: ["containment_attestation_required"],
+        containment: "unavailable",
+        reproductionCommand: STRUCTURED_OUTPUT_REPRODUCTION_COMMAND,
+      }, this.#evidenceRoot);
+    } catch { evidenceFailed = true; }
+    // This is still a no-dispatch denial. Do not widen to any provider action if evidence fails.
+    return Object.freeze({ ok: false, code: evidenceFailed ? "evidence_write_failed" : "containment_attestation_required", correlationId,
+      stopCondition: evidenceFailed ? "evidence_write_failed" : "containment_attestation_required", providerActionEnabled: false,
+      canonicalStateOperationEnabled: false });
   }
 
   async #recordAllowanceFailure(failure: ProviderFailure): Promise<ProviderFailure> {

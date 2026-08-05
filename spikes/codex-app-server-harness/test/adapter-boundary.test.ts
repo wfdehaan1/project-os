@@ -13,12 +13,15 @@ test("public provider modules do not import or expose Codex protocol types", asy
 
 test("Codex adapter has no domain repository access or production action methods", async () => {
   const sources = await sourceTree();
-  const combined = sources.map(({ source }) => source).join("\n");
+  const combined = sources.filter(({ path }) => path !== "adapters/codex/protocol-contract.ts").map(({ source }) => source).join("\n");
   assert.doesNotMatch(
     combined,
     /CanonicalStateRepository|ConversationRepository|ChangeProposalRepository|ExportRepository|DeletionRepository/iu,
   );
   assert.doesNotMatch(combined, /thread\/(start|resume)|turn\/start|model\/call/iu);
+  const contract = sources.find(({ path }) => path === "adapters/codex/protocol-contract.ts")?.source ?? "";
+  assert.match(contract, /createStructuredOutputProtocolBoundary/iu);
+  assert.match(contract, /exactArray\(value\.clientRequests, \["thread\/start", "turn\/start"\]\)/u);
 });
 
 test("the only App Server spawn path requires a validated opaque capability", async () => {

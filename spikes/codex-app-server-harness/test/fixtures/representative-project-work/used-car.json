@@ -1,0 +1,27 @@
+{
+  "fixtureId": "used-car",
+  "contextPreview": {
+    "previewId": "used-car-preview",
+    "records": [
+      {"id": "car-fact", "type": "fact", "summary": "variant A has a complete service history"},
+      {"id": "car-decision", "type": "decision", "summary": "compare total ownership cost before selecting a variant"},
+      {"id": "car-research", "type": "research", "summary": "variant B has a lower listed price but higher reported fuel use"},
+      {"id": "car-question", "type": "open_question", "summary": "verify whether variant B has timing belt evidence"},
+      {"id": "car-task", "type": "task", "summary": "arrange inspections for both variants"}
+    ]
+  },
+  "expectedProposal": {
+    "proposalId": "used-car-proposal",
+    "artifacts": [
+      {"id": "car-fact", "type": "fact", "provenance": ["car-fact"]},
+      {"id": "car-decision", "type": "decision", "provenance": ["car-decision"]},
+      {"id": "car-research", "type": "research", "provenance": ["car-research"]},
+      {"id": "car-question", "type": "open_question", "provenance": ["car-question"]},
+      {"id": "car-task", "type": "task", "provenance": ["car-task"]}
+    ],
+    "relationships": [{"from": "car-research", "to": "car-decision", "kind": "informs"}, {"from": "car-question", "to": "car-task", "kind": "blocks"}],
+    "governingEffects": ["variant_comparison_required"],
+    "reentryEffects": ["inspection_and_belt_evidence_pending"]
+  },
+  "fakeReply": "expected"
+}

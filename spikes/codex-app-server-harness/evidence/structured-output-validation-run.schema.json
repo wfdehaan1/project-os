@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "runId", "correlationId", "result", "scorePercent", "scores", "stopConditions", "containment", "reproductionCommand"],
+  "properties": {
+    "schemaVersion": {"const": 1}, "runId": {"type": "string"}, "correlationId": {"type": "string"},
+    "result": {"enum": ["proceed", "reject"]}, "scorePercent": {"type": ["number", "null"], "minimum": 0, "maximum": 100}, "scores": {"type": "array", "maxItems": 5, "items": {"type": "object", "additionalProperties": false, "required": ["type", "denominator", "truePositives", "falsePositives", "falseNegatives", "unsupportedClaims", "provenanceFailures", "governingStateOmissions", "reentryOmissions", "correctionEffort", "precisionPercent", "recallPercent"], "properties": {"type": {"enum": ["fact", "decision", "research", "open_question", "task"]}, "denominator": {"type": "integer", "minimum": 1}, "truePositives": {"type": "integer", "minimum": 0}, "falsePositives": {"type": "integer", "minimum": 0}, "falseNegatives": {"type": "integer", "minimum": 0}, "unsupportedClaims": {"type": "integer", "minimum": 0}, "provenanceFailures": {"type": "integer", "minimum": 0}, "governingStateOmissions": {"type": "integer", "minimum": 0}, "reentryOmissions": {"type": "integer", "minimum": 0}, "correctionEffort": {"type": "integer", "minimum": 0}, "precisionPercent": {"type": "number", "minimum": 0, "maximum": 100}, "recallPercent": {"type": "number", "minimum": 0, "maximum": 100}}}},
+    "stopConditions": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,79}$"}}, "containment": {"enum": ["unavailable", "attested"]},
+    "reproductionCommand": {"const": "npm run validate:structured-output"}
+  }
+}

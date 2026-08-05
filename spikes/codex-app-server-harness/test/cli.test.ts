@@ -11,6 +11,7 @@ test("protocol validation CLI accepts only an explicit path and one bounded rest
     restart: true,
   });
   assert.deepEqual(parseArguments(["allowance-validate", "--path", "/controlled/bin"]), { allowance: true, path: "/controlled/bin" });
+  assert.deepEqual(parseArguments(["structured-output-validate", "--job-id", "validation-only"]), { structuredOutput: true, jobId: "validation-only" });
   assert.deepEqual(parseArguments(["--path", "/controlled/bin"]), { path: "/controlled/bin" });
   for (const arguments_ of [
     ["unknown"],
@@ -18,9 +19,18 @@ test("protocol validation CLI accepts only an explicit path and one bounded rest
     ["protocol-validate", "--restart", "value"],
     ["protocol-validate", "--restart", "--restart"],
     ["protocol-validate", "--path", "/first", "--path", "/second"],
+    ["structured-output-validate"],
+    ["structured-output-validate", "--job-id", "../../outside"],
   ]) {
     assert.throws(() => parseArguments(arguments_));
   }
+});
+
+test("structured-output CLI is a nonzero containment denial without a provider action", async () => {
+  const writes = { stdout: "", stderr: "" };
+  const provider: AiProviderPort = { validateRuntime: async () => { throw new Error("unexpected runtime call"); }, validateStructuredOutput: async () => ({ ok: false, code: "containment_attestation_required", correlationId: "structured-cli-denied", stopCondition: "containment_attestation_required", providerActionEnabled: false, canonicalStateOperationEnabled: false }) };
+  const exitCode = await main(["structured-output-validate", "--job-id", "validation-only"], { provider, stdout: { write: (value) => { writes.stdout += String(value); return true; } }, stderr: { write: (value) => { writes.stderr += String(value); return true; } } });
+  assert.equal(exitCode, 1); assert.match(writes.stdout, /containment_attestation_required/u); assert.equal(writes.stderr, "");
 });
 
 for (const [result, expectedExit] of [

@@ -55,6 +55,12 @@ export interface AllowanceProtocolContract {
   readonly serverNotifications: readonly ["account/rateLimits/updated"];
 }
 
+/** Narrow validation-only surface; it is not a reusable chat or agent transport. */
+export interface StructuredOutputProtocolContract {
+  readonly clientRequests: readonly ["thread/start", "turn/start"];
+  readonly serverNotifications: readonly ["thread/started", "turn/completed", "turn/started"];
+}
+
 export interface SupportedRuntimeManifest {
   readonly formatVersion: typeof PROTOCOL_MANIFEST_FORMAT_VERSION;
   readonly manifestId: string;
@@ -82,6 +88,7 @@ export interface SupportedRuntimeManifest {
   };
   readonly authentication?: AuthenticationProtocolContract;
   readonly allowance?: AllowanceProtocolContract;
+  readonly structuredOutput?: StructuredOutputProtocolContract;
 }
 
 export interface CollectProtocolSchemaBundleOptions {
@@ -213,7 +220,7 @@ export function parseSupportedRuntimeManifest(serialized: string): SupportedRunt
   }
   if (
     !(hasExactKeys(value, [
-      "allowance", "authentication",
+      "allowance", "authentication", "structuredOutput",
       "enabledDispatch",
       "formatVersion",
       "generation",
@@ -221,6 +228,8 @@ export function parseSupportedRuntimeManifest(serialized: string): SupportedRunt
       "requiredMethods",
       "runtime",
       "schemas",
+    ]) || hasExactKeys(value, [
+      "allowance", "authentication", "enabledDispatch", "formatVersion", "generation", "manifestId", "requiredMethods", "runtime", "schemas",
     ]) || hasExactKeys(value, [
       "enabledDispatch", "formatVersion", "generation", "manifestId", "requiredMethods", "runtime", "schemas",
     ])) ||
@@ -271,7 +280,8 @@ export function parseSupportedRuntimeManifest(serialized: string): SupportedRunt
     !validSortedStrings(manifest.enabledDispatch.clientRequests) ||
     !validSortedStrings(manifest.enabledDispatch.clientNotifications) ||
     (manifest.authentication !== undefined && !validAuthenticationContract(manifest.authentication)) ||
-    (manifest.allowance !== undefined && !validAllowanceContract(manifest.allowance))
+    (manifest.allowance !== undefined && !validAllowanceContract(manifest.allowance)) ||
+    (manifest.structuredOutput !== undefined && !validStructuredOutputContract(manifest.structuredOutput))
   ) {
     throw invalidManifest();
   }
@@ -431,6 +441,16 @@ export function createAllowanceProtocolBoundary(
       return semantic.has(method) ? "semantic_notification" : "unknown";
     },
   });
+}
+
+export function createStructuredOutputProtocolBoundary(
+  manifest: SupportedRuntimeManifest,
+  detectedMethods: ProtocolMethodSets,
+): ProtocolBoundary {
+  const structured = manifest.structuredOutput;
+  if (!structured || !isSubset(structured.clientRequests, detectedMethods.clientRequests) || !isSubset(structured.serverNotifications, detectedMethods.serverNotifications)) throw new Error("structured_output_unsupported");
+  const requests = new Set<string>(["initialize", ...structured.clientRequests]); const notifications = new Set<string>(["initialized"]); const semantic = new Set<string>(structured.serverNotifications); const forbidden = new Set(manifest.requiredMethods.recognizedForbidden);
+  return Object.freeze({ enabledClientRequests: Object.freeze([...requests].sort(codePointCompare)), enabledClientNotifications: Object.freeze([...notifications]), assertClientRequest(method: string): void { if (!requests.has(method)) throw new Error("unsupported_dispatch"); }, assertClientNotification(method: string): void { if (!notifications.has(method)) throw new Error("unsupported_dispatch"); }, classifyInbound(method: string, direction: "server_notification" | "server_request"): InboundMethodClassification { if (direction === "server_request") return forbidden.has(method) ? "forbidden" : "unknown"; if (forbidden.has(method)) return "forbidden"; return semantic.has(method) ? "semantic_notification" : "unknown"; } });
 }
 
 export function schemaTreeAggregateBytes(files: readonly ProtocolSchemaDigestFile[]): Buffer {
@@ -599,6 +619,12 @@ function validAllowanceContract(value: unknown): value is AllowanceProtocolContr
   return isObject(value) && hasExactKeys(value, ["clientRequests", "serverNotifications"]) &&
     exactArray(value.clientRequests, ["account/rateLimits/read"]) &&
     exactArray(value.serverNotifications, ["account/rateLimits/updated"]);
+}
+
+function validStructuredOutputContract(value: unknown): value is StructuredOutputProtocolContract {
+  return isObject(value) && hasExactKeys(value, ["clientRequests", "serverNotifications"]) &&
+    exactArray(value.clientRequests, ["thread/start", "turn/start"]) &&
+    exactArray(value.serverNotifications, ["thread/started", "turn/completed", "turn/started"]);
 }
 
 function containsDeviceCodeLoginBranch(value: unknown): boolean {
@@ -777,6 +803,12 @@ function deepFreezeManifest(manifest: SupportedRuntimeManifest): SupportedRuntim
       allowance: Object.freeze({
         clientRequests: Object.freeze([...manifest.allowance.clientRequests]) as AllowanceProtocolContract["clientRequests"],
         serverNotifications: Object.freeze([...manifest.allowance.serverNotifications]) as AllowanceProtocolContract["serverNotifications"],
+      }),
+    } : {}),
+    ...(manifest.structuredOutput ? {
+      structuredOutput: Object.freeze({
+        clientRequests: Object.freeze([...manifest.structuredOutput.clientRequests]) as StructuredOutputProtocolContract["clientRequests"],
+        serverNotifications: Object.freeze([...manifest.structuredOutput.serverNotifications]) as StructuredOutputProtocolContract["serverNotifications"],
       }),
     } : {}),
   });

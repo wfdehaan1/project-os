@@ -13,7 +13,8 @@
     "requiredMethods",
     "enabledDispatch",
     "authentication",
-    "allowance"
+    "allowance",
+    "structuredOutput"
   ],
   "properties": {
     "formatVersion": { "const": 1 },
@@ -108,6 +109,15 @@
       "properties": {
         "clientRequests": { "const": ["account/rateLimits/read"] },
         "serverNotifications": { "const": ["account/rateLimits/updated"] }
+      }
+    },
+    "structuredOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clientRequests", "serverNotifications"],
+      "properties": {
+        "clientRequests": { "const": ["thread/start", "turn/start"] },
+        "serverNotifications": { "const": ["thread/started", "turn/completed", "turn/started"] }
       }
     }
   },

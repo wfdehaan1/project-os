@@ -28,6 +28,21 @@ export interface AllowanceValidationRequest extends RuntimeValidationRequest {
   readonly allowanceTimeoutMs?: number;
 }
 
+/** A live request is intentionally impossible to satisfy until Story 1.6 proves containment. */
+export interface StructuredOutputValidationRequest extends RuntimeValidationRequest {
+  readonly live?: boolean;
+  readonly jobId: string;
+}
+
+export interface StructuredOutputValidationRejection {
+  readonly ok: false;
+  readonly code: "containment_attestation_required" | "structured_output_rejected" | "evidence_write_failed";
+  readonly correlationId: string;
+  readonly stopCondition: string;
+  readonly providerActionEnabled: false;
+  readonly canonicalStateOperationEnabled: false;
+}
+
 export interface AllowanceValidationSuccess {
   readonly ok: true;
   readonly correlationId: string;
@@ -106,4 +121,7 @@ export interface AiProviderPort {
   validateAllowance?(
     request: AllowanceValidationRequest,
   ): Promise<AllowanceValidationResult>;
+  validateStructuredOutput?(
+    request: StructuredOutputValidationRequest,
+  ): Promise<StructuredOutputValidationRejection>;
 }

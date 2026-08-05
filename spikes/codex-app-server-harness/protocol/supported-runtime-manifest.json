@@ -20,6 +20,17 @@
       "account/rateLimits/updated"
     ]
   },
+  "structuredOutput": {
+    "clientRequests": [
+      "thread/start",
+      "turn/start"
+    ],
+    "serverNotifications": [
+      "thread/started",
+      "turn/completed",
+      "turn/started"
+    ]
+  },
   "manifestId": "projectos-codex-spike-darwin-arm64-0.145.0",
   "runtime": {
     "build": "codex-cli 0.145.0",

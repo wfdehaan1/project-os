@@ -1,0 +1,27 @@
+{
+  "fixtureId": "garden-office",
+  "contextPreview": {
+    "previewId": "garden-office-preview",
+    "records": [
+      {"id": "garden-fact", "type": "fact", "summary": "rear boundary is six metres from the house"},
+      {"id": "garden-decision", "type": "decision", "summary": "prefer an insulated office for year round work"},
+      {"id": "garden-research", "type": "research", "summary": "local guidance limits eaves near the boundary"},
+      {"id": "garden-question", "type": "open_question", "summary": "confirm neighbour consent for the proposed height"},
+      {"id": "garden-task", "type": "task", "summary": "obtain a constrained-height quote"}
+    ]
+  },
+  "expectedProposal": {
+    "proposalId": "garden-office-proposal",
+    "artifacts": [
+      {"id": "garden-fact", "type": "fact", "provenance": ["garden-fact"]},
+      {"id": "garden-decision", "type": "decision", "provenance": ["garden-decision"]},
+      {"id": "garden-research", "type": "research", "provenance": ["garden-research"]},
+      {"id": "garden-question", "type": "open_question", "provenance": ["garden-question"]},
+      {"id": "garden-task", "type": "task", "provenance": ["garden-task"]}
+    ],
+    "relationships": [{"from": "garden-research", "to": "garden-decision", "kind": "constrains"}, {"from": "garden-question", "to": "garden-task", "kind": "blocks"}],
+    "governingEffects": ["height_constraint"],
+    "reentryEffects": ["quote_pending_neighbour_consent"]
+  },
+  "fakeReply": "expected"
+}

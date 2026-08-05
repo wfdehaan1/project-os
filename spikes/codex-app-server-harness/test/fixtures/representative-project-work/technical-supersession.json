@@ -1,0 +1,27 @@
+{
+  "fixtureId": "technical-supersession",
+  "contextPreview": {
+    "previewId": "technical-supersession-preview",
+    "records": [
+      {"id": "tech-fact", "type": "fact", "summary": "the deployed integration uses revision one"},
+      {"id": "tech-decision", "type": "decision", "summary": "revision two supersedes revision one after compatibility verification"},
+      {"id": "tech-research", "type": "research", "summary": "revision two changes the request envelope"},
+      {"id": "tech-question", "type": "open_question", "summary": "confirm downstream compatibility with revision two"},
+      {"id": "tech-task", "type": "task", "summary": "run the compatibility migration check"}
+    ]
+  },
+  "expectedProposal": {
+    "proposalId": "technical-supersession-proposal",
+    "artifacts": [
+      {"id": "tech-fact", "type": "fact", "provenance": ["tech-fact"]},
+      {"id": "tech-decision", "type": "decision", "provenance": ["tech-decision"]},
+      {"id": "tech-research", "type": "research", "provenance": ["tech-research"]},
+      {"id": "tech-question", "type": "open_question", "provenance": ["tech-question"]},
+      {"id": "tech-task", "type": "task", "provenance": ["tech-task"]}
+    ],
+    "relationships": [{"from": "tech-research", "to": "tech-decision", "kind": "informs"}, {"from": "tech-question", "to": "tech-task", "kind": "blocks"}],
+    "governingEffects": ["revision_two_pending_compatibility"],
+    "reentryEffects": ["migration_check_before_supersession"]
+  },
+  "fakeReply": "expected"
+}

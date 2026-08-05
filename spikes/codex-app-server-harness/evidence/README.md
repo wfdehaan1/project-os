@@ -15,6 +15,8 @@ Story 1.3 writes `authentication-summary.json` in a separate atomically-publishe
 
 Story 1.4 writes atomic `allowance-summary.json` records in separate `*-allowance/` directories. They retain only normalized bucket usage, window duration, reset timestamp, reached-limit classification, runtime version, readiness, remedy, correlation ID, and failure code. Credentials, account data, provider event types, raw payloads, URLs, paths, prompts, and results are rejected before retention.
 
+Story 1.5 writes atomic `structured-output-summary.json` records in separate `*-structured-output/` directories. They retain only per-artifact-type aggregate scoring metrics, score, stop conditions, correlation ID, and whether containment was unavailable or attested. The recorder rejects fixture/project names, preview text, proposal values, provider replies, raw payloads, identities, credentials, URLs, and paths. A missing containment attestation produces a metric-only reject without runtime discovery, child spawn, thread, or turn dispatch.
+
 The recorder builds the complete base-plus-protocol record in one `0700` sibling staging directory, writes and syncs `0600` files, rejects traversal, symlinks, non-regular files, duplicate attachment destinations, and bounded-size violations, then publishes the run with one directory rename. A failure never publishes the staging directory as a completed run; cleanup of an unpublished staging directory is best-effort if the filesystem itself refuses removal. Evidence-write failure is terminal and is reported only after every owned generator/App Server child has been reaped.
 
 Run deterministic, offline, fake-backed protocol validation with:
