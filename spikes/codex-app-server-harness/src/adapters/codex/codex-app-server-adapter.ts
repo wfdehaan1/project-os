@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 
 import type {
   AiProviderPort,
+  AllowanceValidationRequest,
+  AllowanceValidationResult,
   AuthenticationValidationRequest,
   AuthenticationValidationResult,
   RuntimeHealthResult,
@@ -53,6 +55,8 @@ import {
   type IsolatedRuntimeProfile,
 } from "./runtime-profile.ts";
 import type { AuthenticationExchangeResult } from "./jsonl-rpc-connection.ts";
+import type { AllowanceExchangeResult } from "./jsonl-rpc-connection.ts";
+import { normalizeAllowanceBuckets } from "../../core/allowance.ts";
 import { writeAuthenticationEvidence } from "../../evidence/authentication-evidence-recorder.ts";
 
 type EvidenceWriter = (
@@ -105,6 +109,7 @@ const PROTOCOL_REPRODUCTION_COMMAND = "npm ci && npm run protocol:validate";
 const PROTOCOL_RESTART_REPRODUCTION_COMMAND =
   "npm ci && npm run protocol:validate -- --restart";
 const AUTH_REPRODUCTION_COMMAND = "PROJECTOS_LIVE_AUTH=1 npm run test:auth:live";
+const ALLOWANCE_REPRODUCTION_COMMAND = "PROJECTOS_LIVE_ALLOWANCE=1 npm run test:allowance:live";
 
 export class CodexAppServerAdapter implements AiProviderPort {
   readonly #discover: typeof discoverCodexExecutable;
@@ -361,6 +366,58 @@ export class CodexAppServerAdapter implements AiProviderPort {
     }
   }
 
+  async validateAllowance(request: AllowanceValidationRequest): Promise<AllowanceValidationResult> {
+    const correlationId = this.#correlationId();
+    let sentinel: ChildProcess | undefined;
+    try {
+      const fixtureRoot = await mkdtemp(join(tmpdir(), "projectos-allowance-fixture-"));
+      const normalProfile = await createSyntheticNormalProfileFixture(join(fixtureRoot, "normal-profile"));
+      const normalProfileBefore = await snapshotFixture(normalProfile);
+      sentinel = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { detached: process.platform !== "win32", env: {}, stdio: "ignore" });
+      const context: AttemptContext = { request, correlationId, fixtureRoot, normalProfile, normalProfileBefore, sentinel };
+      const allowance: { result?: AllowanceExchangeResult } = {};
+      const timeoutMs = typeof request.allowanceTimeoutMs === "number" && Number.isSafeInteger(request.allowanceTimeoutMs) && request.allowanceTimeoutMs > 0
+        ? request.allowanceTimeoutMs
+        : 10_000;
+      const attempt = await this.#runAttempt(context, 1, undefined, { timeoutMs, result: allowance });
+      if (attempt.failure) return this.#recordAllowanceFailure(attempt.failure.code === "malformed_handshake_response"
+        ? createProviderFailure({ code: "allowance_malformed", correlationId, remediation: { action: "inspect_local_evidence", reference: "allowance_shape" } })
+        : attempt.failure);
+      if (!attempt.compatibility?.ok || !attempt.supervisor?.ok || !allowance.result) {
+        return this.#recordAllowanceFailure(createProviderFailure({ code: "allowance_malformed", correlationId, remediation: { action: "inspect_local_evidence", reference: "allowance" } }));
+      }
+      const normalized = normalizeAllowanceBuckets(allowance.result.buckets);
+      const result = Object.freeze({ ok: true as const, correlationId, runtimeVersion: attempt.compatibility.detectedBuild,
+        providerReadiness: normalized.providerReadiness, localProjectOSCapability: "available" as const,
+        buckets: normalized.buckets, remedy: normalized.remedy, shutdownOutcome: attempt.supervisor.shutdownOutcome,
+        providerActionEnabled: false as const, canonicalStateOperationEnabled: false as const });
+      try { await this.#writeAllowanceEvidence(result, null); }
+      catch {
+        return createProviderFailure({ code: "evidence_write_failed", correlationId, remediation: { action: "check_permissions", reference: "evidence_directory" } });
+      }
+      return result;
+    } catch {
+      return this.#recordAllowanceFailure(createProviderFailure({ code: "allowance_malformed", correlationId, remediation: { action: "inspect_local_evidence", reference: "allowance" } }));
+    } finally { stopSentinel(sentinel); }
+  }
+
+  async #recordAllowanceFailure(failure: ProviderFailure): Promise<ProviderFailure> {
+    if (failure.code === "evidence_write_failed") return failure;
+    try { await this.#writeAllowanceEvidence(undefined, failure); return failure; }
+    catch { return createProviderFailure({ code: "evidence_write_failed", correlationId: failure.correlationId, remediation: { action: "check_permissions", reference: "evidence_directory" } }); }
+  }
+
+  async #writeAllowanceEvidence(
+    result: Extract<AllowanceValidationResult, { readonly ok: true }> | undefined,
+    failure: ProviderFailure | null,
+  ): Promise<void> {
+    const { writeAllowanceEvidence } = await import("../../evidence/allowance-evidence-recorder.ts");
+    await writeAllowanceEvidence({ schemaVersion: 1, runId: this.#runId(), correlationId: result?.correlationId ?? failure?.correlationId ?? this.#correlationId(),
+      result: failure ? "reject" : "proceed", runtimeVersion: result?.runtimeVersion ?? null,
+      providerReadiness: result?.providerReadiness ?? "temporarily_unavailable", buckets: result?.buckets ?? [], remedy: result?.remedy ?? null,
+      failureCode: failure?.code ?? null, reproductionCommand: ALLOWANCE_REPRODUCTION_COMMAND }, this.#evidenceRoot);
+  }
+
   async #recordAuthenticationFailure(failure: ProviderFailure): Promise<ProviderFailure> {
     if (failure.code === "evidence_write_failed") return failure;
     try {
@@ -430,6 +487,7 @@ export class CodexAppServerAdapter implements AiProviderPort {
     context: AttemptContext,
     generation: 1 | 2,
     authentication?: { readonly interactive: boolean; readonly timeoutMs: number; readonly deviceCodeRecovery: boolean; result: { result?: AuthenticationExchangeResult } },
+    allowance?: { readonly timeoutMs: number; result: { result?: AllowanceExchangeResult } },
   ): Promise<AttemptState> {
     const attemptId = `attempt-${generation}-${randomUUID()}`;
     const correlationId = attemptCorrelation(context.correlationId, attemptId);
@@ -511,6 +569,9 @@ export class CodexAppServerAdapter implements AiProviderPort {
                     ...(this.#openLoginUrl ? { openLoginUrl: this.#openLoginUrl } : {}),
                   });
                 },
+              } : allowance ? {
+                allowanceMode: true,
+                postInitializeCheck: async (connection) => { allowance.result.result = await connection.readAllowance(allowance.timeoutMs); },
               } : {}),
             });
             if (!supervisor.ok) failure = supervisor;

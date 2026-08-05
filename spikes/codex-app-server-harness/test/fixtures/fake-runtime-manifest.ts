@@ -49,6 +49,10 @@ export async function createFakeRuntimeManifest(behavior: FakeCodexBehavior, mar
       clientRequests: ["account/login/cancel", "account/login/start", "account/logout", "account/read"],
       serverNotifications: ["account/login/completed", "account/updated"],
     },
+    allowance: {
+      clientRequests: ["account/rateLimits/read"],
+      serverNotifications: ["account/rateLimits/updated"],
+    },
   };
   const manifestPath = join(root, "manifest.json");
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });

@@ -10,6 +10,7 @@ import { CodexAppServerAdapter } from "../src/adapters/codex/codex-app-server-ad
 import { createFakeCodexRuntime } from "./fixtures/fake-codex-runtime.ts";
 import { writeAuthenticationEvidence } from "../src/evidence/authentication-evidence-recorder.ts";
 import type { AuthenticationValidationEvidence } from "../src/evidence/authentication-evidence-schema.ts";
+import { writeAllowanceEvidence } from "../src/evidence/allowance-evidence-recorder.ts";
 
 const secret = "secret-evidence-value-6bfab7";
 
@@ -100,6 +101,13 @@ test("authentication evidence rejects unsafe run IDs and non-private or symlinke
     writeAuthenticationEvidence(authenticationEvidence(), publicRoot),
     /evidence_write_failed/u,
   );
+});
+
+test("allowance evidence retains only safe normalized values and rejects canaries", async () => {
+  const root = await mkdtemp(join(tmpdir(), "projectos-allowance-evidence-"));
+  const value = { schemaVersion: 1 as const, runId: "allowance-safe", correlationId: "corr-allowance", result: "proceed" as const, runtimeVersion: "codex-cli 9.8.7", providerReadiness: "available" as const, buckets: [{ usedPercent: 20, windowDurationMinutes: 300, resetsAt: null, reachedLimit: false }], remedy: null, failureCode: null, reproductionCommand: "PROJECTOS_LIVE_ALLOWANCE=1 npm run test:allowance:live" as const };
+  const path = await writeAllowanceEvidence(value, root); assert.doesNotMatch(await readFile(path, "utf8"), /token|account|https?:\/\/|\/tmp\//iu);
+  await assert.rejects(writeAllowanceEvidence({ ...value, runId: "allowance-secret", correlationId: "secret-canary" }, root), /evidence_write_failed/u);
 });
 
 test("evidence writes private and sanitized contracts atomically with restricted modes", async () => {

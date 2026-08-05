@@ -10,6 +10,7 @@ import {
   type CodexInitializedNotification,
 } from "./protocol.ts";
 import type { ProtocolBoundary } from "./protocol-contract.ts";
+import type { AllowanceBucket } from "../../core/allowance.ts";
 
 const MAX_PROTOCOL_LINE_BYTES = 1024 * 1024;
 
@@ -23,7 +24,7 @@ export interface StructuralProtocolTranscriptEntry {
     | "inbound_notification"
     | "inbound_request_or_event";
   readonly method: string;
-  readonly requestIdClass: "initialize" | "unrelated" | "server" | "none";
+  readonly requestIdClass: "initialize" | "client" | "unrelated" | "server" | "none";
   readonly classification:
     | "sent_experimental_api_disabled"
     | "sent"
@@ -61,6 +62,10 @@ export interface AuthenticationExchangeOptions {
   /** The URL is intentionally an ephemeral adapter callback, never evidence. */
   readonly openLoginUrl?: (url: string) => Promise<void> | void;
   readonly deviceCodeRecovery?: boolean;
+}
+
+export interface AllowanceExchangeResult {
+  readonly buckets: readonly AllowanceBucket[];
 }
 
 export class JsonlRpcConnection {
@@ -226,6 +231,14 @@ export class JsonlRpcConnection {
     return { ...refreshed, logoutOutcome: "completed", preexistingAuthentication: false };
   }
 
+  /** Exact, read-only allowance request. Its parser intentionally admits no provider text or IDs. */
+  async readAllowance(timeoutMs: number): Promise<AllowanceExchangeResult> {
+    const response = await this.#request("account/rateLimits/read", {}, 8, timeoutMs);
+    const buckets = safeAllowanceBuckets(response);
+    if (!buckets) throw new HandshakeProtocolError("allowance_malformed");
+    return Object.freeze({ buckets: Object.freeze(buckets.map((bucket) => Object.freeze({ ...bucket }))) });
+  }
+
   #writeInitialize(callback: (error?: Error) => void): void {
     const request = initializeRequest();
     this.#protocolBoundary.assertClientRequest(request.method);
@@ -280,7 +293,7 @@ export class JsonlRpcConnection {
   }
 
   #request(
-    method: "account/read" | "account/login/start" | "account/login/cancel" | "account/logout",
+    method: "account/read" | "account/login/start" | "account/login/cancel" | "account/logout" | "account/rateLimits/read",
     params: Record<string, unknown>,
     id: number,
     timeoutMs: number,
@@ -321,8 +334,8 @@ export class JsonlRpcConnection {
             this.#record({ direction: "inbound_response", method, requestIdClass: "unrelated", classification: "unrelated" });
             continue;
           }
-          this.#record({ direction: "inbound_response", method, requestIdClass: "initialize", classification: "matched" });
-          if ("error" in parsed) { finish(new HandshakeProtocolError("authentication_failed")); return; }
+          this.#record({ direction: "inbound_response", method, requestIdClass: "client", classification: "matched" });
+          if ("error" in parsed) { finish(new HandshakeProtocolError(method === "account/rateLimits/read" ? "provider_failed" : "authentication_failed")); return; }
           if (!hasSafeAuthenticationResult(method, parsed.result)) {
             finish(new HandshakeProtocolError("malformed_handshake_response"));
             return;
@@ -334,7 +347,7 @@ export class JsonlRpcConnection {
       this.#child.stdout.on("data", onData); this.#child.stdout.once("end", onEnd); this.#child.stdout.once("error", onEnd); this.#child.once("exit", onEnd);
       this.#writeJsonl({ id, method, params }, (error) => {
         if (error) return finish(new HandshakeProtocolError("unexpected_exit_or_eof"));
-        this.#record({ direction: "outbound_request", method, requestIdClass: "initialize", classification: "sent" });
+        this.#record({ direction: "outbound_request", method, requestIdClass: "client", classification: "sent" });
       });
     });
   }
@@ -379,7 +392,7 @@ function loginUrl(message: Record<string, unknown>): string | undefined {
 }
 
 function hasSafeAuthenticationResult(
-  method: "account/read" | "account/login/start" | "account/login/cancel" | "account/logout",
+  method: "account/read" | "account/login/start" | "account/login/cancel" | "account/logout" | "account/rateLimits/read",
   result: unknown,
 ): boolean {
   if (!isObject(result)) return false;
@@ -392,7 +405,28 @@ function hasSafeAuthenticationResult(
   if (method === "account/login/start") {
     return hasExactKeys(result, ["url"]) && typeof result.url === "string" && /^https:\/\//u.test(result.url);
   }
+  if (method === "account/rateLimits/read") return safeAllowanceBuckets({ result }) !== undefined;
   return hasExactKeys(result, []);
+}
+
+function safeAllowanceBuckets(message: Record<string, unknown>): readonly AllowanceBucket[] | undefined {
+  const result = message.result;
+  if (!isObject(result) || !hasExactKeys(result, ["rateLimits"]) || !Array.isArray(result.rateLimits) || result.rateLimits.length === 0 || result.rateLimits.length > 32) return undefined;
+  const buckets: AllowanceBucket[] = [];
+  for (const bucket of result.rateLimits) {
+    if (!isObject(bucket) || !hasExactKeys(bucket, ["reachedLimit", "resetsAt", "usedPercent", "windowDurationMinutes"]) ||
+      typeof bucket.usedPercent !== "number" || !Number.isFinite(bucket.usedPercent) || bucket.usedPercent < 0 || bucket.usedPercent > 100 ||
+      typeof bucket.windowDurationMinutes !== "number" || !Number.isSafeInteger(bucket.windowDurationMinutes) || bucket.windowDurationMinutes < 1 ||
+      !(bucket.resetsAt === null || (typeof bucket.resetsAt === "string" && isValidUtcTimestamp(bucket.resetsAt))) ||
+      typeof bucket.reachedLimit !== "boolean") return undefined;
+    buckets.push({ usedPercent: bucket.usedPercent, windowDurationMinutes: bucket.windowDurationMinutes, resetsAt: bucket.resetsAt, reachedLimit: bucket.reachedLimit });
+  }
+  return buckets;
+}
+
+function isValidUtcTimestamp(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u.test(value)) return false;
+  return Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === (value.includes(".") ? value : `${value.slice(0, -1)}.000Z`);
 }
 
 function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {

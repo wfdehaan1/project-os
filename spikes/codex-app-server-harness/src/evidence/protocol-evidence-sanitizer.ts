@@ -28,7 +28,7 @@ const TRANSCRIPT_DIRECTIONS = new Set([
   "inbound_notification",
   "inbound_request_or_event",
 ]);
-const REQUEST_ID_CLASSES = new Set(["initialize", "unrelated", "server", "none"]);
+const REQUEST_ID_CLASSES = new Set(["initialize", "client", "unrelated", "server", "none"]);
 const TRANSCRIPT_CLASSIFICATIONS = new Set([
   "sent_experimental_api_disabled",
   "sent",

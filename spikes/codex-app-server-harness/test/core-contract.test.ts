@@ -4,8 +4,10 @@ import test from "node:test";
 import {
   FAILURE_CODES,
   createProviderFailure,
+  normalizeExplicitFailureSignal,
 } from "../src/core/failures.ts";
 import { LifecycleTracker } from "../src/core/lifecycle.ts";
+import { normalizeAllowanceBuckets } from "../src/core/allowance.ts";
 
 test("lifecycle follows the explicit initialization and shutdown path", () => {
   const lifecycle = new LifecycleTracker();
@@ -28,6 +30,20 @@ test("lifecycle follows the explicit initialization and shutdown path", () => {
     "stopping",
     "stopped",
   ]);
+});
+
+test("only explicit structural failure signals normalize; no provider text is accepted", () => {
+  for (const signal of ["allowance_exhausted", "rate_limited", "authentication_expired", "network_lost", "upstream_failure", "runtime_failure", "retry_requested", "provider_failed", "unknown"] as const) {
+    const failure = normalizeExplicitFailureSignal(signal, "corr-signal");
+    assert.equal(failure.correlationId, "corr-signal"); assert.equal("message" in failure, false);
+  }
+});
+
+test("allowance normalization preserves reported bucket values without inventing a weekly model", () => {
+  const normalized = normalizeAllowanceBuckets([{ usedPercent: 100, windowDurationMinutes: 300, resetsAt: "2026-08-04T12:00:00.000Z", reachedLimit: true }]);
+  assert.equal(normalized.providerReadiness, "temporarily_unavailable");
+  assert.deepEqual(normalized.remedy, { action: "wait_for_allowance_reset", resetsAt: "2026-08-04T12:00:00.000Z" });
+  assert.equal(Object.isFrozen(normalized.buckets[0]), true);
 });
 
 test("terminal lifecycle states cannot be revived by late events", () => {
@@ -84,6 +100,17 @@ test("provider failures use every distinct stable story code and safe remediatio
     "authentication_failed",
     "secure_storage_unavailable",
     "credential_ownership_rejected",
+    "allowance_unsupported",
+    "allowance_malformed",
+    "allowance_exhausted",
+    "rate_limited",
+    "authentication_expired_provider",
+    "network_lost",
+    "upstream_failure",
+    "runtime_failure",
+    "retry_requested",
+    "provider_failed",
+    "unknown",
   ]);
 
   const failure = createProviderFailure({

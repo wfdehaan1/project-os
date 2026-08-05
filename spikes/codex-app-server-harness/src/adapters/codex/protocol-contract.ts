@@ -50,6 +50,11 @@ export interface AuthenticationProtocolContract {
   readonly serverNotifications: readonly ["account/login/completed", "account/updated"];
 }
 
+export interface AllowanceProtocolContract {
+  readonly clientRequests: readonly ["account/rateLimits/read"];
+  readonly serverNotifications: readonly ["account/rateLimits/updated"];
+}
+
 export interface SupportedRuntimeManifest {
   readonly formatVersion: typeof PROTOCOL_MANIFEST_FORMAT_VERSION;
   readonly manifestId: string;
@@ -76,6 +81,7 @@ export interface SupportedRuntimeManifest {
     readonly clientNotifications: readonly string[];
   };
   readonly authentication?: AuthenticationProtocolContract;
+  readonly allowance?: AllowanceProtocolContract;
 }
 
 export interface CollectProtocolSchemaBundleOptions {
@@ -207,7 +213,7 @@ export function parseSupportedRuntimeManifest(serialized: string): SupportedRunt
   }
   if (
     !(hasExactKeys(value, [
-      "authentication",
+      "allowance", "authentication",
       "enabledDispatch",
       "formatVersion",
       "generation",
@@ -264,7 +270,8 @@ export function parseSupportedRuntimeManifest(serialized: string): SupportedRunt
     !hasExactKeys(manifest.enabledDispatch, ["clientNotifications", "clientRequests"]) ||
     !validSortedStrings(manifest.enabledDispatch.clientRequests) ||
     !validSortedStrings(manifest.enabledDispatch.clientNotifications) ||
-    (manifest.authentication !== undefined && !validAuthenticationContract(manifest.authentication))
+    (manifest.authentication !== undefined && !validAuthenticationContract(manifest.authentication)) ||
+    (manifest.allowance !== undefined && !validAllowanceContract(manifest.allowance))
   ) {
     throw invalidManifest();
   }
@@ -385,6 +392,33 @@ export function createAuthenticationProtocolBoundary(
   const requests = new Set<string>(["initialize", ...auth.clientRequests]);
   const notifications = new Set<string>(["initialized"]);
   const semantic = new Set<string>(auth.serverNotifications);
+  const forbidden = new Set(manifest.requiredMethods.recognizedForbidden);
+  return Object.freeze({
+    enabledClientRequests: Object.freeze([...requests].sort(codePointCompare)),
+    enabledClientNotifications: Object.freeze([...notifications]),
+    assertClientRequest(method: string): void { if (!requests.has(method)) throw new Error("unsupported_dispatch"); },
+    assertClientNotification(method: string): void { if (!notifications.has(method)) throw new Error("unsupported_dispatch"); },
+    classifyInbound(method: string, direction: "server_notification" | "server_request"): InboundMethodClassification {
+      if (direction === "server_request") return forbidden.has(method) ? "forbidden" : "unknown";
+      if (forbidden.has(method)) return "forbidden";
+      return semantic.has(method) ? "semantic_notification" : "unknown";
+    },
+  });
+}
+
+/** Allowance is a separate, read-only mode. It never inherits auth or turn dispatch. */
+export function createAllowanceProtocolBoundary(
+  manifest: SupportedRuntimeManifest,
+  detectedMethods: ProtocolMethodSets,
+): ProtocolBoundary {
+  const allowance = manifest.allowance;
+  if (!allowance || !isSubset(allowance.clientRequests, detectedMethods.clientRequests) ||
+      !isSubset(allowance.serverNotifications, detectedMethods.serverNotifications)) {
+    throw new Error("allowance_unsupported");
+  }
+  const requests = new Set<string>(["initialize", ...allowance.clientRequests]);
+  const notifications = new Set<string>(["initialized"]);
+  const semantic = new Set<string>(allowance.serverNotifications);
   const forbidden = new Set(manifest.requiredMethods.recognizedForbidden);
   return Object.freeze({
     enabledClientRequests: Object.freeze([...requests].sort(codePointCompare)),
@@ -561,6 +595,12 @@ function validAuthenticationContract(value: unknown): value is AuthenticationPro
     exactArray(value.serverNotifications, ["account/login/completed", "account/updated"]);
 }
 
+function validAllowanceContract(value: unknown): value is AllowanceProtocolContract {
+  return isObject(value) && hasExactKeys(value, ["clientRequests", "serverNotifications"]) &&
+    exactArray(value.clientRequests, ["account/rateLimits/read"]) &&
+    exactArray(value.serverNotifications, ["account/rateLimits/updated"]);
+}
+
 function containsDeviceCodeLoginBranch(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(containsDeviceCodeLoginBranch);
   if (!isObject(value)) return false;
@@ -731,6 +771,12 @@ function deepFreezeManifest(manifest: SupportedRuntimeManifest): SupportedRuntim
       authentication: Object.freeze({
         clientRequests: Object.freeze([...manifest.authentication.clientRequests]) as AuthenticationProtocolContract["clientRequests"],
         serverNotifications: Object.freeze([...manifest.authentication.serverNotifications]) as AuthenticationProtocolContract["serverNotifications"],
+      }),
+    } : {}),
+    ...(manifest.allowance ? {
+      allowance: Object.freeze({
+        clientRequests: Object.freeze([...manifest.allowance.clientRequests]) as AllowanceProtocolContract["clientRequests"],
+        serverNotifications: Object.freeze([...manifest.allowance.serverNotifications]) as AllowanceProtocolContract["serverNotifications"],
       }),
     } : {}),
   });

@@ -31,6 +31,17 @@ export const FAILURE_CODES = [
   "authentication_failed",
   "secure_storage_unavailable",
   "credential_ownership_rejected",
+  "allowance_unsupported",
+  "allowance_malformed",
+  "allowance_exhausted",
+  "rate_limited",
+  "authentication_expired_provider",
+  "network_lost",
+  "upstream_failure",
+  "runtime_failure",
+  "retry_requested",
+  "provider_failed",
+  "unknown",
 ] as const;
 
 export type ProviderFailureCode = (typeof FAILURE_CODES)[number];
@@ -43,7 +54,8 @@ export interface RemediationMetadata {
     | "inspect_local_evidence"
     | "check_permissions"
     | "sign_in_with_chatgpt"
-    | "repair_secure_storage";
+    | "repair_secure_storage"
+    | "wait_for_allowance_reset";
   readonly reference?: string;
 }
 
@@ -58,6 +70,22 @@ export interface ProviderFailure {
   readonly diagnosticReference?: string;
   readonly providerActionEnabled: false;
   readonly canonicalStateOperationEnabled: false;
+}
+
+/** Structural adapter input; it deliberately has no message, payload, event-name, URL, or account field. */
+export type ExplicitFailureSignal =
+  | "allowance_exhausted" | "rate_limited" | "authentication_expired" | "network_lost"
+  | "upstream_failure" | "runtime_failure" | "retry_requested" | "provider_failed" | "unknown";
+
+export function normalizeExplicitFailureSignal(signal: ExplicitFailureSignal, correlationId?: string): ProviderFailure {
+  const code: ProviderFailureCode = signal === "authentication_expired" ? "authentication_expired_provider" : signal;
+  const action: RemediationMetadata["action"] = signal === "allowance_exhausted" || signal === "rate_limited"
+    ? "wait_for_allowance_reset" : signal === "authentication_expired" ? "sign_in_with_chatgpt" : "retry_validation";
+  return createProviderFailure({
+    code,
+    ...(correlationId === undefined ? {} : { correlationId }),
+    remediation: { action, reference: code },
+  });
 }
 
 export function createCorrelationId(): string {

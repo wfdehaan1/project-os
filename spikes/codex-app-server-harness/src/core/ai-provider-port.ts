@@ -23,6 +23,26 @@ export interface AuthenticationValidationRequest extends RuntimeValidationReques
   readonly deviceCodeRecovery?: boolean;
 }
 
+/** Credential-free, read-only allowance validation. This is not a job dispatch API. */
+export interface AllowanceValidationRequest extends RuntimeValidationRequest {
+  readonly allowanceTimeoutMs?: number;
+}
+
+export interface AllowanceValidationSuccess {
+  readonly ok: true;
+  readonly correlationId: string;
+  readonly runtimeVersion: string;
+  readonly providerReadiness: "available" | "temporarily_unavailable";
+  readonly localProjectOSCapability: "available";
+  readonly buckets: readonly import("./allowance.ts").AllowanceBucket[];
+  readonly remedy: import("./allowance.ts").AllowanceRemedy | null;
+  readonly shutdownOutcome: ShutdownOutcome;
+  readonly providerActionEnabled: false;
+  readonly canonicalStateOperationEnabled: false;
+}
+
+export type AllowanceValidationResult = AllowanceValidationSuccess | ProviderFailure;
+
 export type AuthenticationState =
   | "signed_out"
   | "authenticated_chatgpt"
@@ -83,4 +103,7 @@ export interface AiProviderPort {
   validateAuthentication?(
     request: AuthenticationValidationRequest,
   ): Promise<AuthenticationValidationResult>;
+  validateAllowance?(
+    request: AllowanceValidationRequest,
+  ): Promise<AllowanceValidationResult>;
 }

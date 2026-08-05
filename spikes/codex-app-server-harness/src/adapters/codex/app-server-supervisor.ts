@@ -34,6 +34,7 @@ export interface AppServerSupervisorOptions {
   readonly attemptId: string;
   readonly compatibility: CompatibilityCapability;
   readonly authenticationMode?: boolean;
+  readonly allowanceMode?: boolean;
   /** Runs on the one compatibility-authorized child before owned cleanup. */
   readonly postInitializeCheck?: (connection: JsonlRpcConnection) => Promise<void> | void;
 }
@@ -92,7 +93,7 @@ export async function superviseCodexAppServer(
     authorization = authorizeCompatibleAppServerSpawn(
       options.compatibility,
       options.attemptId,
-      options.authenticationMode ? "authentication" : "protocol",
+      options.authenticationMode ? "authentication" : options.allowanceMode ? "allowance" : "protocol",
     );
     lifecycle.transition("starting");
     child = spawnOwned(options, authorization);

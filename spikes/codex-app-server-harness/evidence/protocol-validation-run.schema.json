@@ -403,7 +403,7 @@
             { "const": "$UNRECOGNIZED" }
           ]
         },
-        "requestIdClass": { "enum": ["initialize", "unrelated", "server", "none"] },
+        "requestIdClass": { "enum": ["initialize", "client", "unrelated", "server", "none"] },
         "classification": {
           "enum": [
             "sent_experimental_api_disabled",

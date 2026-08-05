@@ -44,7 +44,9 @@ export type FakeCodexBehavior =
   | "auth-already-authenticated"
   | "auth-malformed-read"
   | "auth-malformed-login"
-  | "auth-malformed-logout";
+  | "auth-malformed-logout"
+  | "allowance-exhausted"
+  | "allowance-malformed";
 
 export async function createFakeCodexRuntime(
   directory: string,
@@ -112,7 +114,7 @@ if (process.argv[2] === "app-server" && process.argv[3]?.startsWith("generate-")
       writeFileSync(output + "/oversized.json", "x".repeat(16 * 1024 * 1024 + 1));
       process.exit(0);
     }
-    const clientMethods = behavior === "experimental-output" ? ["experimental/thread", "initialize"] : ["account/login/cancel", "account/login/start", "account/logout", "account/read", "initialize"];
+    const clientMethods = behavior === "experimental-output" ? ["experimental/thread", "initialize"] : ["account/login/cancel", "account/login/start", "account/logout", "account/rateLimits/read", "account/read", "initialize"];
     const clientSchema = behavior === "device-code-supported"
       ? JSON.stringify({ title: "ClientRequest", oneOf: clientMethods.map((method) => method === "account/login/start"
         ? { type: "object", properties: { method: { const: method }, params: { type: "object", properties: { type: { const: "device_code" } } } } }
@@ -120,11 +122,11 @@ if (process.argv[2] === "app-server" && process.argv[3]?.startsWith("generate-")
       : schema("ClientRequest", clientMethods);
     writeFileSync(output + "/ClientRequest.json", clientSchema);
     writeFileSync(output + "/ClientNotification.json", schema("ClientNotification", ["initialized"]));
-    writeFileSync(output + "/ServerNotification.json", schema("ServerNotification", ["account/login/completed", "account/updated", "error", "warning"]));
+    writeFileSync(output + "/ServerNotification.json", schema("ServerNotification", ["account/login/completed", "account/rateLimits/updated", "account/updated", "error", "warning"]));
     if (behavior !== "generator-missing") writeFileSync(output + "/ServerRequest.json", schema("ServerRequest", ["item/tool/call"]));
     if (behavior === "generator-extra") writeFileSync(output + "/Experimental.json", schema("Experimental", ["experimental/thread"]));
   } else {
-    writeFileSync(output + "/ClientRequest.ts", behavior === "schema-drift" ? 'export type ClientRequest = "initialize" | "thread/start";\\n' : 'export type ClientRequest = "account/login/cancel" | "account/login/start" | "account/logout" | "account/read" | "initialize";\\n');
+    writeFileSync(output + "/ClientRequest.ts", behavior === "schema-drift" ? 'export type ClientRequest = "initialize" | "thread/start";\\n' : 'export type ClientRequest = "account/login/cancel" | "account/login/start" | "account/logout" | "account/rateLimits/read" | "account/read" | "initialize";\\n');
     writeFileSync(output + "/ServerRequest.ts", 'export type ServerRequest = "item/tool/call";\\n');
   }
   process.exit(0);
@@ -212,6 +214,11 @@ process.stdin.on("data", (chunk) => {
     } else if (message.method === "account/login/cancel" || message.method === "account/logout") {
       authenticated = false;
       process.stdout.write(JSON.stringify({ id: message.id, result: behavior === "auth-malformed-logout" ? { unexpected: true } : {} }) + "\\n");
+    } else if (message.method === "account/rateLimits/read") {
+      const rateLimits = behavior === "allowance-exhausted"
+        ? [{ usedPercent: 100, windowDurationMinutes: 300, resetsAt: "2026-08-05T12:00:00.000Z", reachedLimit: true }]
+        : [{ usedPercent: 42, windowDurationMinutes: 300, resetsAt: "2026-08-05T12:00:00.000Z", reachedLimit: false }];
+      process.stdout.write(JSON.stringify({ id: message.id, result: behavior === "allowance-malformed" ? { rateLimits: [{ secret: "no" }] } : { rateLimits } }) + "\\n");
     } else if (message.method === "initialized") {
       if (behavior === "success" || behavior === "wrong-id-then-match" || behavior === "semantic-notification" || behavior === "timeout-once" || behavior === "late-old-message") setTimeout(() => process.exit(0), 75);
       if (behavior === "leader-exits-child-runs") {

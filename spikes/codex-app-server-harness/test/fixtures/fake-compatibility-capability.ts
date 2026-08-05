@@ -64,6 +64,10 @@ export async function fakeCompatibilityCapability(
       clientRequests: ["account/login/cancel", "account/login/start", "account/logout", "account/read"],
       serverNotifications: ["account/login/completed", "account/updated"],
     },
+    allowance: {
+      clientRequests: ["account/rateLimits/read"],
+      serverNotifications: ["account/rateLimits/updated"],
+    },
   };
   const manifestPath = join(profile.runtimeRoot, "test-manifest.json");
   await writeFile(manifestPath, `${JSON.stringify(manifest)}\n`, { mode: 0o600 });

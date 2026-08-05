@@ -4,6 +4,8 @@ This directory contains the Story 1.2 spike compatibility pin. It is an exact-bu
 
 `supported-runtime-manifest.json` was generated from the owned immutable snapshot of the resolved `codex-cli 0.145.0` Darwin arm64 executable. The manifest records the location-independent binary SHA-256, exact stable generator argument arrays, complete sorted JSON/TypeScript schema inventories, per-file SHA-256 digests, separate aggregate digests, direction-specific required methods, recognized forbidden inbound surfaces, and the only dispatch enabled by this story: `initialize` followed once by `initialized` with `experimentalApi: false`.
 
+Story 1.4 adds a separately manifest-pinned, method-specific allowance mode: `account/rateLimits/read` and `account/rateLimits/updated`. Ordinary validation remains initialize-only; the allowance mode cannot dispatch threads, turns, tools, or generic RPC methods.
+
 ## Digest procedure
 
 For each JSON or TypeScript tree:

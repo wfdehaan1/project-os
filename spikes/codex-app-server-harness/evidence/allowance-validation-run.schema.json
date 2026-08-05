@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "runId", "correlationId", "result", "runtimeVersion", "providerReadiness", "buckets", "remedy", "failureCode", "reproductionCommand"],
+  "properties": { "schemaVersion": {"const": 1}, "runId": {"type": "string"}, "correlationId": {"type": "string"}, "result": {"enum": ["proceed", "reject"]}, "runtimeVersion": {"type": ["string", "null"]}, "providerReadiness": {"enum": ["available", "temporarily_unavailable"]}, "buckets": {"type": "array"}, "remedy": {"type": ["object", "null"]}, "failureCode": {"type": ["string", "null"]}, "reproductionCommand": {"const": "PROJECTOS_LIVE_ALLOWANCE=1 npm run test:allowance:live"} }
+}

@@ -12,7 +12,8 @@
     "schemas",
     "requiredMethods",
     "enabledDispatch",
-    "authentication"
+    "authentication",
+    "allowance"
   ],
   "properties": {
     "formatVersion": { "const": 1 },
@@ -98,6 +99,15 @@
         "serverNotifications": {
           "const": ["account/login/completed", "account/updated"]
         }
+      }
+    },
+    "allowance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clientRequests", "serverNotifications"],
+      "properties": {
+        "clientRequests": { "const": ["account/rateLimits/read"] },
+        "serverNotifications": { "const": ["account/rateLimits/updated"] }
       }
     }
   },

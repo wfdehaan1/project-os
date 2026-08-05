@@ -12,6 +12,14 @@
       "account/updated"
     ]
   },
+  "allowance": {
+    "clientRequests": [
+      "account/rateLimits/read"
+    ],
+    "serverNotifications": [
+      "account/rateLimits/updated"
+    ]
+  },
   "manifestId": "projectos-codex-spike-darwin-arm64-0.145.0",
   "runtime": {
     "build": "codex-cli 0.145.0",

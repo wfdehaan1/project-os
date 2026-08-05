@@ -10,6 +10,7 @@ test("protocol validation CLI accepts only an explicit path and one bounded rest
     path: "/controlled/bin",
     restart: true,
   });
+  assert.deepEqual(parseArguments(["allowance-validate", "--path", "/controlled/bin"]), { allowance: true, path: "/controlled/bin" });
   assert.deepEqual(parseArguments(["--path", "/controlled/bin"]), { path: "/controlled/bin" });
   for (const arguments_ of [
     ["unknown"],

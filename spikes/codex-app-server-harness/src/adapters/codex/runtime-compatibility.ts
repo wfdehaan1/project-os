@@ -8,6 +8,7 @@ import {
 import {
   compareSupportedProtocol,
   createAuthenticationProtocolBoundary,
+  createAllowanceProtocolBoundary,
   extractGeneratedProtocolMethods,
   generatedLoginSchemaSupportsDeviceCodeRecovery,
   createProtocolBoundary,
@@ -38,6 +39,7 @@ interface CompatibilityCapabilityFacts {
   readonly manifestDigest: string;
   readonly protocolBoundary: ProtocolBoundary;
   readonly authenticationProtocolBoundary?: ProtocolBoundary;
+  readonly allowanceProtocolBoundary?: ProtocolBoundary;
   consumed: boolean;
 }
 
@@ -84,6 +86,7 @@ export interface SnapshotCompatibilitySuccess {
   readonly detectedMethods: Awaited<ReturnType<typeof extractGeneratedProtocolMethods>>;
   readonly protocolBoundary: ProtocolBoundary;
   readonly authenticationProtocolBoundary?: ProtocolBoundary;
+  readonly allowanceProtocolBoundary?: ProtocolBoundary;
   /** True only when the exact generated-and-pinned login schema exposes the branch. */
   readonly deviceCodeRecoverySupported: boolean;
   readonly ownedProcessesReaped: true;
@@ -216,8 +219,13 @@ export async function validateSnapshotCompatibility(
   }
   const protocolBoundary = createProtocolBoundary(manifest, detectedMethods);
   let authenticationProtocolBoundary: ProtocolBoundary | undefined;
+  let allowanceProtocolBoundary: ProtocolBoundary | undefined;
   if (manifest.authentication !== undefined) {
     try { authenticationProtocolBoundary = createAuthenticationProtocolBoundary(manifest, detectedMethods); }
+    catch { return failure("missing_required_method", detectedBuild, manifest.runtime.build, manifest, manifestDigest, generated, detectedMethods, true); }
+  }
+  if (manifest.allowance !== undefined) {
+    try { allowanceProtocolBoundary = createAllowanceProtocolBoundary(manifest, detectedMethods); }
     catch { return failure("missing_required_method", detectedBuild, manifest.runtime.build, manifest, manifestDigest, generated, detectedMethods, true); }
   }
   const deviceCodeRecoverySupported = manifest.authentication !== undefined &&
@@ -231,6 +239,7 @@ export async function validateSnapshotCompatibility(
       manifestDigest,
       protocolBoundary,
       ...(authenticationProtocolBoundary ? { authenticationProtocolBoundary } : {}),
+      ...(allowanceProtocolBoundary ? { allowanceProtocolBoundary } : {}),
       consumed: false,
     }),
     detectedBuild,
@@ -240,6 +249,7 @@ export async function validateSnapshotCompatibility(
     detectedMethods,
     protocolBoundary,
     ...(authenticationProtocolBoundary ? { authenticationProtocolBoundary } : {}),
+    ...(allowanceProtocolBoundary ? { allowanceProtocolBoundary } : {}),
     deviceCodeRecoverySupported,
     ownedProcessesReaped: true,
   });
@@ -248,7 +258,7 @@ export async function validateSnapshotCompatibility(
 export function authorizeCompatibleAppServerSpawn(
   capability: unknown,
   attemptId: string,
-  mode: "protocol" | "authentication" = "protocol",
+  mode: "protocol" | "authentication" | "allowance" = "protocol",
 ): CompatibleAppServerSpawnAuthorization {
   if (typeof capability !== "object" || capability === null) throw compatibilityRequired();
   const facts = compatibilityCapabilityFacts.get(capability);
@@ -260,7 +270,9 @@ export function authorizeCompatibleAppServerSpawn(
     manifestDigest: facts.manifestDigest,
     protocolBoundary: mode === "authentication"
       ? facts.authenticationProtocolBoundary ?? (() => { throw compatibilityRequired(); })()
-      : facts.protocolBoundary,
+      : mode === "allowance"
+        ? facts.allowanceProtocolBoundary ?? (() => { throw compatibilityRequired(); })()
+        : facts.protocolBoundary,
   });
 }
 
