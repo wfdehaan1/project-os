@@ -1,0 +1,1 @@
+{"schemaVersion":1,"gate":"allowance","result":"passed","safeCode":null,"reproductionCommand":"npm run validate:allowance"}

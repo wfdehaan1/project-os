@@ -1,0 +1,1 @@
+{"schemaVersion":1,"gate":"provider_neutrality","result":"passed","safeCode":null,"reproductionCommand":"npm run test:provider-neutrality"}

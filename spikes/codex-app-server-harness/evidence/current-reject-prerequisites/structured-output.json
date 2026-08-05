@@ -1,0 +1,1 @@
+{"schemaVersion":1,"gate":"structured_output","result":"failed","safeCode":"live_quality_unproven","reproductionCommand":"npm run validate:structured-output"}

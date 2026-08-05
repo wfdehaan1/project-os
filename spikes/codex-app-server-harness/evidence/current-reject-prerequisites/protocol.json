@@ -1,0 +1,1 @@
+{"schemaVersion":1,"gate":"protocol","result":"passed","safeCode":null,"reproductionCommand":"npm run validate:protocol"}

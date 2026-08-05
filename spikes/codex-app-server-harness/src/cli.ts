@@ -21,13 +21,16 @@ import { writeConversationOwnershipEvidence } from "./evidence/conversation-owne
 import { MANAGED_SESSION_SOURCE, ProviderCleanupOutbox } from "./core/provider-cleanup-outbox.ts";
 import { FakeProviderSessionFilesystem, ProviderSessionCleanupCoordinator } from "./core/provider-session-cleanup.ts";
 import { writeProviderCleanupEvidence } from "./evidence/provider-cleanup-evidence-recorder.ts";
+import { loadValidatedGateEvidence } from "./evidence/gate-decision-evidence-loader.ts";
+import { writeGateDecisionEvidence } from "./evidence/gate-decision-evidence-recorder.ts";
 
-type CliRequest = RuntimeValidationRequest & AllowanceValidationRequest & StructuredOutputValidationRequest & PreventiveExecutionContainmentRequest & { readonly authentication?: true; readonly allowance?: true; readonly structuredOutput?: true; readonly containment?: true; readonly ownership?: true; readonly providerCleanup?: true; readonly interactive?: true };
+type CliRequest = RuntimeValidationRequest & AllowanceValidationRequest & StructuredOutputValidationRequest & PreventiveExecutionContainmentRequest & { readonly authentication?: true; readonly allowance?: true; readonly structuredOutput?: true; readonly containment?: true; readonly ownership?: true; readonly providerCleanup?: true; readonly gateDecision?: true; readonly evidenceRoot?: string; readonly interactive?: true };
 
 export interface CliDependencies {
   readonly provider?: AiProviderPort;
   readonly ownershipEvidenceRoot?: string;
   readonly providerCleanupEvidenceRoot?: string;
+  readonly gateDecisionPublicationRoot?: string;
   readonly stdout?: Pick<NodeJS.WriteStream, "write">;
   readonly stderr?: Pick<NodeJS.WriteStream, "write">;
 }
@@ -43,7 +46,7 @@ export async function main(
     request = parseArguments(arguments_);
   } catch {
     stderr.write(
-      "Usage: node src/cli.ts [protocol-validate] [--path PATH] [--restart] | auth-validate --interactive [--path PATH] | allowance-validate [--path PATH] | containment-validate --job-id ID | structured-output-validate --job-id ID | conversation-ownership-validate | provider-cleanup-validate\n",
+      "Usage: node src/cli.ts [protocol-validate] [--path PATH] [--restart] | auth-validate --interactive [--path PATH] | allowance-validate [--path PATH] | containment-validate --job-id ID | structured-output-validate --job-id ID | conversation-ownership-validate | provider-cleanup-validate | gate-decision-validate --evidence-root PATH\n",
     );
     return 2;
   }
@@ -65,6 +68,17 @@ export async function main(
       return 0;
     } catch {
       stdout.write(`${JSON.stringify({ ok: false, code: "provider_cleanup_validation_failed", providerActionEnabled: false, canonicalStateOperationEnabled: false }, null, 2)}\n`);
+      return 1;
+    }
+  }
+  if (request.gateDecision) {
+    try {
+      const bundle = await loadValidatedGateEvidence(request.evidenceRoot!);
+      const publication = await writeGateDecisionEvidence(bundle, dependencies.gateDecisionPublicationRoot ?? fileURLToPath(new URL("../.evidence", import.meta.url)));
+      stdout.write(`${JSON.stringify({ ok: true, mode: "offline_gate_decision_validation", gateDecision: publication.decision, durability: publication.durability, providerActionEnabled: false, canonicalStateOperationEnabled: false }, null, 2)}\n`);
+      return 0;
+    } catch {
+      stdout.write(`${JSON.stringify({ ok: false, code: "gate_decision_validation_failed", providerActionEnabled: false, canonicalStateOperationEnabled: false }, null, 2)}\n`);
       return 1;
     }
   }
@@ -91,7 +105,7 @@ export async function main(
 }
 
 export function parseArguments(arguments_: readonly string[]): CliRequest {
-  const request: { path?: string; restart?: boolean; authentication?: true; allowance?: true; structuredOutput?: true; containment?: true; ownership?: true; providerCleanup?: true; interactive?: true; jobId?: string } = {};
+  const request: { path?: string; restart?: boolean; authentication?: true; allowance?: true; structuredOutput?: true; containment?: true; ownership?: true; providerCleanup?: true; gateDecision?: true; evidenceRoot?: string; interactive?: true; jobId?: string } = {};
   let index = 0;
   if (arguments_[0] === "protocol-validate") index = 1;
   else if (arguments_[0] === "auth-validate") { request.authentication = true; index = 1; }
@@ -100,11 +114,12 @@ export function parseArguments(arguments_: readonly string[]): CliRequest {
   else if (arguments_[0] === "structured-output-validate") { request.structuredOutput = true; index = 1; }
   else if (arguments_[0] === "conversation-ownership-validate") { request.ownership = true; index = 1; }
   else if (arguments_[0] === "provider-cleanup-validate") { request.providerCleanup = true; index = 1; }
+  else if (arguments_[0] === "gate-decision-validate") { request.gateDecision = true; index = 1; }
   else if (arguments_[0] && !arguments_[0].startsWith("--")) throw new Error("unknown command");
   while (index < arguments_.length) {
     const option = arguments_[index];
     if (option === "--restart") {
-      if (request.authentication || request.allowance || request.structuredOutput || request.containment || request.ownership || request.providerCleanup) throw new Error("restart unavailable for validation mode");
+      if (request.authentication || request.allowance || request.structuredOutput || request.containment || request.ownership || request.providerCleanup || request.gateDecision) throw new Error("restart unavailable for validation mode");
       if (request.restart) throw new Error("duplicate option");
       request.restart = true;
       index += 1;
@@ -112,7 +127,7 @@ export function parseArguments(arguments_: readonly string[]): CliRequest {
     }
     if (option === "--path") {
       const value = arguments_[index + 1];
-      if (request.ownership || request.providerCleanup || !value || value.startsWith("--") || request.path) throw new Error("invalid path option");
+      if (request.ownership || request.providerCleanup || request.gateDecision || !value || value.startsWith("--") || request.path) throw new Error("invalid path option");
       request.path = value;
       index += 2;
       continue;
@@ -123,6 +138,11 @@ export function parseArguments(arguments_: readonly string[]): CliRequest {
       index += 1;
       continue;
     }
+    if (option === "--evidence-root") {
+      const value = arguments_[index + 1];
+      if (!request.gateDecision || !value || value.startsWith("--") || request.evidenceRoot) throw new Error("invalid evidence root");
+      request.evidenceRoot = value; index += 2; continue;
+    }
     if (option === "--job-id") {
       const value = arguments_[index + 1];
       if ((!request.structuredOutput && !request.containment) || !value || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value) || request.jobId) throw new Error("invalid job id");
@@ -132,6 +152,7 @@ export function parseArguments(arguments_: readonly string[]): CliRequest {
   }
   if (request.authentication && !request.interactive) throw new Error("auth requires explicit interactive opt-in");
   if ((request.structuredOutput || request.containment) && !request.jobId) throw new Error("validation requires job id");
+  if (request.gateDecision && !request.evidenceRoot) throw new Error("gate decision requires evidence root");
   return request as CliRequest;
 }
 

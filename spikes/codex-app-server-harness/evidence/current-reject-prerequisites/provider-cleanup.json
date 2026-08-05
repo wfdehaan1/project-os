@@ -1,0 +1,1 @@
+{"schemaVersion":1,"gate":"provider_cleanup","result":"failed","safeCode":"live_codex_cleanup_unproven","reproductionCommand":"npm run validate:provider-cleanup"}

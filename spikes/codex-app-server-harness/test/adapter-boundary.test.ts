@@ -10,6 +10,9 @@ const coreFiles = [
   "project-export.ts",
   "project-restore.ts",
   "provider-cleanup-outbox.ts",
+  "provider-contract-workflow.ts",
+  "provider-job-coordinator.ts",
+  "provider-registry.ts",
   "provider-session-cleanup.ts",
 ] as const;
 
@@ -18,6 +21,12 @@ test("public provider modules do not import or expose Codex protocol types", asy
     const source = await readFile(new URL(`../src/core/${file}`, import.meta.url), "utf8");
     assert.doesNotMatch(source, /adapters\/codex|protocol\.ts|CodexInitialize|Jsonl/iu, file);
   }
+});
+
+test("provider-neutral dispatcher remains a ProjectOS fixed-operation boundary", async () => {
+  const registry = await readFile(new URL("../src/core/provider-registry.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(registry, /thread\/(?:start|resume)|turn\/start|model\/call|Jsonl/iu);
+  assert.match(registry, /return this\.#adapter\.invoke\(lease\.operation, request\)/u);
 });
 
 test("portable ownership and restore remain pure core contracts", async () => {

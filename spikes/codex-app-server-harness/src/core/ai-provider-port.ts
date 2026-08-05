@@ -202,3 +202,47 @@ export interface AiProviderPort {
     request: PreventiveExecutionContainmentRequest,
   ): Promise<PreventiveExecutionContainmentResult>;
 }
+
+/**
+ * The Story 1.9 boundary is intentionally separate from the validation port
+ * above.  It describes named ProjectOS operations, never provider RPC names.
+ */
+export type ProviderOperation =
+  | "health"
+  | "generation"
+  | "streaming"
+  | "cancellation"
+  | "structured_result"
+  | "session_cleanup";
+
+export type ProviderCapabilityState =
+  | "supported"
+  | "unsupported"
+  | "temporarily_unavailable"
+  | "unknown";
+
+export interface ProviderCapabilityClaim {
+  readonly capability: ProviderOperation;
+  readonly state: ProviderCapabilityState;
+  /** The explicit user-facing behavior if this capability cannot be used. */
+  readonly degradation: string;
+}
+
+export interface ProviderCapabilityScope {
+  readonly adapterInstanceId: string;
+  readonly runtimeVersion: string;
+  readonly authenticationContext: string;
+  readonly configurationFingerprint: string;
+}
+
+export interface ProviderCapabilitySnapshot {
+  readonly scope: ProviderCapabilityScope;
+  readonly claims: readonly ProviderCapabilityClaim[];
+}
+
+/** Adapter-owned effects are reachable only through the registry dispatcher. */
+export interface ProviderOperationAdapter {
+  readonly adapterId: string;
+  resolveCapabilities(): Promise<ProviderCapabilitySnapshot>;
+  invoke(operation: ProviderOperation, request: unknown): Promise<unknown>;
+}

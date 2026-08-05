@@ -1,0 +1,1 @@
+{"schemaVersion":1,"gate":"authentication","result":"failed","safeCode":"live_auth_unproven","reproductionCommand":"npm run test:auth:live"}

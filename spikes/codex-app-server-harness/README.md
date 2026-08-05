@@ -1,6 +1,6 @@
 # ProjectOS Codex App Server Harness
 
-Disposable, provider-neutral validation harness for ProjectOS Stories 1.1–1.8. It discovers a candidate `codex` executable, snapshots its open-file bytes, verifies the exact committed build/binary/stable-schema/method contract, creates an isolated runtime profile, performs the init-only protocol handshake by default, and can explicitly validate managed ChatGPT browser login and a read-only allowance surface on that same owned child.
+Disposable, provider-neutral validation harness for ProjectOS Stories 1.1–1.9. It discovers a candidate `codex` executable, snapshots its open-file bytes, verifies the exact committed build/binary/stable-schema/method contract, creates an isolated runtime profile, performs the init-only protocol handshake by default, and can explicitly validate managed ChatGPT browser login and a read-only allowance surface on that same owned child.
 
 This is not a production app scaffold. It never handles access/refresh tokens, API keys, authorization headers, account IDs, API credits, device codes, or plaintext credential files; it does not start a thread or turn, call a model, mutate Canonical State, restore, or prove final provider neutrality. Story 1.6 adds the typed, one-use containment-attestation contract and evidence gate, but the shipped macOS adapter has no independently verified pre-side-effect boundary yet. It therefore records `containment_boundary_unavailable` and fails closed before discovery/spawn. Fake-backed tests prove the contract, not live-provider containment. Protocol compatibility is not preventive execution containment.
 
@@ -36,6 +36,8 @@ npm run validate:conversation-ownership
 node --experimental-strip-types src/cli.ts provider-cleanup-validate
 npm run test:provider-cleanup
 npm run validate:provider-cleanup
+npm run test:provider-neutrality
+npm run validate:gate-decision
 PROJECTOS_LIVE_CONTAINMENT=1 npm run test:containment:live
 npm run structured-output:validate
 PROJECTOS_LIVE_ALLOWANCE=1 npm run test:allowance:live
@@ -57,6 +59,8 @@ npm run validate:full
 `npm run validate:conversation-ownership` is deterministic, fixture-backed, and offline. It proves ProjectOS-owned immutable Conversations, opaque adapter-keyed bindings, binding omission from versioned exports, pure v1/v0 restore with one complete local-ID map, zero restored bindings, fresh explicit binding creation, and content-free structural evidence. It does not start/resume a thread, call a provider, exercise containment, persist production data, or prove live resume.
 
 `npm run validate:provider-cleanup` is deterministic and fake-backed. It records a private, content-free cleanup intent before the fake external create, reloads across crash boundaries, removes fake rollout metadata with the managed record, retains a minimal terminal receipt after local erasure, and publishes aggregate-only evidence. Its required conclusion is `reject`: the frozen manifest has no approved live Codex list/delete contract and Story 1.6 containment remains unavailable. It never starts a live App Server operation, creates a turn, authenticates, or treats local deletion as proof of provider deletion.
+
+`npm run validate:gate-decision` is deterministic and offline. It runs structurally different provider fakes through the same ProjectOS fixed-operation dispatcher, then reads the explicit `evidence/current-reject-prerequisites` root through no-follow bounded reads. That root must exactly match the package-controlled approved manifest and source digests. The currently approved evidence set records only `reject`; reducer coverage for other decisions is not an authorization for a Codex adapter, Epic 2, local-model fallback, authentication, generation, or deletion. The publication summary is synced before its directory rename. If the later parent-directory sync cannot be confirmed, the complete visible record is retained and reported as durability `unknown`, never truncated or replaced.
 
 `npm run validate:allowance` replays deterministic fake allowance and terminal-job traces. `PROJECTOS_LIVE_ALLOWANCE=1 npm run test:allowance:live` is separately opt-in and calls only the manifest-pinned, read-only allowance surface. It retains safe bucket values and never offers API-credit fallback, sends a turn, or treats fake replay as live subscription proof.
 
