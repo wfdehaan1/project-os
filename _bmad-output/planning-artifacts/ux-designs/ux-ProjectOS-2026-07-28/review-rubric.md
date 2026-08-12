@@ -1,5 +1,7 @@
 # Spine Pair Review — ProjectOS
 
+> **Historical review.** This review predates the approved 2026-08-09 provider course correction and does not validate the revised multi-runtime/OpenRouter UX.
+
 ## Overall verdict
 
 The current spine pair is a strong, source-extractable downstream contract. Every inherited user journey and named user-facing requirement is traced through an end-to-end flow or committed experience rule; tokens, shared components, IA surfaces, states, accessibility semantics, references, and promoted Pile Cover examples are internally consistent, with no remaining validation finding.

@@ -1,5 +1,7 @@
 # Current OpenAI platform review
 
+> **Historical review.** This review applies to the superseded 2026-07-31 Codex App Server architecture. Epic 1 later recorded `reject`; it does not validate the 2026-08-09 Ollama / LM Studio / MLX / OpenRouter architecture.
+
 **Review lens:** Codex/OpenAI platform correctness, current support status, and version binding.
 
 **Reviewed:** `ARCHITECTURE-SPINE.md` and `validation-spike.md` as present on 2026-07-31. Deliverables were not edited.

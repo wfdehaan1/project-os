@@ -5,9 +5,12 @@ date: 2026-07-31
 artifact: ../ARCHITECTURE-SPINE.md
 companion: ../validation-spike.md
 verdict: revise
+status: historical-superseded
 ---
 
 # Adversarial Review
+
+> This review applies to the superseded 2026-07-31 Codex App Server architecture. It is preserved as historical evidence and does not validate the 2026-08-09 replacement architecture.
 
 ## Verdict
 

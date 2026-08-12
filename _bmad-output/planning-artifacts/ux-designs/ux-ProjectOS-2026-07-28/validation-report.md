@@ -1,5 +1,7 @@
 # Validation Report — ProjectOS
 
+> **Status: superseded on 2026-08-09.** This report validated the former Codex/OpenAI-only UX spines. The revised Ollama / LM Studio / MLX / OpenRouter UX has not yet completed a replacement validation run; the findings below remain historical evidence only.
+
 - **DESIGN.md:** `_bmad-output/planning-artifacts/ux-designs/ux-ProjectOS-2026-07-28/DESIGN.md`
 - **EXPERIENCE.md:** `_bmad-output/planning-artifacts/ux-designs/ux-ProjectOS-2026-07-28/EXPERIENCE.md`
 - **Run at:** 2026-07-31T15:39:48+02:00

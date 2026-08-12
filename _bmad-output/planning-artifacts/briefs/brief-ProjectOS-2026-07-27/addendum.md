@@ -2,7 +2,7 @@
 title: "ProjectOS Product Brief Addendum"
 status: final
 created: 2026-07-27
-updated: 2026-07-31
+updated: 2026-08-09
 ---
 
 # Product Brief Addendum
@@ -55,9 +55,11 @@ This decision overrides the earlier responsive desktop/mobile web MVP and manage
 
 The 2026-07-28 decision selected direct OpenAI API-key authentication plus Ollama in the MVP. Its research incorrectly generalized ordinary third-party API access to Codex's supported product surface and concluded that ChatGPT sign-in could not consume a subscription allowance. It also committed the MVP to two integrations before the core continuity loop was validated.
 
-The decision history remains in `.memlog.md`, but the requirements and product direction below supersede it.
+The decision history remains in `.memlog.md`. The 2026-07-31 Codex direction below superseded it at the time and is itself superseded by the 2026-08-09 course correction.
 
-## Provider-Independent AI Direction (2026-07-31)
+## Superseded Provider-Independent AI Direction (2026-07-31)
+
+> Historical decision. Epic 1 completed this Codex App Server path with `reject`; it is not the current MVP provider direction.
 
 ### Initial adapter: Codex App Server
 
@@ -87,3 +89,24 @@ Local models remain an intended future provider category. Ollama is a candidate 
 Codex is optimized as a coding agent, so ProjectOS must validate non-coding, cross-domain extraction and recommendation quality before treating the integration as product-ready. App Server also persists provider-side thread logs by default; Project deletion must delete the corresponding Codex threads or use an explicitly isolated non-persistent strategy. Runtime version compatibility, schema generation, sandbox restrictions, token ownership, and Mac App Store redistribution require a focused architecture decision and validation spike.
 
 Local-first operation reduces ProjectOS's data footprint but does not eliminate privacy or GDPR obligations. A cloud adapter still receives selected project content. Before transmission, ProjectOS must identify the configured provider, state whether processing is local or external, show the selected scope, and obtain explicit initiation ([European Commission](https://commission.europa.eu/law/law-topic/data-protection/information-business-and-organisations/application-gdpr_en), [Apple App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)). A subscription may be introduced later only if a managed service provides recurring value through synchronization, additional surfaces, sharing, or collaboration.
+
+## Local-First Multi-Runtime MVP Direction (2026-08-09)
+
+Epic 1 completed with a binding `reject` for production Codex App Server work. Live managed authentication remained unproven, quality remained fake-backed, preventive containment was unavailable, and live Codex cleanup remained unproven. The Story 1.x contracts, disposable harness, retained evidence, and provider-neutral seams remain historical inputs; the Codex process, authentication, protocol, containment, and cleanup design is not the production path.
+
+The replacement MVP provider direction is:
+
+- Ollama, LM Studio, and MLX are first-class local adapters.
+- OpenRouter is the only optional external adapter.
+- Ollama and LM Studio use supported loopback-only endpoints in the validation build.
+- MLX performs native on-device inference; supported model formats, packaging, storage, and minimum hardware are production compatibility decisions.
+- OpenRouter uses an API key stored in macOS Keychain. Project data stores no provider secret.
+- The active adapter and model are explicit. No runtime, provider, model, retry, or resend fallback occurs silently.
+- Context Preview identifies the adapter, model, selected context, and local/external boundary. OpenRouter also discloses external processing and usage-based billing.
+- ProjectOS owns Conversations, structured proposal validation, Canonical State, Rationale, Provenance, and every accepted mutation.
+- Adapters expose generation only and receive no tools, commands, filesystem access, connectors, web search, or domain-repository access.
+- Direct OpenAI, Anthropic, Codex, and other provider integrations are outside MVP scope.
+
+The product keeps the durable provider boundary established in the 2026-07-31 work, but applies it to structurally different production adapters. Runtime/model compatibility, local resource readiness, structured-output quality, and OpenRouter behavior are implementation acceptance criteria rather than a new feasibility spike.
+
+Local-first reduces ProjectOS's data footprint but does not eliminate privacy obligations. Ollama, LM Studio, and MLX generation is represented as local only when the approved boundary holds. OpenRouter receives only explicitly selected content after a preview and explicit user initiation. Project deletion, OpenRouter credential removal, local runtime/model storage, ProjectOS-managed MLX data, and independent external retention remain separate truthful outcomes.

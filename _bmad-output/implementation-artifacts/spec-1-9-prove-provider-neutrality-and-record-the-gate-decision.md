@@ -3,7 +3,7 @@ title: 'Story 1.9: Prove Provider Neutrality and Record the Gate Decision'
 type: 'feature'
 created: '2026-08-05'
 baseline_revision: '88ad3324aafacdca0df4a6c0a308c41a63d547c9'
-status: 'in-review'
+status: 'done'
 review_loop_iteration: 4
 followup_review_recommended: true
 context:

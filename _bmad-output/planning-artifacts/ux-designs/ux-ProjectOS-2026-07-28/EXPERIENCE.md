@@ -7,7 +7,7 @@ sources:
   - _bmad-output/planning-artifacts/briefs/brief-ProjectOS-2026-07-27/brief.md
   - _bmad-output/planning-artifacts/research/market-projectos-market-opportunity-research-2026-07-27.md
   - _bmad-output/planning-artifacts/architecture/architecture-ProjectOS-2026-07-31/ARCHITECTURE-SPINE.md
-updated: 2026-07-31
+updated: 2026-08-09
 ---
 
 # ProjectOS — Experience Spine
@@ -21,13 +21,13 @@ Native macOS conventions govern windows, menus, Settings, focus, undo/redo, text
 The product contract is human-governed semantic continuity:
 
 1. Conversation or selected Source Material supplies evidence and context.
-2. OpenAI may generate typed Change Proposals.
+2. The explicitly selected Ollama, LM Studio, MLX, or OpenRouter adapter may generate typed Change Proposals.
 3. Proposals persist separately from the Transcript and never become Canonical State automatically.
 4. Wouter explicitly accepts, edits and accepts, rejects, defers, or requests revision.
 5. Accepted changes are atomic, versioned, related, and traceable to exact provenance when available.
 6. Overview restores current understanding; Project Map explains relationships; Conversation continues the work.
 
-Opening, browsing, selecting, filtering, searching, importing/extracting locally, or navigating never authorizes an OpenAI request. Only an explicit provider action after Context Preview authorizes transmission. Commercial MVP supports **OpenAI only**, using a ProjectOS-owned Codex App Server process and Codex-managed ChatGPT browser authentication. ProjectOS never asks for an API key or reads ChatGPT tokens. The internal boundary remains provider-neutral, but Ollama and every other provider adapter are explicitly after MVP; their setup, local-model, privacy, offline-inference, and failure states do not appear in MVP UX.
+Opening, browsing, selecting, filtering, searching, importing/extracting locally, or navigating never authorizes inference. Only an explicit action after Context Preview authorizes generation. The MVP is local-inference-first: Ollama, LM Studio, and MLX are first-class local choices, and OpenRouter is the only optional external adapter. The active adapter and model are explicit. ProjectOS never silently switches, retries through, or falls back to another runtime, provider, or model. OpenRouter requires a Keychain-backed API key; direct OpenAI, Anthropic, and Codex integrations do not appear in MVP UX.
 
 ## Information Architecture
 
@@ -35,8 +35,8 @@ App open lands on Project Library; entering a project lands on Overview. Project
 
 | Surface | Reached from | Purpose and primary content |
 |---|---|---|
-| First Run | First launch | Skippable language/privacy orientation, optional OpenAI/Codex setup, readiness; then Project Library. |
-| [Project Library](mockups/project-library.html) | App open, All Projects, restore completion | Project Cards, New Project, Restore, and an app-level cleanup item when any deleted Project has outstanding provider cleanup. Cards contain Pile Cover and title only. |
+| First Run | First launch | Skippable language/privacy orientation, local-first Ollama/LM Studio detection, explicit MLX setup, optional OpenRouter setup, runtime/model selection, readiness; then Project Library. |
+| [Project Library](mockups/project-library.html) | App open, All Projects, restore completion | Project Cards, New Project, Restore, and an app-level cleanup item only when a declared persistent provider session remains outstanding. Cards contain Pile Cover and title only. |
 | New Project | Project Library / `⇧⌘N` | Short description, local creation, then guided Conversation, Import existing material, or Overview. |
 | [Overview](mockups/overview.html) | Project Card, project switch, `⌘1` | Pile Cover, What's Up Next Card, read-only project description, accepted history/relationships/affected work/provenance. |
 | [Project Map](mockups/project-map.html) | Sidebar / Overview Pile Cover / `⌘2` | Current graph or synchronized relationship outline, lenses, selection, Inspectors, history/proposal layers, Context Preview. |
@@ -47,12 +47,12 @@ App open lands on Project Library; entering a project lands on Overview. Project
 | Research | Sidebar / `⌘7` | Accepted Research and Sources subviews; Artifact or Source Inspector. |
 | Questions | Sidebar / `⌘8` | Open states first; Resolved/Dismissed history on demand. |
 | Notification Center | Sidebar footer | Durable, grouped, actionable/background events with exact-context deep links. |
-| Project Settings | Sidebar footer | Identity, read/write description, theme/language/notification inheritance, export/verify, archive/delete, and durable provider-cleanup status. |
-| Global Settings | Sidebar footer / `⌘,` | General, Appearance, OpenAI, Notifications, Accessibility and Keyboard, Data and Recovery including Provider Cleanup, About. |
+| Project Settings | Sidebar footer | Identity, read/write description, theme/language/notification inheritance, export/verify, archive/delete, and any declared provider-session cleanup status. |
+| Global Settings | Sidebar footer / `⌘,` | General, Appearance, AI Providers, Notifications, Accessibility and Keyboard, Data and Recovery, About. AI Providers groups Ollama, LM Studio, MLX, and OpenRouter with explicit active runtime/model and readiness. |
 | Export and Verification | Project Settings | Scope preview, atomic export, completion actions, manifest verification. |
 | Restore Preflight | Project Library | Read-only inspection, compatibility/migration/corruption disclosure, new-copy restore and verification. |
 | Return Outcome Record | UJ-3 completion prompt / Project Settings | Validation-only local record of elapsed return time, understanding, trust, Next Action usefulness, Meaningful Work, and optional notes; included in export. |
-| Provider Cleanup | Project Library cleanup item / Global Settings → Data and Recovery | App-level list of content-free cleanup receipts for deleted Projects, residual-data disclosure, matching-context reauthentication, explicit retry, and confirmed/already-absent history. |
+| Provider Cleanup | Project Library cleanup item / Global Settings → Data and Recovery | Conditional app-level list of content-free cleanup receipts only for adapters that declare and use persistent external sessions; explicit retry and confirmed/already-absent history. |
 | Command Palette | `⌘K` | Search projects/commands and start safe actions without bypassing review. |
 | Accessibility and Keyboard Help | Help menu / Global Settings | Accessible English/Dutch feature documentation, shortcuts, Project Map outline, system preferences, known limitations, feedback route. |
 
@@ -67,7 +67,7 @@ The four linked key-screen mockups illustrate the load-bearing Library, Overview
 | Decision | Explicit governing commitment; never tentative. | Statement, Governing/Superseded, rationale, alternatives, implications, conditions/revisit trigger, effective date, actor, evidence, origins, relations, versions. | Inspect lineage/effects, compare, correct, replace, reconsider; withdrawal/replacement record required. |
 | Research | Accepted evidence-backed synthesis, not raw Source Material. | Finding/scope, evidence links, interpretation, certainty, contradictions/limitations, date, relations, provenance/history; Current/Tentative/Contested/Superseded. | Inspect evidence, compare contradiction, grounded Conversation, correct/supersede. |
 | Open Question | Decision-relevant answerable uncertainty. | Question, why, resolution criteria, impact/blocking relations, Open/In exploration/Awaiting evidence/Resolved/Dismissed, evidence/history, resulting Decision. | Grounded Conversation, answer directly, inspect blockers/evidence, evidence Task, dismiss. |
-| Conversation | Working context and provenance, not Canonical State. | Local title, messages, scope, language, OpenAI metadata, proposal anchors, linked artifacts/proposals. | Resume after fresh preview, search/filter, follow-up, inspect resulting state. |
+| Conversation | Working context and provenance, not Canonical State. | Local title, messages, scope, language, non-secret adapter/model metadata, proposal anchors, linked artifacts/proposals. | Resume after fresh preview, search/filter, follow-up, inspect resulting state. |
 | Source Material | Original retained evidence distinct from Research. | Original, extraction, metadata, known/unknown language, extraction state, usage history, linked artifacts/Conversations. | Inspect, add to Context Preview, navigate passage, remove after effects disclosure. |
 
 Direct user artifact changes become versioned Canonical State immediately with Undo where permitted. Removing an Artifact from current Canonical State is a deliberate accepted transition: its prior version and removal remain inspectable until the whole Project is permanently deleted. Agent changes always enter Proposal Rail. Directly answering an Open Question creates a linked Decision and preserves the Question as Resolved history; a conversational answer leaves it unresolved until its Decision proposal is accepted. Completing a Task invalidates state-bound return outputs but never silently resolves a Question or creates a Decision.
@@ -83,7 +83,7 @@ Direct user artifact changes become versioned Canonical State immediately with U
 | Scanned PDF | Same PDF file limits | Retain original as **Needs OCR**; MVP performs no OCR and never claims extraction. |
 | Encrypted PDF | Same PDF file limits | Retain original as **Needs password**; no extraction until a supported local unlock path succeeds. |
 
-DOCX, RTF, HTML, images, archives, and structured chat-export importers are after MVP. Originals are always retained locally. Import/extraction alone never contacts OpenAI and never creates Research or Canonical State.
+DOCX, RTF, HTML, images, archives, and structured chat-export importers are after MVP. Originals are always retained locally. Import/extraction alone never invokes inference and never creates Research or Canonical State.
 
 ## Voice and Tone
 
@@ -92,8 +92,9 @@ Microcopy is calm, concise, inspectable, and literal. Brand posture lives in `DE
 | Do | Don't |
 |---|---|
 | “Saved on this Mac.” | “Secure forever.” |
-| “This sends 3 selected excerpts through Codex to OpenAI.” | “Ask AI” without provider/scope disclosure. |
-| “Offline. Local inspection remains available; agent calls are unavailable.” | “Connection error” for every boundary. |
+| “Runs locally with MLX using Llama 3. Selected Project context stays on this Mac.” | “Ask AI” without adapter/model/scope disclosure. |
+| “This sends 3 selected excerpts to OpenRouter using the selected model. External usage charges may apply.” | “Cloud model” without provider, scope, or billing disclosure. |
+| “Network offline. Local inference remains available; OpenRouter is unavailable.” | “Connection error” for every boundary. |
 | “Needs review” / “Accepted with edits” / “Superseded” | “Done” for semantically distinct states. |
 | “Exact source moment unavailable. Opened the originating Conversation.” | Silently open an approximation. |
 | “Needs OCR” / “Needs password” / “Unsupported format” | Present unextracted content as parsed. |
@@ -110,15 +111,15 @@ Visual specifications live in `DESIGN.md.Components`. These exact shared names a
 | Button | Primary, secondary, ghost, destructive, disabled. Disabled provider actions remain visible with persistent associated reason and an enabled setup/reconnect/Why unavailable route. |
 | Status Badge | Names state in text and accessibility state. Counts only actionable proposals/blocked work/actionable unread notifications. Interactive only when explicitly a filter. |
 | Project Sidebar | Resizable/collapsible; width per window. Pointer drag plus keyboard/menu step controls and Reset Width. Active destination, badges, Offline row, labels/tooltips survive collapse. |
-| Project Switcher | Opens local project selection/New Project. Switching restores Overview locally and never contacts OpenAI. |
+| Project Switcher | Opens local project selection/New Project. Switching restores Overview locally and never invokes inference. |
 | Project Card | Entire card opens Overview. One focus target; internal pile marks are not targets. |
 | Pile Cover | Project Card use is passive; Overview exposes one action named “Open Project Map,” with localized composition as description/value. Legend and drawing share counts; internal marks/duplicate legend subtree are hidden from accessibility traversal. |
 | What's Up Next Card | Needs recap, Current, Offline. Generate is explicit; Continue authorizes the grounded call by selection; Inspect is local; dismissal does not mutate Canonical State. Content drives height and stacks with Pile Cover when required. |
 | Relational Briefing | Locally available orientation. Description is read-only; edit routes to Project Settings. Summaries link to accepted detail, provenance, or history. |
 | Conversation List | Recency order, local search/Topic filter/editable title. Selection restores draft, scroll, and review position. |
 | Transcript | Streams readable chunks; auto-scroll only near tail. Stop preserves Incomplete content. Exact provenance turns restore/focus when possible. |
-| Composer | Persisted multiline draft; `⌘Return` sends, `⇧Return` newline, `Esc` preserves text. Send requires Context Preview and is unavailable offline without queueing. |
-| Context Preview | Before every provider call: Codex/OpenAI, local/external boundary, scope, one-hop Map context when relevant, Sources/excerpts, language, allowance when available. Wouter can narrow/add explicit items. |
+| Composer | Persisted multiline draft; `⌘Return` sends, `⇧Return` newline, `Esc` preserves text. Send requires Context Preview. OpenRouter is unavailable offline without queueing; a ready local adapter may remain available. |
+| Context Preview | Before every inference call: active Ollama, LM Studio, MLX, or OpenRouter adapter and model; local/external boundary; scope; one-hop Map context when relevant; Sources/excerpts; language; capability limits; and OpenRouter billing disclosure. Wouter can narrow/add explicit items. |
 | Proposal Rail | Current-Conversation by default, project-wide pending optional. Persists independently and supports every proposal status/history. |
 | Change Proposal Card | Type, operation, summary, source, set/dependency, status; opens Inspector and exact source turn; never bypasses effects review. |
 | Proposal Inspector | Shared type-aware frame. Edit persists a draft; accept is explicit/atomic; compatible-set only when proven; rejection is recoverable; revise requires a new call. |
@@ -130,8 +131,8 @@ Visual specifications live in `DESIGN.md.Components`. These exact shared names a
 | Notification Center | Durable grouped items retain read/action state and exact-context deep links. Opening is local and never accepts/rejects. |
 | Progress Indicator | Named phases; determinate only when measurable; Stop/Cancel when safe. Completion/failure replaces progress and leaves persistent result elsewhere. |
 | Empty State | Explains why and offers shortest relevant action; never fabricates samples or requires AI for local creation. |
-| Settings Row | Shows inherited global values and reset with Undo. Local unless explicitly testing OpenAI or opening System Settings. |
-| Confirmation Sheet | Permanent deletion, governing Decision replacement/withdrawal, and high-impact actions; names effects, recovery limits, safe cancel. Project deletion offers export first and distinguishes local deletion from provider-session cleanup without blocking truthful local completion. |
+| Settings Row | Shows inherited global values and reset with Undo. Local unless explicitly testing a runtime/adapter, changing a Keychain credential, or opening System Settings. |
+| Confirmation Sheet | Permanent deletion, governing Decision replacement/withdrawal, credential removal, shared MLX storage removal, and high-impact actions; names effects, recovery limits, safe cancel. Project deletion offers export first and distinguishes local deletion from credential, runtime/model data, and any declared session-cleanup outcomes. |
 | Command Palette | `⌘K` searches projects/commands. Navigation complete; no direct proposal accept/reject or confirmation bypass. |
 | Search Field | `⌘F` current surface; `⌘G`/`⇧⌘G` moves matches; announces scope/count; clearing restores prior selection where practical. |
 
@@ -144,15 +145,15 @@ The approved proposal-review anatomy is in the [Conversation and proposal review
 | State | Treatment |
 |---|---|
 | Cold local load | Restore shell/selection first; layout-preserving local placeholders only. Failure identifies affected local store and preserves last coherent state. |
-| OpenAI ready | Local actions remain available; provider actions still require explicit preview/start. |
-| Runtime absent/incompatible or signed out | Preserve local work/drafts; show distinct install/update/sign-in/reconnect path returning to interrupted action. |
-| Offline | Persistent Sidebar text/state. Local work remains; provider actions visible but disabled with associated reason and local alternative. Nothing queues. |
+| Local adapter ready | Local actions remain available; inference still requires explicit preview/start with the selected runtime/model. |
+| Local runtime/model unavailable | Preserve local work/drafts; distinguish missing, stopped, incompatible, unavailable model, model-format, and insufficient-resource states with a setup/retry path. |
+| Network offline | Persistent Sidebar text/state. Local work and a ready Ollama, LM Studio, or MLX adapter remain available; OpenRouter remains visible but disabled. Nothing queues or reroutes. |
 | Provider in progress/interrupted | Truthful phases and safe Stop; navigation preserves work. Partial output remains Incomplete and cannot become trusted Research/proposal. |
-| Auth/rate/allowance/service failure | Distinct diagnosis, retained draft/partial output, relevant remedy/reset/retry. Never generic Offline or API-credit purchase. |
+| OpenRouter configuration/credential/rate/quota/billing/service failure | Distinct diagnosis, retained draft/partial output, relevant setup/reset/retry. Never generic Offline, automatic credit purchase, or local fallback. |
 | Canonical transaction pending/failed | Effects visible; no mutation until explicit atomic acceptance. Failure fully rolls back to last coherent state. |
 | Focus | Visible native focus; no unexpected movement. Dynamic fallback: retained origin, next item, previous item, then relevant heading/empty state. |
 | Permission denied | Local work remains; notification denial has route to System Settings and no repeated prompts. |
-| Provider cleanup pending / reauthentication required | Local Project deletion remains truthful and complete while a minimal cleanup receipt persists without Project content. Show the matching OpenAI context, residual-data disclosure, retry count/status, and explicit reauthenticate-and-retry route; startup resumes incomplete cleanup idempotently. |
+| Declared provider cleanup pending | Only adapters using persistent external sessions create cleanup receipts. Local Project deletion remains truthful while a content-free receipt exposes adapter context, residual-data disclosure, retry state, and completion without restoring Project content. |
 
 Status is persistent where it changes capability, trust, or outcome: Offline, provider unavailability, Incomplete output, extraction failure, canonical result, export/restore result, and verification result remain in their affected surface/history. Transient banners or announcements supplement but never become the sole record.
 
@@ -160,24 +161,24 @@ Status is persistent where it changes capability, trust, or outcome: Offline, pr
 
 | Surface | Required states |
 |---|---|
-| First Run | Fresh/skipped, EN/NL, runtime absent/incompatible, signed out/sign-in pending/cancelled/expired, ineligible plan, service/rate/allowance error, ready with/without AI. |
+| First Run | Fresh/skipped, EN/NL, Ollama/LM Studio absent/stopped/incompatible, MLX setup/model/resource states, OpenRouter unconfigured/key test/rate/quota/billing/service error, explicit adapter/model selection, ready with/without inference. |
 | Project Library | Cold/empty/populated, search/no matches, unavailable/corrupt project, offline, restore running/succeeded/failed, app-level provider cleanup pending/failed. |
 | New Project | Empty/valid description, create progress/failure, created start choices, offline. |
 | Overview | Needs recap, generating, current pair, recap closed, revisit, dismissed/uncertain recommendation, offline with/without current pair, local read failure, masthead stacked. |
 | Project Map | Empty/current, Focus, lens/no matches, node/relationship/multi-select, proposal/history layers, missing provenance, offline, outline, layout error, Conversation provenance node. |
-| Conversation | Empty/restored/draft, sending/streaming/stopped/Incomplete, proposal ready, offline/no provider/runtime/auth/rate/allowance/service failure, anchor found/unavailable, search/no matches. |
+| Conversation | Empty/restored/draft, sending/streaming/stopped/Incomplete, proposal ready, local runtime/model/resource failure, offline OpenRouter, OpenRouter credential/rate/quota/billing/service failure, anchor found/unavailable, search/no matches. |
 | Topics | Empty/current/retired, selected, direct edit/Undo, proposed split/merge, offline/local failure. |
 | Tasks | Empty, Open/In progress/Blocked/Done, deadline/reminder, completion/Undo, history, offline/local failure. |
 | Decisions | Empty, Governing/Superseded, replacement/correction/withdrawal, missing provenance, offline/local failure. |
 | Research | Empty, Current/Tentative/Contested/Superseded, contradiction, missing evidence/Needs review, Sources, offline/local failure. |
 | Questions | Empty, Open/In exploration/Awaiting evidence/Resolved/Dismissed, blocking, direct answer, pending Decision proposal, offline/local failure. |
-| Notification Center | Empty, actionable unread, informational read, grouped/evolving, provider cleanup pending/failed/confirmed with Project Settings deep link before deletion or app-level Provider Cleanup deep link after deletion, deep-link fallback, offline, permission denied. |
-| Project Settings | Inherited/override/reset/Undo, description edit, export, archive/delete, delete confirmation, local deletion complete, provider cleanup pending/failed/reauthentication required/confirmed/already absent, offline. |
-| Global Settings | Appearance/presets, OpenAI absent/sign-in/testing/limited/ready/error, allowance, notifications, system accessibility change, data warning, provider cleanup none/pending/failed/reauthentication required/confirmed/already absent. |
+| Notification Center | Empty, actionable unread, informational read, grouped/evolving, adapter/model readiness, optional declared provider cleanup pending/failed/confirmed, deep-link fallback, offline, permission denied. |
+| Project Settings | Inherited/override/reset/Undo, description edit, export, archive/delete, delete confirmation, local deletion complete, ProjectOS-managed MLX Project data removal, optional declared provider cleanup, offline. |
+| Global Settings | Appearance/presets; Ollama/LM Studio runtime and model states; MLX model/resource/storage states; OpenRouter unconfigured/key-testing/ready/error/usage states; active adapter/model; notifications; system accessibility change; data warning; optional declared provider cleanup. |
 | Export and Verification | Preview/conflict, progress/cancel/fail/complete, verify/Verified/mismatch/corrupt. |
 | Restore Preflight | Reading/compatible/migration/corrupt/missing/conflict, cancel, atomic restore/rollback, unverified/Verified. |
 | Return Outcome Record | Prompted/deferred, elapsed timer available/unavailable, unsaved draft, saved locally, export included, local save failure/retry, offline. |
-| Provider Cleanup | Empty, pending, retrying, failed, reauthentication required for named context, confirmed, already absent, offline, startup reconciliation. |
+| Provider Cleanup | Hidden when no adapter uses persistent sessions; otherwise empty, pending, retrying, failed, confirmed, already absent, offline, and startup reconciliation. |
 | Command Palette | Closed/open/query/result/no matches/disabled-with-reason/focus restored. |
 | Accessibility and Keyboard Help | EN/NL, keyboard-only, accessible document loaded/unavailable, external feedback route unavailable. |
 
@@ -191,7 +192,7 @@ Proposals from one response form a dependency-ordered set. Independent members c
 
 ### Source intake lifecycle
 
-Add Source is available from Research, Conversation context selection, setup, and relevant empty states. Preflight applies the committed matrix before any extraction. Import, retention, extraction, inspection, and errors are local. Complete/Partial/Failed/Needs OCR/Needs password never alter the original. After inspection, Wouter may explicitly choose Synthesize; Context Preview exposes selected Sources/excerpts, language, one-hop relationships if applicable, and OpenAI. Generated Topics, Research, Questions, Decisions, Tasks, and relationships enter Proposal Rail.
+Add Source is available from Research, Conversation context selection, setup, and relevant empty states. Preflight applies the committed matrix before any extraction. Import, retention, extraction, inspection, and errors are local. Complete/Partial/Failed/Needs OCR/Needs password never alter the original. After inspection, Wouter may explicitly choose Synthesize; Context Preview exposes selected Sources/excerpts, language, one-hop relationships if applicable, and the active adapter/model plus its local or external boundary. Generated Topics, Research, Questions, Decisions, Tasks, and relationships enter Proposal Rail.
 
 ### Project Map contract
 
@@ -238,27 +239,27 @@ Quick feedback uses 140 ms, navigation/pane continuity 220 ms, and deliberate ac
 
 ## Offline, Notifications, and External Boundaries
 
-Every action computable from local state remains available; every OpenAI-dependent action is unavailable when OpenAI is not ready and never silently queued.
+Every action computable from local state remains available. A configured local adapter may remain available without network access; OpenRouter-dependent work is unavailable offline and never silently queued or rerouted.
 
 | Available offline | Unavailable offline |
 |---|---|
-| Project/library management including local deletion; all artifact/Source/Conversation/proposal/history browsing/search; Project Map/outline; local Source import/extraction; direct changes/Undo; proposal review; drafts; return-outcome recording; export/restore/verification; settings; local-operation notifications. | Agent send/continue; Recap/What's up next generation; proposal revision; AI synthesis; provider-session cleanup/retry; OpenAI connection/account/model/allowance refresh. |
+| Project/library management including local deletion; all artifact/Source/Conversation/proposal/history browsing/search; Project Map/outline; local Source import/extraction; direct changes/Undo; proposal review; drafts; return-outcome recording; export/restore/verification; settings; local-operation notifications; Ollama, LM Studio, or MLX inference when the selected local runtime/model is ready. | OpenRouter send/continue; OpenRouter Recap/What's up next generation; OpenRouter proposal revision/synthesis; OpenRouter key/model/usage refresh; any external provider-session cleanup/retry. |
 
-Reconnection of generation work requires explicit Resume and fresh Context Preview. Provider cleanup retry is a separate lifecycle action, never resends Project content, and may require matching-context reauthentication. Mid-request loss preserves Incomplete output. Network, runtime, authentication, allowance, service, and capability errors remain distinct.
+Reconnection of external generation work requires explicit Resume and fresh Context Preview. A declared provider cleanup retry is a separate lifecycle action and never resends Project content. Mid-request loss preserves Incomplete output. Network, runtime, model, resource, credential, rate, quota, billing, service, and capability errors remain distinct.
 
-Notifications use three levels: inline routine feedback; durable Notification Center for actionable/background results; macOS notification only for user-initiated background work completing/failing/needing input while not frontmost. Before deletion, pending provider cleanup is visible in Project Settings; after local deletion, one evolving app-level item appears in Project Library and Global Settings → Data and Recovery → Provider Cleanup. Confirmation or already-absent resolves it without erasing the audit outcome. OS notifications may deep-link to that app-level surface but never accept/reject or retry cleanup. Events deduplicate. There are no engagement/inactivity/streak/promotion/automatic-recap notices. Permission is just-in-time; macOS Focus is authoritative.
+Notifications use three levels: inline routine feedback; durable Notification Center for actionable/background results; macOS notification only for user-initiated background work completing/failing/needing input while not frontmost. If a future adapter declares persistent external sessions, its pending cleanup uses one evolving app-level item and a content-free receipt; MVP adapters do not receive that UI by assumption. Events deduplicate. There are no engagement/inactivity/streak/promotion/automatic-recap notices. Permission is just-in-time; macOS Focus is authoritative.
 
 ## Theme, Language, Settings, and Ownership
 
 Appearance precedence is macOS when Follow macOS → global preset → optional project identity preset → accessibility preferences. First use follows macOS with Studio Paper. Accessibility preferences always win and update live.
 
-Interface language is global English/Dutch, defaulted from macOS. It localizes UI, menus, settings, notifications, dates/numbers/allowance, and accessibility labels, never project content. Project working language defaults from UI language and governs future generation. Conversation can override; canonical proposals default to project language. Changes affect future generation only. Original text remains unchanged; translations are explicit, labeled, and reviewable.
+Interface language is global English/Dutch, defaulted from macOS. It localizes UI, menus, settings, notifications, dates/numbers/usage, and accessibility labels, never project content. Project working language defaults from UI language and governs future generation. Conversation can override; canonical proposals default to project language. Changes affect future generation only. Original text remains unchanged; translations are explicit, labeled, and reviewable.
 
-Global Settings includes General, Appearance, OpenAI/Codex runtime-sign-in-plan-capabilities-model/allowance where supported, Notifications, Accessibility and Keyboard, Data and Recovery with app-level Provider Cleanup, About. Project Settings includes title, editable description, theme inheritance, working language, optional OpenAI/model override, notification inheritance, export/verify, restore, archive/delete, and provider-cleanup status only while the Project still exists. No cover selector.
+Global Settings includes General, Appearance, AI Providers, Notifications, Accessibility and Keyboard, Data and Recovery, and About. AI Providers groups Ollama, LM Studio, MLX, and OpenRouter; shows explicit active adapter/model, runtime/model/resource capabilities, loopback state, secure OpenRouter setup, and no fallback control. Project Settings includes title, editable description, theme inheritance, working language, optional explicit adapter/model override, notification inheritance, export/verify, restore, archive/delete, and any declared cleanup status. No cover selector.
 
 Export is atomic, offline, human-readable (README, Markdown, JSON, Sources, validation records, manifest/checksums) and excludes credentials/tokens/runtime caches/session bindings/unrelated globals. Restore preflights read-only and creates a new copy by default; migration/persistence is atomic with rollback; missing evidence is disclosed. Verification compares manifest and representative provenance.
 
-Permanent Project deletion offers export first, confirms removal of local history, Sources, Conversations, and validation records, then treats **Project deleted** and **provider cleanup complete** as separate durable outcomes. Local deletion may finish when cleanup cannot; an application-owned, content-free cleanup receipt records adapter ID, provider-profile ID, non-secret authentication-context fingerprint, opaque provider-session ID, lifecycle state, retry count, and timestamps. After deletion, Project Library and Global Settings → Data and Recovery → Provider Cleanup own the receipt because no deleted-Project surface may be its only route. Pending cleanup discloses possible residual provider-side session data, resumes idempotently after restart, and may require reauthentication to the matching OpenAI context before explicit retry. Cleanup never resends Project content. Logout or account switching attempts matching-context cleanup first and preserves the same disclosure/retry route when incomplete. ProjectOS never claims to delete provider retention, backups, or user-created exports.
+Permanent Project deletion offers export first and confirms removal of local history, Sources, Conversations, validation records, and Project-scoped MLX caches. It does not uninstall Ollama or LM Studio, remove their shared models, remove the OpenRouter Keychain credential, delete shared MLX models/caches, or claim deletion of independent OpenRouter/routed-provider retention, backups, or user exports. Those are separate explicit storage, credential, or external-retention outcomes. A content-free cleanup receipt exists only when an adapter declares and uses a persistent external session; local deletion may complete while that obligation remains explicit and retryable without restoring or resending Project content.
 
 ## Accessibility Floor
 
@@ -281,7 +282,7 @@ Native controls/collections are default. Custom rendering exposes the listed del
 | Conversation List | Native list; row name/title, proposal state/count, selected state. | Topic filter/search labels list; select/rename actions. | Arrows/Tab; fallback next/previous/list heading. | Selection not redundantly announced; new actionable state once. | Rows 24pt; no reorder drag. |
 | Transcript | Native scrollable text/list; speaker/time/language/incomplete/proposal anchor. | Messages grouped by speaker/turn; open provenance, copy, navigate. | Reading order; incoming content never takes focus. | Follows bounded policy below; never tokens. | Actions 24pt; text selection native. |
 | Composer | Native multiline text area; scope/provider/disabled reason described. | Labeled by Conversation; send/newline/stop actions. | `⌘Return`, `⇧Return`, Esc preserves; fallback Composer. | Send start once; failure/incomplete once. | Send 24pt; no drag. |
-| Context Preview | Sheet/group; provider, scope, excerpts, language, allowance as labeled values. | Source/artifact relationships; add/remove/inspect/start/cancel. | Initial focus heading; close returns invoking action. | No auto-read; start once after action. | Controls 24pt; inclusion has click/keyboard alternative. |
+| Context Preview | Sheet/group; adapter, model, locality/external boundary, scope, excerpts, language, capability limits, and OpenRouter billing as labeled values. | Source/artifact relationships; add/remove/inspect/start/cancel. | Initial focus heading; close returns invoking action. | No auto-read; start once after action. | Controls 24pt; inclusion has click/keyboard alternative. |
 | Proposal Rail | Landmark/split group with scope and proposal counts. | Contains list/cards; switch current/project-wide scope. | Pane entry/exit explicit; fallback rail heading. | Proposal-set readiness once. | Split resize if present gets steps/reset; cards 24pt. |
 | Change Proposal Card | List row/button; type/operation/summary/source/set/status. | Related to source turn and set; open/navigate actions. | Arrows/Return; fallback next/previous/set heading. | Status change once, separately from focus. | Whole card 24pt; no drag. |
 | Proposal Inspector | Inspector/sheet; title/status/proposed/original/effects/dependencies/diff. | Relationships programmatic; edit/accept/reject/defer/revise. | Initial heading; close/origin fallback; no mutation shortcut. | Acceptance/rejection/failure once; persistent audit. | Controls 24pt; no drag. |
@@ -304,7 +305,7 @@ Return Outcome Record is a native labeled form/group, not a custom chart or time
 
 Initial focus lands on the heading only after Wouter explicitly opens the record; an automatic prompt never steals focus from Conversation. Tab order follows the visual field order, Save is last, Cancel/Defer preserves any draft, and close returns to the invoking control or the UJ-3 Conversation heading. Elapsed time is announced on entry and Save, never as a ticking live region. Save success/failure is announced once and remains visible; offline behavior is identical because the record is local. Native targets, enlargement, English/Dutch labels, VoiceOver/Voice Control/Switch Control, and deterministic fallback follow the shared accessibility floor.
 
-Provider Cleanup is likewise a native app-level list/form composed from Settings Row and Button behavior. Each receipt is named from its adapter and deletion timestamp and exposes provider-profile context, lifecycle state, last attempt, retry count, residual-data warning, and available reauthenticate/retry action without retaining Project content or title. Focus never targets the deleted Project or a removed sidebar item; closing or resolving a receipt returns to the next receipt, previous receipt, then Provider Cleanup heading/empty state.
+Provider Cleanup appears only for an adapter that declares and uses persistent external sessions. It is a native app-level list/form composed from Settings Row and Button behavior. Each receipt is named from its adapter and deletion timestamp and exposes non-secret adapter context, lifecycle state, last attempt, retry count, residual-data warning, and retry action without retaining Project content or title. Focus never targets the deleted Project or a removed sidebar item; closing or resolving a receipt returns to the next receipt, previous receipt, then Provider Cleanup heading/empty state.
 
 ### Announcement policy
 
@@ -356,7 +357,7 @@ MVP is native macOS only. Responsive means resizable windows and accessibility s
 
 1. Wouter creates a local Project from a short description.
 2. The start surface offers **Start guided Conversation** (primary), **Import existing material** (secondary), and **Open Overview** (quiet link).
-3. He chooses guided Conversation; Context Preview names Codex/OpenAI, description, empty Canonical State, working language, and allowance where available; he explicitly starts.
+3. He chooses guided Conversation; Context Preview names the explicitly active local adapter/model, description, empty Canonical State, working language, and local boundary; he explicitly starts.
 4. The agent uses known context and asks focused goal/scope questions without repetition.
 5. A named proposal set contains proposed Topics; later work may propose other artifacts/relationships.
 6. Wouter inspects effects/dependencies/provenance and accepts, edits and accepts, rejects, or defers.
@@ -368,9 +369,9 @@ Failure/recovery: missing setup returns to the interrupted action after success.
 
 1. After local project creation, Wouter chooses **Import existing material** instead of guided Conversation.
 2. He pastes text or selects/drops supported `.txt`, `.md`, or searchable `.pdf` files; preflight shows count/type/size and rejects unsupported/over-limit items before extraction.
-3. ProjectOS retains every accepted original locally and extracts without contacting OpenAI. Source Inspector shows Complete, Partial, Failed, Needs OCR, or Needs password truthfully.
+3. ProjectOS retains every accepted original locally and extracts without invoking inference. Source Inspector shows Complete, Partial, Failed, Needs OCR, or Needs password truthfully.
 4. Wouter reviews originals/extraction, known-language metadata, and exact passages. He selects only the material to synthesize.
-5. He chooses Synthesize. Context Preview names Codex/OpenAI, selected Sources/excerpts, working language, and external boundary; he adjusts scope and explicitly starts.
+5. He chooses Synthesize. Context Preview names the active adapter/model, selected Sources/excerpts, working language, and local or external boundary; he adjusts scope and explicitly starts.
 6. The response creates a dependency-ordered proposal set of relevant Topics, Research, Questions, Decisions, Tasks, and relationships. None is canonical yet.
 7. Wouter compares proposals with exact Source passages and accepts, edits and accepts, rejects, or defers each valid group.
 8. **Climax:** Overview and Project Map show the first accepted structured state with exact Source and Conversation provenance; originals remain inspectable on this Mac.
@@ -381,7 +382,7 @@ Failure/recovery: unsupported/oversize input remains unimported with reason; sca
 
 1. Wouter opens Research or a Map relationship contradicting a Governing Decision.
 2. After Context Preview, he starts a grounded Conversation containing the Decision, contrary evidence, rationale, provenance, and directly connected current artifacts.
-3. OpenAI proposes a dependency-ordered replacement set.
+3. The active adapter proposes a dependency-ordered replacement set.
 4. Wouter compares old/new rationale, evidence, effects, and dependents; edits revalidate dependents.
 5. He explicitly accepts the valid atomic group.
 6. **Climax:** one new Governing Decision appears; the prior Decision remains Superseded in place with full lineage and replacement link.
@@ -390,14 +391,14 @@ Failure/recovery: rejection leaves Canonical State unchanged and blocks hard dep
 
 ### UJ-3. Wouter resumes after a meaningful absence.
 
-1. Wouter opens a Project Card; Overview loads locally without contacting OpenAI.
+1. Wouter opens a Project Card; Overview loads locally without invoking inference.
 2. Pile Cover and Relational Briefing orient him. A matching saved pair appears; otherwise What's Up Next says Needs recap.
 3. If needed, he explicitly generates after Context Preview; historical Recap and future recommendation bind to one version.
 4. He inspects accepted history, unanswered Questions, affected Tasks, relationships, and provenance.
 5. Continue work transitions to Conversation and performs the specifically grounded call authorized by that selection.
 6. Conversation opens on the recommended Question/Task with current context, so Wouter resumes meaningful work without rebuilding the mental model.
 7. The validation-only Return Outcome Record captures elapsed time and lets him record clear understanding, trust, Next Action usefulness, whether Meaningful Work began within five minutes, and an optional note.
-8. **Climax:** Wouter saves the local, exportable outcome record after reaching meaningful work; measurement does not interrupt or contact OpenAI.
+8. **Climax:** Wouter saves the local, exportable outcome record after reaching meaningful work; measurement does not interrupt or invoke inference.
 
 Failure/recovery: matching saved orientation and outcome recording remain available offline; provider continuation is disabled with reason. Any canonical change invalidates the pair immediately; conflicts produce an uncertain recommendation. A record-save failure preserves the draft and elapsed-time evidence locally for retry.
 
@@ -414,12 +415,12 @@ Failure/recovery: cancel/failure leaves no valid partial; restore corruption blo
 ### Key Flow — First launch (Wouter)
 
 1. Wouter opens ProjectOS; UI follows supported macOS English/Dutch, otherwise English.
-2. Skippable privacy orientation states local storage, no ProjectOS account, and explicit OpenAI transmission.
-3. Optional Codex runtime check and Continue with ChatGPT complete Codex-managed browser sign-in; Continue without AI remains.
-4. Readiness summarizes language, local storage, provider status, Follow macOS, Studio Paper.
+2. Skippable privacy orientation states local storage, local inference by default, and explicit OpenRouter transmission only when selected.
+3. ProjectOS detects Ollama and LM Studio, offers explicit MLX setup, offers optional OpenRouter Keychain setup, and lets Wouter select an active runtime/model; Continue without AI remains.
+4. Readiness summarizes language, local storage, selected adapter/model, locality, capability state, Follow macOS, and Studio Paper.
 5. **Climax:** empty Project Library opens with Create your first project, without tour/sample/theme/notification prompts.
 
-Failure/recovery: runtime/sign-in/plan/service/rate/allowance states have distinct remedies; local use remains available and later provider action returns to setup.
+Failure/recovery: runtime, model, resource, OpenRouter credential, network, rate, quota, billing, and service states have distinct remedies; local use remains available and later inference returns to setup.
 
 ### Key Flow — Create a Project (Wouter)
 
@@ -435,16 +436,16 @@ Failure/recovery: creation failure preserves description and explains storage re
 1. Wouter opens Project Settings and chooses **Delete Project**.
 2. Confirmation Sheet names the Project content/history/Sources/Conversations/validation records that will be removed, explains that provider retention, backups, and user exports are separate, and offers **Export first**.
 3. After export or an explicit skip, Wouter confirms permanent local deletion with the destructive action.
-4. ProjectOS atomically removes the local Project and ordinary provider bindings, then shows **Project deleted** independently from provider cleanup status.
-5. The active adapter attempts idempotent deletion of every managed provider session without sending Project content. Success reads **Provider cleanup complete** or **Already absent**.
-6. If cleanup is pending or fails, ProjectOS retains only the app-level content-free cleanup receipt, discloses possible residual provider-side session data, and offers retry from Project Library or Global Settings → Data and Recovery → Provider Cleanup; a mismatched or signed-out context routes through reauthentication to the matching OpenAI context.
-7. **Climax:** Project Library no longer contains the Project, while any outstanding cleanup obligation remains durably visible and recoverable at app level instead of being misreported as complete or stranded behind deleted navigation.
+4. ProjectOS atomically removes the local Project, Project-scoped MLX cache data, and ordinary optional provider bindings, then shows **Project deleted** independently from credential, shared-model, and external-retention status.
+5. The result states that Ollama/LM Studio installations and shared models, the OpenRouter Keychain credential, shared MLX models/caches, backups, exports, and independent OpenRouter/routed-provider retention were not removed.
+6. If an adapter declared and used persistent external sessions, its idempotent cleanup proceeds without sending Project content; pending work retains only an app-level content-free receipt with explicit retry.
+7. **Climax:** Project Library no longer contains the Project, while every remaining credential, runtime/model-data, or declared cleanup outcome is represented truthfully rather than implied complete.
 
-Failure/recovery: cancel leaves all state unchanged. A local transaction failure rolls back deletion. Crash/startup resumes pending cleanup idempotently. Retry preserves the receipt until confirmed/already absent; local deletion is never reversed or falsely blocked by provider cleanup failure.
+Failure/recovery: cancel leaves all state unchanged. A local transaction failure rolls back deletion. If declared cleanup exists, crash/startup resumes it idempotently and preserves the receipt until confirmed/already absent; local deletion is never reversed or falsely blocked by cleanup failure.
 
 ## Deferred after MVP
 
-- Ollama and other provider adapters.
+- Remote Ollama/LM Studio endpoints, other local runtimes, direct provider APIs, Codex App Server, and automatic model/provider fallback.
 - Animated/time-comparison Project Map and compact Overview graph preview.
 - OCR and Source formats outside the committed matrix.
 - Pile Cover share/print rendering.

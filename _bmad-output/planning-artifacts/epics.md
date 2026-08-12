@@ -46,13 +46,13 @@ FR12: ProjectOS can recommend an optional Next Action grounded in accepted Artif
 
 FR13: The user can locally record a Qualifying Return's elapsed time, understanding, trust, Next Action usefulness, whether Meaningful Work began within five minutes, and qualitative notes; the record is exportable.
 
-FR14: The user can configure and validate the available AI Provider Adapter; the validation build detects a compatible Codex Runtime, uses Codex-managed ChatGPT sign-in, exposes account/plan/allowance state reported by Codex, distinguishes actionable failure states, never handles tokens or API keys, and keeps local capabilities available when provider work is unavailable.
+FR14: The user can configure and validate Ollama, LM Studio, or MLX for local inference, or OpenRouter as an optional external adapter; runtime and model capabilities are explicit, the OpenRouter key is Keychain-backed, no adapter or model switch is silent, and local capabilities remain available when inference is unavailable.
 
-FR15: Before any provider transmission, ProjectOS identifies the provider and local-versus-external processing boundary, previews or summarizes the selected scope, discloses Codex/OpenAI plan-allowance use, and requires explicit user initiation; browsing or opening a Project never transmits content.
+FR15: Before inference, ProjectOS identifies the adapter, model, local-versus-external boundary, and selected scope; local previews state that Project content remains on the Mac, OpenRouter previews disclose external usage-based processing, and every operation requires explicit user initiation.
 
 FR16: The user can atomically export a complete human-inspectable Project representation and reopen or restore it without losing Canonical State, Rationale, Provenance, relationships, or versions; exports exclude credentials, runtime state, and unsanitized logs, and failed export leaves the source unchanged.
 
-FR17: The user can deliberately remove an Artifact from current Canonical State while retaining its transition history, and can permanently delete a local Project after an effects confirmation and export offer; local deletion and adapter-managed provider-session cleanup report separate truthful outcomes with durable retry when cleanup is incomplete.
+FR17: The user can deliberately remove an Artifact from current Canonical State while retaining its transition history, and can permanently delete a local Project after an effects confirmation and export offer; local deletion, OpenRouter credential removal, local runtime/model data, and any declared provider-session cleanup report separate truthful outcomes.
 
 FR18: ProjectOS can add or replace an AI Provider Adapter without changing the Canonical State model or core Conversation, proposal, re-entry, export, and deletion workflows; adapters advertise capabilities, contribute provider-specific settings through a shared surface, use replaceable session bindings, and never silently change accepted state.
 
@@ -72,40 +72,38 @@ NFR6: Model-quality limitations and failures must be explained in plain language
 
 NFR7: Canonical project content must remain on the user's Mac; the validation build has no ProjectOS-hosted project-content backend.
 
-NFR8: Provider authentication must remain owned by the adapter/runtime; ProjectOS must not read, log, export, or store provider access or refresh tokens in Project data, and the Codex adapter must use Codex-managed authentication with macOS-appropriate secure storage.
+NFR8: Provider secrets must never enter Project data, logs, diagnostics, exports, or ProjectOS-created backups; the OpenRouter API key must be stored in macOS Keychain and only a non-secret configuration and Keychain reference may be persisted.
 
-NFR9: Only user-selected context required for an explicitly requested operation may cross the provider boundary; each adapter must accurately declare and disclose any external transmission.
+NFR9: Only user-selected context required for an explicitly requested operation may enter inference; Ollama and LM Studio MVP endpoints must be loopback-only, MLX inference must remain on-device, and OpenRouter transmission must be explicit and externally disclosed.
 
 NFR10: Browsing Canonical State, Rationale, Provenance, and the Re-entry View must remain available without network access.
 
 NFR11: Current state must be the default presentation, with history and evidence available on demand without overwhelming the primary workflow.
 
-NFR12: Product language must be calm, concise, inspectable, and honest about uncertainty, transmission, provider identity, plan allowance or cost, runtime state, and failure.
+NFR12: Product language must be calm, concise, inspectable, and honest about uncertainty, transmission, adapter and model identity, execution locality, OpenRouter cost, runtime/resource state, and failure.
 
 NFR13: Domain workflows and persisted Canonical State must depend only on the provider-independent AI capability contract; provider protocol types, authentication, sessions, usage models, and errors must be confined to adapters and normalized at the boundary.
 
 ### Additional Requirements
 
-- AR1 — First implementation gate: before production feature implementation proceeds, complete the disposable Codex App Server validation spike and retain reproducible evidence for every gate. A successful login or plausible response is insufficient. No starter template is specified; the first implementation unit is the spike harness, not a production application scaffold.
-- AR2 — Spike scope is limited to a disposable macOS harness using an installed Codex CLI, a ProjectOS-owned `codex app-server` child over stdio JSON-RPC, a thin `AiProviderPort`, the Codex adapter, and deterministic fake adapters; it excludes production UI, Canonical State migration, App Store packaging, provider fallback, and local-model implementation.
-- AR3 — Runtime/protocol proof must discover Codex without private app-bundle coupling; perform the documented initialize handshake; record the exact build, generated schemas, schema digests, and enumerated RPC subset; fail closed for unsupported builds/methods; cover malformed JSON, EOF, timeout, crash, restart, owned shutdown, and multi-instance profile/process ownership.
-- AR4 — The ProjectOS-owned Codex process must use a dedicated permission-restricted `CODEX_HOME`, a scrubbed allowlisted environment, ChatGPT-only configuration, macOS keyring credential storage, `experimentalApi: false`, and ownership isolation from the user's normal Codex profile.
-- AR5 — Authentication proof must use managed Codex browser login, account notifications, and runtime-owned refresh/logout; ProjectOS must receive and persist no token, must configure no API key or credit path, must fail closed without secure storage, and may expose device-code login only as a capability-gated recovery path.
-- AR6 — `AiProviderPort` and `ProviderRegistry` must use ProjectOS-owned request/result/lifecycle types and typed, dispatch-time capability claims (`supported`, `unsupported`, `temporarily unavailable`, `unknown`); every job declares mandatory capabilities and explicit degradations without silently changing locality, billing, privacy, or structured-output guarantees.
-- AR7 — ProjectOS must own canonical Conversation IDs; provider session IDs are replaceable adapter-keyed bindings. Export excludes bindings and provider state; restore performs zero provider calls, creates a new Project copy, atomically remaps all Project-owned IDs through one restore map, and preserves relationships and Provenance.
-- AR8 — Structured proposal generation must use the ProjectOS-owned Change Proposal schema as per-turn output schema, revalidate the completed result inside ProjectOS, normalize it, and allow only the Provider Job Coordinator to persist a pending proposal; malformed or stale output never becomes a proposal or Canonical State.
-- AR9 — Normalized events must carry durable job ID, provider-instance ID, and deterministic ordering. A shared reducer must yield exactly one terminal result despite duplicate, late, reordered, cross-job, post-terminal, cancellation-race, child-death, timeout, retry, or concurrent-turn traces.
-- AR10 — Normalized errors must rely on explicit provider signals for authentication, runtime, network, rate, allowance, and provider categories; unknown failures remain unknown. Persisted diagnostics use an allowlist of normalized codes, runtime version, timestamps, and ProjectOS correlation IDs and exclude credentials, account IDs, Project content, prompts/results, raw payloads, and local paths.
-- AR11 — Every ProjectOS Codex job must run inside a restrictive execution envelope with only a disposable work directory and recorded runtime-required roots readable, no writable roots, `approvalPolicy: never`, no dynamic tools, MCP servers, connectors, apps, plugins, or skills, and allowlisted instruction sources.
-- AR12 — Containment must be preventive, not detection-only. Prompt-injection, symlink/path-traversal, inherited configuration, secret-canary, filesystem read/write, web-search, command, tool, connector, and permission-request fixtures must produce zero unrelated access, transmission, mutation, or effects; any such event fails the product-fit gate and requires rejecting the Codex adapter unless a stable disable mechanism or external OS boundary prevents it before occurrence.
-- AR13 — Quality proof must run the three specified cross-domain representative fixtures with predeclared expected material and denominator; record per-artifact precision/recall, unsupported claims, provenance quality, and correction effort; require at least 85% correctness, no omission that changes governing state or re-entry meaning, and no persistence of malformed output.
-- AR14 — Provider-session creation must first record a durable lifecycle obligation. `ProviderCleanupOutbox` transitions across create intent, bound, retired, delete pending, reauthentication required, confirmed, and absent must be crash-recoverable, idempotent, startup-reconciled, and retain no Project content.
-- AR15 — Local Project deletion and provider cleanup are separate outcomes. Cleanup must support offline failure, adapter removal/rename, account switching, already-absent sessions, matching-context reauthentication, and retry after Project content and ordinary bindings are gone; it never resends Project content or claims to delete independent provider retention.
-- AR16 — Adapters cannot access Canonical State, Conversation, Change Proposal, export, or deletion repositories. A single application-owned coordinator carries durable job, Conversation, and expected-revision identities; completion and proposal persistence are idempotent, and only explicit application transactions accept, edit, or reject.
-- AR17 — One reusable contract suite must pass against the Codex adapter, a Codex-shaped fake, and a local-shaped fake that lacks Codex authentication, usage, sessions, deletion, and optionally streaming/structured output. Domain and persistence dependency checks must prove no Codex protocol imports and no adapter repository access.
-- AR18 — Spike evidence must retain the exact Codex version and schemas, sanitized JSON-RPC transcripts, contract-test output and failure fixtures, quality score sheets, filesystem before/after evidence, and a short `proceed`, `proceed with constraints`, or `reject` recommendation.
-- AR19 — Stop the Codex adapter path if subscription authentication requires ProjectOS to handle tokens/API credits, representative non-coding jobs miss the quality/completeness gate, pre-side-effect containment cannot be proven, persisted provider sessions cannot be enumerated/deleted consistently, or a second fake adapter exposes Codex assumptions requiring structural domain rewrites.
-- AR20 — Only after every spike gate passes may architecture decide installed-versus-bundled runtime distribution, supported Codex versions, or timing of a local-model adapter. The broader validation-first strategy remains authoritative: the spike decides adapter viability before the continuity product loop is built and the product validation gate decides whether to invest beyond that loop.
+- AR1 — The completed Codex App Server spike records `reject` and permanently blocks production Codex work under that architecture. The approved 2026-08-09 architecture revision authorizes a different production path without claiming that the Codex gate passed.
+- AR2 — `AiProviderPort` and `ProviderRegistry` use ProjectOS-owned request/result/job/lifecycle types and dispatch-time capability claims (`supported`, `unsupported`, `temporarily unavailable`, `unknown`) scoped to the adapter instance, runtime version, model, and configuration.
+- AR3 — Ollama, LM Studio, and MLX are first-class local MVP adapters. Discovery may suggest an available adapter, but the active runtime and model are always selected explicitly; no local adapter or model is a silent fallback for another.
+- AR4 — Ollama and LM Studio MVP adapters accept supported loopback endpoints only. A non-loopback endpoint fails setup rather than being presented as local processing. ProjectOS does not silently install, start, stop, update, or download models through user-managed runtimes.
+- AR5 — MLX runs through a native on-device adapter. Supported libraries, model formats, packaging, storage, minimum hardware, and resource readiness are production compatibility criteria resolved during implementation architecture, not another feasibility spike.
+- AR6 — OpenRouter is the only MVP external adapter. Its API key is stored in macOS Keychain; ProjectOS persists only non-secret configuration and a Keychain reference outside Project data and excludes the secret from logs, diagnostics, exports, and ProjectOS-created backups.
+- AR7 — Context Preview names the active adapter, model, local/external boundary, selected scope, language, and capability limitations. OpenRouter also discloses external processing and usage-based billing. No runtime, provider, model, retry, or resend fallback occurs silently.
+- AR8 — ProjectOS owns canonical Conversation IDs and transcripts. Optional provider session IDs are replaceable adapter-keyed bindings used only when the adapter declares persistent sessions; exports exclude them and restore performs zero provider calls.
+- AR9 — Structured proposal generation uses the ProjectOS-owned Change Proposal schema. Every completed result is parsed and revalidated inside ProjectOS, and only the Provider Job Coordinator may persist a pending proposal; partial, malformed, cancelled, or stale output never becomes a proposal or Canonical State.
+- AR10 — Normalized events carry durable job ID, adapter-instance ID, attempt, and deterministic ordering. A shared reducer yields exactly one terminal result despite duplicate, late, reordered, cancellation-race, timeout, retry, or concurrent-turn traces.
+- AR11 — Normalized errors distinguish local runtime, model, format, resource, and generation failures plus OpenRouter credential, network, rate, quota, billing, and service failures only when explicit evidence supports the category; unknown failures remain unknown and persisted diagnostics remain sanitized.
+- AR12 — Every production adapter exposes generation only. ProjectOS supplies selected context as data and exposes no tools, commands, filesystem access, web search, MCP servers, connectors, apps, plugins, skills, or Canonical State, Conversation, Change Proposal, export, or deletion repositories.
+- AR13 — The application-owned coordinator carries durable job, Conversation, attempt, and expected-revision identities; completion and proposal persistence are idempotent, and only explicit application transactions accept, edit, reject, correct, undo, or supersede Canonical State.
+- AR14 — Adapter/model readiness and quality are implementation acceptance criteria. Representative cross-domain fixtures record per-artifact precision/recall, unsupported claims, provenance quality, correction effort, malformed-output rejection, and whether omissions change governing state or re-entry meaning.
+- AR15 — One reusable behavioral contract suite passes against deterministic fakes and all four production adapters. Each adapter also has targeted integration tests for runtime/model compatibility, resources, streaming, cancellation, schema output, failure normalization, boundary disclosure, and no-fallback behavior.
+- AR16 — Local Project deletion, OpenRouter credential removal, user-managed Ollama/LM Studio installations and models, ProjectOS-managed MLX caches/models, and independent external retention are separate truthful outcomes.
+- AR17 — Provider cleanup obligations exist only when an adapter declares and uses persistent provider sessions. Local deletion can complete while a declared external cleanup obligation remains explicit and retryable; cleanup never requires restoring or resending Project content.
+- AR18 — No production adapter, model, or capability may be marked ready from adapter identity alone. Supported versions, models, model formats, minimum hardware, context limits, and known degradations are recorded and evaluated at dispatch.
 
 ### UX Design Requirements
 
@@ -137,7 +135,7 @@ UX-DR13: Build `Relational Briefing` as locally available, current-state-first o
 
 UX-DR14: Build `Conversation List`, `Transcript`, and `Composer` as shared components supporting local titles/search/Topic filter, persisted selection/draft/scroll/review position, readable streaming and Incomplete output, provenance anchors, multiline drafts, `⌘Return` send, `⇧Return` newline, `Esc` preservation, and no offline queue.
 
-UX-DR15: Build `Context Preview` before every provider call, naming Codex/OpenAI, local-versus-external boundary, exact selected scope, Sources/excerpts, working language, one-hop Map context when relevant, and allowance when available; the user can narrow or add explicit items before starting.
+UX-DR15: Build `Context Preview` before every inference call, naming the active Ollama, LM Studio, MLX, or OpenRouter adapter and model, local-versus-external boundary, exact selected scope, Sources/excerpts, working language, one-hop Map context when relevant, capability limitations, and OpenRouter usage-based billing; the user can narrow or add explicit items before starting.
 
 UX-DR16: Build `Proposal Rail`, `Change Proposal Card`, and `Proposal Inspector` as a persistent region visually and semantically separate from Transcript and Canonical State, covering current/project-wide scope, artifact type/operation/source/set/dependency/status, exact-source navigation, proposed/original/effects/provenance/diff, edit drafts, accept, reject, defer, and revise.
 
@@ -153,7 +151,7 @@ UX-DR21: Limit automatic Map context to selected items plus directly connected c
 
 UX-DR22: Build `Source Inspector` for original/extracted content, metadata, language, usage and links, with Complete/Partial/Failed/Needs OCR/Needs password states and effects disclosure before removal.
 
-UX-DR23: Implement local Source intake with exact originals retained: pasted text up to 250,000 characters, `.txt`/`.md` up to 10 MB each, searchable PDFs up to 50 MB or 500 pages, and batches up to 25 Sources; preflight rejects unsupported/over-limit inputs before extraction, scanned/encrypted PDFs remain truthful Needs states, and import/extraction never contacts OpenAI or creates Canonical State.
+UX-DR23: Implement local Source intake with exact originals retained: pasted text up to 250,000 characters, `.txt`/`.md` up to 10 MB each, searchable PDFs up to 50 MB or 500 pages, and batches up to 25 Sources; preflight rejects unsupported/over-limit inputs before extraction, scanned/encrypted PDFs remain truthful Needs states, and import/extraction never invokes inference or creates Canonical State.
 
 UX-DR24: Build `Notification Center` as a durable, grouped, deduplicated list with read/action state and exact-context deep links; use inline routine feedback, in-app durable outcomes, and macOS notifications only for user-initiated background work when not frontmost, with no engagement or automatic-recap notifications.
 
@@ -165,23 +163,23 @@ UX-DR27: Build `Settings Row` and `Confirmation Sheet` with native form semantic
 
 UX-DR28: Build `Command Palette` and `Search Field` with `⌘K` global commands/projects, `⌘F` current-surface search, `⌘G`/`⇧⌘G` navigation, scoped labels/counts, focus restoration, disabled reasons, and no bypass of proposal review or confirmation.
 
-UX-DR29: Implement First Run as skippable language/privacy orientation with optional Codex runtime and ChatGPT setup, Continue without AI, truthful readiness summary, and direct entry to an empty Project Library without a tour, sample data, theme prompt, or notification prompt.
+UX-DR29: Implement First Run as skippable language/privacy orientation with local-first Ollama/LM Studio detection, explicit MLX setup, optional OpenRouter Keychain setup, explicit runtime/model selection, Continue without AI, truthful readiness summary, and direct entry to an empty Project Library without a tour, sample data, theme prompt, or notification prompt.
 
 UX-DR30: Implement Project Library and New Project flows with search/empty/corrupt/restore/cleanup states, Project Cards, Restore, short-description local creation, deterministic empty cover, and the choices Start guided Conversation, Import existing material, or Open Overview.
 
 UX-DR31: Implement Overview's state-bound return lifecycle: one explicit generation produces historical Recap and future What's up next for the same Canonical-State version; closing Recap hides it only for the visit, canonical change invalidates both immediately, matching pairs remain offline-readable, and continuation performs only the specifically previewed grounded call.
 
-UX-DR32: Implement distinct, persistent global and surface states for cold load, runtime absent/incompatible, signed out, offline, provider progress/interruption, auth/rate/allowance/service failure, canonical transaction failure, permission denial, and provider cleanup/reauthentication; preserve local work and drafts and never silently queue provider work.
+UX-DR32: Implement distinct, persistent global and surface states for cold load, local runtime missing/stopped/incompatible, model unavailable/incompatible, insufficient local resources, local inference progress/failure, network offline with local inference available, OpenRouter unconfigured/invalid-key/rate/quota/billing/network/service failure, canonical transaction failure, permission denial, and declared provider cleanup; preserve local work and drafts and never silently queue or reroute inference.
 
-UX-DR33: Keep every locally computable action available offline, including project/artifact/source/conversation/proposal/history browsing and search, Map/outline, local import/extraction, direct edits/Undo, proposal review, drafts, validation records, export/restore/verify, settings, and local deletion; provider actions remain visible but disabled with a reason and explicit Resume plus fresh preview after reconnect.
+UX-DR33: Keep every locally computable action available offline, including configured Ollama, LM Studio, or MLX inference when its runtime/model is ready; project/artifact/source/conversation/proposal/history browsing and search; Map/outline; local import/extraction; direct edits/Undo; proposal review; drafts; validation records; export/restore/verify; settings; and local deletion. OpenRouter actions remain visible but disabled with a reason and require a fresh preview after reconnect.
 
 UX-DR34: Implement global/project settings precedence as Follow macOS appearance → global theme preset → optional project identity preset → live accessibility preferences; project overrides may change identity roles only and Reset to global removes the override.
 
-UX-DR35: Localize the complete UI, menus, settings, notifications, dates/numbers/allowance, help, and accessibility metadata in English and Dutch with identical shortcuts; keep original/user content unchanged, expose known language, never guess unknown language, and make translations explicit and reviewable.
+UX-DR35: Localize the complete UI, menus, settings, notifications, dates/numbers/usage, help, and accessibility metadata in English and Dutch with identical shortcuts; keep original/user content unchanged, expose known language, never guess unknown language, and make translations explicit and reviewable.
 
 UX-DR36: Implement atomic offline human-readable export (README, Markdown, JSON, Sources, validation records, manifest/checksums), read-only restore preflight, new-copy restore with atomic migration/rollback, and verification of manifest plus representative provenance; disclose corruption, conflicts, or missing evidence.
 
-UX-DR37: Implement permanent Project deletion and app-level Provider Cleanup as separate durable UX outcomes; after local deletion no Project surface may be the only cleanup route, and content-free receipts expose provider context, lifecycle state, attempt/retry data, residual-data warning, reauthentication, retry, and confirmed/already-absent history without retaining Project title/content.
+UX-DR37: Implement permanent Project deletion, OpenRouter credential removal, user-managed Ollama/LM Studio runtime and model storage, ProjectOS-managed MLX data, and any declared provider-session cleanup as separate UX outcomes. Cleanup receipts are required only for adapters using persistent external sessions and never retain Project title/content.
 
 UX-DR38: Implement Return Outcome Record as an explicit native local form with elapsed time, understanding, trust, Next Action usefulness, Meaningful Work, optional notes, draft preservation, offline parity, export inclusion, associated validation errors, and no automatic focus theft or ticking live region.
 
@@ -216,10 +214,10 @@ FR10: Epic 2 - Correct or undo accepted changes without corrupting unrelated sta
 FR11: Epic 4 - Present a locally available current-state-first Re-entry View.
 FR12: Epic 4 - Recommend and explain an optional Next Action from Canonical State.
 FR13: Epic 4 - Record local, exportable outcomes for Qualifying Returns.
-FR14: Epic 3 - Configure and validate the production AI Provider Adapter after the Epic 1 gate passes.
-FR15: Epic 3 - Disclose provider identity, execution boundary, transmission scope, and allowance before dispatch.
+FR14: Epic 3 - Configure and validate Ollama, LM Studio, MLX, or OpenRouter under the approved replacement architecture.
+FR15: Epic 3 - Disclose adapter/model identity, local or external execution, selected scope, and OpenRouter billing before dispatch.
 FR16: Epic 5 - Export, verify, and restore a complete human-inspectable Project.
-FR17: Epic 5 - Remove Artifacts and permanently delete Projects with truthful provider cleanup.
+FR17: Epic 5 - Remove Artifacts and permanently delete Projects with truthful credential, runtime/model-data, and capability-aware provider cleanup outcomes.
 FR18: Epic 3 - Keep provider implementations replaceable behind the ProjectOS capability contract.
 
 ## Epic List
@@ -228,9 +226,9 @@ FR18: Epic 3 - Keep provider implementations replaceable behind the ProjectOS ca
 
 Wouter obtains reproducible evidence that Codex App Server can safely support ProjectOS through ChatGPT subscription access without compromising containment, cleanup, quality, or provider neutrality. The outcome is `proceed`, `proceed with constraints`, or `reject`; failure of any stop condition halts the Codex path before production implementation.
 
-**FRs covered:** None directly; this epic gates FR3, FR4, FR14, FR15, FR17, and FR18.
+**FRs covered:** None directly. This completed historical epic gates only the rejected Codex App Server path.
 
-**Implementation notes:** Covers AR1–AR20. The disposable spike harness, all five stop conditions, retained evidence, and explicit recommendation are the first implementation work.
+**Implementation notes:** Completed with `reject`. Its original spike requirements and evidence remain preserved in the Story 1.x contracts and harness. The 2026-08-09 architecture revision authorizes a different local-first production path without claiming that this gate passed.
 
 ### Epic 2: Establish a Trusted Local Project
 
@@ -238,15 +236,15 @@ Wouter can create, reopen, and work in a native local Project; bring in selected
 
 **FRs covered:** FR1, FR2, FR7, FR8, FR9, FR10.
 
-**Implementation notes:** Establishes the local persistence model, Project Library, project shell, source intake, Canonical State, artifact contracts, history, inspectors, Map/outline foundations, offline behavior, themes, localization, and accessibility baseline.
+**Implementation notes:** Establishes the local persistence model, Project Library, project shell, source intake, Canonical State, artifact contracts, history, inspectors, Map/outline foundations, offline behavior, themes, localization, and accessibility baseline. It may proceed under the approved replacement architecture and requires no configured inference adapter.
 
-### Epic 3: Turn AI Conversation into Governed State
+### Epic 3: Turn Local-First AI Conversation into Governed State
 
-Wouter can configure Codex, preview exactly what will leave the Mac, conduct grounded Conversations, and review typed AI proposals without allowing AI to mutate Canonical State automatically. Conflicts and supersession remain explicit and provider mechanics remain replaceable.
+Wouter can explicitly select Ollama, LM Studio, or MLX for local inference, optionally select OpenRouter for external inference, preview the exact runtime/model and boundary, conduct grounded Conversations, and review typed AI proposals without allowing AI to mutate Canonical State automatically. Conflicts and supersession remain explicit and provider mechanics remain replaceable.
 
 **FRs covered:** FR3, FR4, FR5, FR6, FR14, FR15, FR18.
 
-**Implementation notes:** Builds the production provider boundary only after Epic 1 passes. Includes runtime-owned authentication, Context Preview, Conversation, normalized jobs/events/errors, structured proposals, dependency-aware review, and fake-adapter contract coverage.
+**Implementation notes:** Builds the production provider registry and job coordinator; Ollama and LM Studio loopback setup; native MLX setup and resource readiness; Keychain-backed OpenRouter setup and routed-model selection; explicit provider/model selection; Context Preview; normalized jobs/events/errors; structured proposals; dependency-aware review; and cross-adapter contract/integration coverage. Detailed stories remain deferred until Epic 2 has been decomposed.
 
 ### Epic 4: Return and Resume with Confidence
 
@@ -254,19 +252,21 @@ After time away, Wouter can reconstruct the governing state locally, inspect wha
 
 **FRs covered:** FR11, FR12, FR13.
 
-**Implementation notes:** Includes Overview, Pile Cover, Relational Briefing, version-bound Recap/What's Up Next lifecycle, offline saved orientation, Return Outcome Record, and the validation metrics needed for the continue/rethink/stop product decision.
+**Implementation notes:** Includes Overview, Pile Cover, Relational Briefing, version-bound Recap/What's Up Next lifecycle, offline saved orientation, explicit use of the active adapter/model for generated continuation, Return Outcome Record, and the validation metrics needed for the continue/rethink/stop product decision.
 
 ### Epic 5: Retain Full Ownership and Recoverability
 
-Wouter can export, verify, restore, remove, and permanently delete Project data without silent loss or misleading cleanup claims. Local deletion and provider-session cleanup remain distinct, durable, recoverable outcomes.
+Wouter can export, verify, restore, remove, and permanently delete Project data without silent loss or misleading cleanup claims. Local deletion, OpenRouter credential removal, local runtime/model storage, ProjectOS-managed MLX data, and any declared provider-session cleanup remain distinct outcomes.
 
 **FRs covered:** FR16, FR17.
 
-**Implementation notes:** Includes atomic human-readable export, checksums and verification, new-copy restore with ID remapping, Artifact removal history, export-first deletion, crash-safe cleanup receipts, matching-context reauthentication, and app-level cleanup recovery.
+**Implementation notes:** Includes atomic human-readable export, checksums and verification, new-copy restore with ID remapping, Artifact removal history, export-first deletion, explicit OpenRouter credential removal, truthful local runtime/model storage behavior, ProjectOS-managed MLX data removal, and crash-safe receipts only for adapters that declare persistent external sessions.
 
 ## Epic 1: Prove a Safe AI Path—or Stop
 
 Wouter obtains reproducible evidence that Codex App Server can safely support ProjectOS through ChatGPT subscription access without compromising containment, cleanup, quality, or provider neutrality. The outcome is `proceed`, `proceed with constraints`, or `reject`; failure of any stop condition halts the Codex path before production implementation.
+
+**Recorded outcome (2026-08-09): `reject`; Epic complete.** Stories 1.1–1.9 and their acceptance criteria are preserved as the historical contract. The approved replacement architecture authorizes Ollama, LM Studio, MLX, and OpenRouter production planning without reopening or bypassing this Codex result.
 
 ### Story 1.1: Establish the Isolated App Server Harness
 

@@ -1,84 +1,86 @@
-# Product-Brief Reconciliation
+# Input Reconciliation: Product Brief and Addendum
 
-## Inputs Compared
+## Inputs
 
-- `_bmad-output/planning-artifacts/briefs/brief-ProjectOS-2026-07-27/brief.md`
-- `_bmad-output/planning-artifacts/briefs/brief-ProjectOS-2026-07-27/addendum.md`
-- `_bmad-output/planning-artifacts/prds/prd-ProjectOS-2026-07-28/prd.md`
-- `_bmad-output/planning-artifacts/prds/prd-ProjectOS-2026-07-28/addendum.md`
+- **Product-definition authority:** `_bmad-output/planning-artifacts/briefs/brief-ProjectOS-2026-07-27/brief.md`
+- **Qualitative and decision-history authority:** `_bmad-output/planning-artifacts/briefs/brief-ProjectOS-2026-07-27/addendum.md`
+- **Compared with:** `prd.md` and `addendum.md` in this PRD workspace, updated 2026-08-12
+- **Provider-course-correction authority:** `_bmad-output/planning-artifacts/sprint-change-proposal-2026-08-09.md`
 
-This reconciliation treats the PRD run's personal, solo validation boundary and OpenAI-first implementation as intentional overrides. It therefore does not report deferred Ollama support, commercial validation, Mac App Store distribution, pricing, hero-image implementation, or a broader tester cohort as omissions from the validation build.
+## Reconciliation Verdict
 
-## Overall Finding
+**Substantively aligned for the personal validation slice, with three deliberate post-validation deferrals that must remain visible downstream.** The updated PRD preserves the brief's defining product contract: AI conversation is working context rather than authority; accepted typed changes create versioned Canonical State; Governing and Superseded Decisions remain distinct; Rationale, Provenance, relationships, and Research remain inspectable; re-entry is current-state-first; and Next Actions are explained from accepted state.
 
-The PRD and its addendum preserve the product brief's central contract well: conversation is a working medium rather than authority; accepted typed changes create canonical state; governing and superseded decisions remain distinct; rationale and provenance stay inspectable; re-entry is current-state-first; Next Actions are explained from accepted state; canonical data remains local and recoverable; and ProjectOS must impose less maintenance than a configurable project-management system.
+The two documents intentionally operate at different commitment levels. The brief remains authority for the broader commercial MVP: Mac App Store distribution, one-time pricing, paste-or-drop mid-project activation, guided onboarding, project identity, and market validation. The PRD is a smaller personal experiment for Wouter, one or two Projects, and a four-to-six-week governed-continuity decision. Its success can justify further product investment; it cannot prove switching, willingness to pay, commercial onboarding, price, or generalizable demand. The brief's concierge and price-bearing gates therefore remain future commercial evidence, not hidden requirements of this validation build.
 
-There are no unresolved scope conflicts. The apparent conflicts are resolved explicitly:
+## Current Gaps and Preserved Deferrals
 
-- The product brief describes a commercial MVP and says concierge validation should precede its PRD; the active PRD instead specifies the smaller personal validation build that generates evidence before further commitment.
-- The product brief's commercial MVP supports OpenAI and Ollama; the validation build deliberately uses OpenAI only so provider variance does not obscure the continuity test.
-- Commercial purchase, pricing, broad onboarding, and visual-identity implementation are deferred rather than rejected.
-- The product remains cross-domain even though the validation build uses only one or two projects owned by its builder.
+### 1. Mid-project input is deliberately narrower than the commercial brief
 
-## Gaps and Distortions
+**Brief intent:** Most target customers arrive with existing material. The commercial MVP permits pasted or dropped conversations, notes, and documents so First Useful State tests the real switching and activation problem rather than only blank-slate use.
 
-### 1. Successful resolution is named but not operationalized
+**Current PRD state:** FR-2 and §7.1 deliberately limit the first validation slice to user-selected pasted text. File selection and parsing are deferred to Open Question 5; bulk provider-account reconstruction remains excluded in both documents.
 
-**Source intent:** The brief makes meaningful progress followed by successful resolution the north-star outcome. Resolution means the intended outcome was achieved, while intentional abandonment is tracked separately. Its examples of progress are concrete: resolving a question, accepting or revising a decision, clearing a blocker, or completing a real-world task.
+**Downstream preservation:** This is a coherent experiment cut, not an accidental omission. It proves the continuity loop with controlled input but does not validate the brief's broader mid-project drop/import activation promise. File formats should be selected only after pasted-text continuity works, and the broader MVP must still test First Useful State from representative dropped material.
 
-**PRD state:** The validation PRD appropriately centers the shorter-horizon re-entry experiment. It defines Meaningful Work and mentions successful resolution in SM-C2, but it neither defines resolution nor records eventual completion versus intentional abandonment. As written, a project could validate repeated re-entry without preserving the broader outcome standard.
+### 2. Project atmosphere and emotional ownership remain untested qualitative intent
 
-**Reconciliation needed:** Keep re-entry as the validation gate, but preserve successful resolution and intentional abandonment as longer-horizon outcome evidence in the addendum or validation record. Clarify that engagement and repeated continuation are not substitutes for completing or deliberately closing the real project.
+**Brief intent:** Each Project should feel recognizably its own—a renovation, car search, or software build should carry a distinct atmosphere that supports orientation and emotional ownership, not customization for its own sake.
 
-### 2. Guided-action evidence is weaker than the brief's outcome standard
+**Current PRD state:** The validation build explicitly defers hero imagery, project-ownership identity, extensive theming, and non-essential polish. The addendum preserves a restrained hero image and accent identity as a post-validation direction, and the UX handoff preserves a calm, conversational, low-maintenance feel.
 
-**Source intent:** The brief says explainable recommendations should change project state or lead to completed real-world tasks instead of producing more suggestions.
+**Downstream preservation:** Do not add visual-production scope to this experiment. Preserve the richer qualitative requirement for the commercial UX: recognizable Project atmosphere across the experience, with constrained identity serving attachment and orientation rather than decorative customization.
 
-**PRD state:** SM-4 counts a Next Action as useful when it is judged relevant and actionable, whether followed or dismissed. SM-1 separately requires Meaningful Work after a return, but does not record whether the recommendation caused or materially supported that work. The accepted 70% usefulness threshold remains a valid personal-validation assumption; the distortion is that perceived plausibility can satisfy it without outcome evidence.
+### 3. Commercial onboarding remains deferred even though validation setup burden is now measured
 
-**Reconciliation needed:** Retain SM-4 and its accepted threshold, while recording separately whether each shown Next Action led to an accepted state change, a completed real-world step, a deliberately chosen alternative, or no action. This restores the brief's anti-suggestion-loop intent without changing the chosen validation gate.
+**Brief intent:** Guided runtime/model readiness, explicit selection, secure OpenRouter setup, local-versus-external disclosure, cost disclosure, and plain-language recovery are launch requirements rather than polish. The broader audience cannot be assumed to tolerate bespoke runtime or API troubleshooting.
 
-### 3. The cognitive cost of delegated research has dropped out of the product story
+**Current PRD state:** The earlier setup-measurement gap is resolved for the personal experiment. FR-14 defines Qualified Adapter Combinations and readiness evidence; FR-15 defines boundary disclosure; NFR-12 defines plain-language acceptance; SM-C4 records setup time, assistance, failures, abandonment, and a 30-active-minute local gate. OpenRouter model support, usage visibility, and cost ceiling remain an owned Open Question. Commercial onboarding, activation, purchase, and conversion flows remain explicitly out of validation scope.
 
-**Source intent:** Both the brief and its founding-evidence addendum identify a specific mechanism: AI accelerates unfamiliar research, but conclusions the user did not personally derive are less likely to be remembered. Re-entry must therefore restore comprehension, not merely display stored facts.
+**Downstream preservation:** Treat SM-C4 as builder-validation evidence, not proof of commercial onboarding. Before launch, validate guided setup with target users, cost comprehension for OpenRouter, recovery without bespoke intervention, and price-bearing activation. The local-first course correction does not weaken this commercial promise.
 
-**PRD state:** The PRD accurately describes fragmented research and reconstruction, and it measures understanding and trust. It no longer names delegated research's weaker memory encoding, so downstream UX could interpret continuity as information retrieval alone.
+## Reconciled Decisions — No Longer Open Findings
 
-**Reconciliation needed:** Preserve this rationale in the PRD addendum or UX handoff. Re-entry should help the user re-form a mental model through concise rationale and evidence on demand, not simply expose a database of accepted artifacts.
+### Successful-resolution and Next Action outcome evidence are captured
 
-### 4. Emotional project identity is preserved only as a compressed feature note
+FR-13 records whether a shown Next Action led to that action, a different meaningful action, or no action. SM-4 treats this linkage as evidence rather than an acceptance-rate target. The Return Outcome Record also distinguishes eventual successful completion, intentional closure, abandonment, and unresolved outcomes without turning project completion into a gate for every Qualifying Return. These brief intents are now represented in the personal validation record.
 
-**Source intent:** Different projects should have a distinct atmosphere—a remodel should feel different from a car search or software build. The goal is emotional ownership and a recognizable environment throughout the experience, not customization for its own sake.
+### Delegated-research rationale is restored
 
-**PRD state:** Visual identity is intentionally excluded from the validation build and correctly deferred. The addendum retains a restrained hero image and accent identity for emotional ownership, but loses the richer experiential constraint: recognizable project atmosphere throughout the product, with difference serving orientation and attachment rather than decorative customization.
+PRD §1 now explicitly states that delegated findings and reasoning the user did not personally produce can remain trapped and make later reconstruction harder. Research is a first-class Artifact, and the Re-entry View exposes concise current state with Rationale and evidence on demand. Downstream UX should continue to restore comprehension, not merely retrieve stored facts, but the rationale is no longer missing from the product story.
 
-**Reconciliation needed:** Do not restore hero-image work to the validation build. Expand the deferred UX intent so future commercial-MVP work preserves distinct project atmosphere, emotional ownership, and recognition across the experience while keeping customization constrained.
+### The provider course correction is coherent
 
-### 5. The deferred commercial onboarding promise is only partially preserved
+The updated PRD and addendum correctly implement the approved 2026-08-09 direction:
 
-**Source intent:** For the commercial MVP, guided OpenAI onboarding, credential validation, plain-language errors, and usage-cost visibility are launch requirements because the beachhead is broader than people accustomed to configuring API keys.
+- Ollama, LM Studio, and MLX are committed first-class local MVP adapter targets.
+- OpenRouter is the sole optional external target.
+- Codex App Server, ChatGPT subscription integration, and direct OpenAI or Anthropic production adapters are excluded.
+- Adapter names are not support claims; only an evidence-bound Qualified Adapter Combination may be shown as Ready or Supported.
+- One qualified local combination may begin the continuity experiment; all four targets must satisfy applicable criteria before provider-scope completion.
+- Selection is explicit and no locality, provider, runtime, or model fallback is silent.
 
-**PRD state:** FR-14 covers credential validation, plain-language failure handling, and separate provider billing for the solo tester. The addendum defers commercial MVP concerns but does not preserve usage-cost visibility or the rationale that provider setup must work for less technical AI-experienced users.
+This qualification language refines rather than contradicts the brief's first-class-target decision. The completed Codex work remains rejected historical evidence and does not authorize current production sequencing.
 
-**Reconciliation needed:** Keep the validation implementation narrow, but add the complete onboarding promise to the deferred commercial-MVP notes: cost visibility, low-friction provider setup, and usability beyond routine API-key users must be treated as launch requirements rather than polish.
+### Setup and maintenance burden are now distinct
+
+SM-C1 records ongoing proposal-review and correction burden. SM-C4 and addendum §3.5 separately measure initial adapter/runtime/model setup burden. The two risks can no longer hide inside the fifteen-minute First Useful State measure. A maintenance-burden threshold remains an owned pre-return decision, while the local setup gate is explicit.
+
+### Core commercial direction is preserved without entering validation scope
+
+The PRD addendum retains one-time Mac App Store purchase, the $59.99 working hypothesis with $39.99 and $79.99 anchors, commercial onboarding, price-bearing activation, constrained project identity, and potential paid major upgrades. Collaboration, synchronization, multi-surface access, and managed recurring value remain later evolution rather than implied validation requirements.
 
 ## Coverage Confirmed
 
-No reconciliation change is needed for these source themes:
+- Cross-domain positioning is intact; renovation remains evidence and a possible cohort, not the product definition.
+- The source-to-truth loop is intact: selected material or Conversation → typed proposal → explicit accept/edit/reject → versioned Canonical State.
+- Conversation remains inspectable Provenance and is never Canonical State.
+- Research, Decisions, Open Questions, Tasks, Topics, Rationale, relationships, versions, and supersession retain their intended roles.
+- Re-entry exposes current governing state first, with deeper rationale and evidence on demand.
+- Local ownership, explicit external transmission, Keychain-backed OpenRouter credentials, human-inspectable export/restore, deliberate deletion, and zero silent state corruption remain observable trust contracts.
+- Generic “AI memory,” local storage, project containers, or provider choice are not presented as the differentiation thesis.
+- Commercial metrics and broader-market claims are explicitly excluded from the personal validation verdict.
 
-- Cross-domain positioning and rejection of a renovation-only wedge.
-- Research as a first-class canonical artifact.
-- Lightweight pasted or selected-file input without bulk account reconstruction.
-- Explicit accept, edit, or reject control over consequential state changes.
-- Version history, decision supersession, rationale, provenance, and current-state-first presentation.
-- Concise re-entry with deeper evidence available on demand.
-- Lower setup and maintenance burden than a configurable PM or knowledge system.
-- Local canonical storage, explicit cloud transmission, separate provider billing, secure credentials, and recoverable export.
-- Zero tolerance for silent corruption or unrecoverable loss.
-- Avoidance of engagement, conversation, AI-call, or artifact volume as success proxies.
-- Provider-neutral broader direction, with Ollama and Anthropic decisions correctly deferred from the OpenAI-first validation build.
-- Commercial distribution, pricing, collaboration, synchronization, multi-surface access, and broader artifact types correctly deferred.
+## Final Judgment
 
-## Final Reconciliation Verdict
-
-The input is substantively represented and the deliberate validation overrides are coherent. Finalization should address or explicitly defer the five gaps above. None requires expanding the personal validation build's provider, commercial, distribution, or visual-production scope; most are preservation or measurement clarifications so downstream work does not lose the brief's outcome orientation and qualitative product feel.
+The product brief and addendum are adequately represented for PRD finalization. The three items above are explicit commercial or qualitative deferrals; none requires reopening the personal validation slice's provider scope, adding file parsing now, or implementing commercial identity and onboarding before the governed-continuity experiment. They must remain visible in later UX, commercial-MVP, and validation planning so a successful solo continuity test is not mistaken for fulfillment of the broader brief.

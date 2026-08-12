@@ -6,6 +6,12 @@
 
 Establish reproducible evidence that a ProjectOS-owned, isolated Codex App Server process can use an eligible ChatGPT subscription safely while preserving local ownership, preventive containment, truthful provider-session cleanup, trustworthy non-coding structured output, and a provider-neutral application boundary. The only valid outcomes are `proceed`, `proceed with constraints`, or `reject`; failure of any mandatory gate blocks production Codex-adapter work.
 
+## Recorded Outcome
+
+Epic 1 completed with `reject`. Live managed authentication remained unproven, quality remained fake-backed, preventive containment was unavailable, and live Codex cleanup remained unproven. Production Codex App Server work remains blocked.
+
+The approved 2026-08-09 architecture revision authorizes a different MVP provider stack: Ollama, LM Studio, and MLX as first-class local adapters, with OpenRouter as the optional external adapter. This does not reopen, bypass, or relabel the Codex result. The Story 1.x contracts, harness, and evidence remain historical inputs.
+
 ## Stories
 
 - Story 1.1: Establish the Isolated App Server Harness

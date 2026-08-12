@@ -1,12 +1,20 @@
 ---
 title: Codex App Server Provider Validation Spike
-status: ready
+status: complete-rejected
 created: 2026-07-31
-updated: 2026-07-31
+updated: 2026-08-09
 depends_on: ARCHITECTURE-SPINE.md
 ---
 
 # Codex App Server Provider Validation Spike
+
+## Recorded outcome
+
+**Decision: `reject`.** Epic 1 completed this disposable validation path without authorizing production Codex App Server work. The final evidence recorded live managed authentication as unproven, non-coding quality as fake-backed, preventive containment as unavailable, and live provider-session cleanup as unproven.
+
+The spike harness, Story 1.x contracts, provider-neutral seams, and retained evidence remain historical inputs. The replacement production architecture uses Ollama, LM Studio, and MLX as first-class local adapters and OpenRouter as the optional external adapter. That architecture revision does not reopen this gate or claim that it passed.
+
+The objective, matrix, gates, and stop conditions below are preserved as the contract that produced the rejection.
 
 ## Objective
 

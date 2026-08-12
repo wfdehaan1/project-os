@@ -1,5 +1,7 @@
 # Accessibility Reviewer Gate — ProjectOS
 
+> **Historical review.** This review predates the approved 2026-08-09 provider course correction. The accessibility baseline remains relevant, but the revised provider setup, model/runtime states, and OpenRouter boundary require fresh review.
+
 ## Overall verdict
 
 **Strong; closed for commit.** The current `DESIGN.md` and `EXPERIENCE.md` are sufficient as the downstream UX contract for a commercial consumer native macOS MVP against the declared relevant EN 301 549 non-web-software/documentation requirements, WCAG 2.2 Level AA outcomes translated to native macOS, and native accessibility interoperability. The Return Outcome Record and permanent-deletion/provider-cleanup additions preserve the existing keyboard, assistive-technology, localization, large-text, contrast, motion, notification, offline, and error-handling baseline.

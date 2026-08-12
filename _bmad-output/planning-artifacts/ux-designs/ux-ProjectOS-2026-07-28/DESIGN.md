@@ -8,7 +8,7 @@ sources:
   - _bmad-output/planning-artifacts/briefs/brief-ProjectOS-2026-07-27/brief.md
   - _bmad-output/planning-artifacts/research/market-projectos-market-opportunity-research-2026-07-27.md
   - _bmad-output/planning-artifacts/architecture/architecture-ProjectOS-2026-07-31/ARCHITECTURE-SPINE.md
-updated: 2026-07-31
+updated: 2026-08-09
 colors:
   canvas: '#FCFBF8'
   sidebar: '#F3F0EA'
@@ -599,7 +599,7 @@ The names in this section are the shared component contract and match `EXPERIENC
 | Conversation List | Lightweight recency list with clear selected treatment, editable local title, Topic filter, search, and actionable proposal state. |
 | Transcript | Readable stream. User, agent, incomplete, error, and proposal-generating turns are perceivably distinct. Exact-source emphasis is brief and non-flashing. |
 | Composer | Calm multiline input with visible grounding/provider status. Essential boundary and focus indicator use load-bearing roles. Draft and disabled-offline states remain legible. |
-| Context Preview | Bounded preflight panel naming OpenAI/Codex, local-versus-external execution, scope, Sources/excerpts, working language, and allowance when available. |
+| Context Preview | Bounded preflight panel naming the active Ollama, LM Studio, MLX, or OpenRouter adapter and model; local-versus-external execution; scope; Sources/excerpts; working language; capability limitations; and OpenRouter billing disclosure. |
 | Proposal Rail | Persistent review region visually separate from Transcript and Canonical State. Current-Conversation and project-wide pending scopes are distinct. |
 | Change Proposal Card | Artifact type, operation, summary, source Conversation, set/dependency, and status. Pending treatment cannot resemble an accepted Artifact Row. |
 | Proposal Inspector | Shared anatomy: proposed value, original when edited, effects, dependencies, provenance, diff, status, and explicit actions. Type-specific fields appear only where semantics require. |
@@ -643,7 +643,7 @@ The [Project Map mockup](mockups/project-map.html) anchors the synchronized canv
 | Use `decorative-divider` only where removing it loses no component/state meaning. | Use a low-contrast hairline as an essential control, selection, graph, or pile boundary. |
 | Keep current state primary and reveal rationale, provenance, and history on demand. | Turn Overview into an artifact dashboard or PM board. |
 | Use the same shared components and variants across the app. | Create bespoke buttons, badges, inspectors, or empty states for artifact types. |
-| Keep provider identity and external transmission scope visible before send. | Make browsing, selecting, importing, or opening a project look like it contacted OpenAI. |
+| Keep adapter/model identity, execution locality, and external transmission scope visible before send. | Make browsing, selecting, importing, or opening a project look like it invoked inference. |
 | Let project themes provide constrained identity. | Let projects override typography, spacing, behavior, error meaning, or accessibility. |
 | Use 140/220/300 ms only for purposeful continuity and truthful state change. | Use timing ranges, decorative movement, bounce, shake, confetti, parallax, or unexpected focus travel. |
 | Keep Pile Cover deterministic, countable, local, stable, and internally non-interactive. | Add duration sizing, subject imagery, actor weighting, decoration, randomness, AI images, clipping, or per-mark navigation. |
@@ -653,7 +653,7 @@ The [Project Map mockup](mockups/project-map.html) anchors the synchronized canv
 
 ### Deferred after MVP
 
-- Ollama and other provider adapters, including their installation, model-management, privacy, offline-inference, and error UX.
+- Remote Ollama/LM Studio endpoints, other local runtimes, direct provider APIs, Codex App Server, and automatic provider/model fallback.
 - Animated or explicit Project Map time-comparison views and a compact graph preview on Overview.
 - Source importers for DOCX, RTF, HTML, images, archives, and structured chat exports; OCR remains outside MVP.
 - Pile Cover rendering for share and print.
