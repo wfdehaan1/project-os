@@ -1,0 +1,5 @@
+node_modules/
+fixtures/prompts.jsonl
+fixtures/responses-mock.jsonl
+responses-*.jsonl
+.build/

@@ -1,0 +1,23 @@
+{
+  "name": "@projectos/listing-screening",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "D16 spike: can an on-device model screen listings against criteria without guessing?",
+  "engines": {
+    "node": "24.18.1"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types 'test/**/*.test.ts'",
+    "baseline": "node --experimental-strip-types src/run.ts baseline",
+    "emit": "node --experimental-strip-types src/run.ts emit",
+    "mock": "node --experimental-strip-types src/run.ts mock",
+    "grade": "node --experimental-strip-types src/run.ts grade",
+    "validate": "npm run typecheck && npm test && npm run baseline"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.12",
+    "typescript": "~7.0.2"
+  }
+}
