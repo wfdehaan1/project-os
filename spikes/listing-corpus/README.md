@@ -84,8 +84,11 @@ addresses. Annotations in the CSVs should stay free of personal data.
 
 ## Status
 
-- Matcher spike implementation: TypeScript, `spikes/listing-matcher/` (D19.3 —
-  pure scoring module, no framework deps, ported to Swift later).
-- Extraction spike: partly answerable here from `raw/`; the WKWebView half runs
-  on the Mac.
+- Matcher spike implementation: **built**, `spikes/listing-matcher/` (D19.3 —
+  pure scoring module, no framework deps, ported to Swift later). Its README has
+  the result and, more usefully, what the corpus cannot yet decide.
+- Extraction spike: the part answerable from `raw/` is done — see `FINDINGS.md`.
+  The WKWebView half still runs on the Mac.
+- `tools/extract.py` turns `raw/` into `extracted.csv`, the matcher's input.
+  Re-run it after adding captures.
 - Screening test: Apple Foundation Models, on the Mac.
