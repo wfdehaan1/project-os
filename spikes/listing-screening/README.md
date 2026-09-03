@@ -117,10 +117,12 @@ Run **both**. They answer different questions:
 - **free-form** — the model is handed the JSON schema in its instructions and
   left to obey it. Violations here are a genuine result: D9 assumes a strict
   schema is cheap, and this is where that assumption gets tested.
-- **`--guided`** — generation is constrained to a `@Generable` type, so
-  violations are impossible by construction. The interesting comparison is
-  whether *value* accuracy also changes. If it does not, the schema question is
-  settled and free-form is simply the wrong way to ship it.
+- **`--guided`** — generation is constrained to a `@Generable` type, which
+  constrains individual field types but cannot enforce the dependency between
+  `value` and `evidence`. The grader must still reject combinations such as
+  `unknown` with string evidence. This mode also adds guided-only decision
+  instructions, so its result evaluates that complete candidate approach; it
+  does not isolate constrained decoding as the cause of any accuracy change.
 
 `runner/Sources/screen/main.swift` opens a fresh `LanguageModelSession` per
 prompt — reusing one would let an earlier listing's reasoning leak into the next
@@ -128,9 +130,9 @@ answer, which is a confound rather than a feature. Errors (guardrail refusals,
 context overflow) are recorded as responses so the grader counts them instead of
 losing them.
 
-**The Swift has never been compiled** — this spike was built on Linux. The shape
-is right; check the API names against current Foundation Models documentation
-before trusting it.
+The Swift runner now compiles against the macOS 26 SDK. Foundation Models APIs
+can still move, so rebuild it against the current SDK whenever the runner or its
+generated shape changes.
 
 Worth capturing while you run it: `meta.latency_ms` is in every response. D9 puts
 screening on every new listing, so if a listing costs several seconds the feature

@@ -9,13 +9,12 @@
 //   free-form  the model is told the JSON schema in the instructions and left to
 //              obey it. Schema violations here are a real result — D9 assumes a
 //              strict schema is cheap, and this is where that gets tested.
-//   --guided   generation is constrained to the type, so violations are
-//              impossible by construction. If value accuracy is the same, the
-//              schema question is settled and free-form is the wrong way to ship.
+//   --guided   generation constrains each field to its declared type, but the
+//              generated type cannot enforce the dependency between `value` and
+//              `evidence`. The grader therefore still checks that invariant.
 //
-// NOTE: this file has never been compiled — the corpus work happened on Linux.
-// Check the API against the current Foundation Models documentation before
-// trusting it; the shape is right but names may have moved.
+// Foundation Models requires macOS 26+ / Apple silicon. Keep compiling this
+// runner against the current SDK when its API usage or generated shape changes.
 
 import Foundation
 import FoundationModels
@@ -52,12 +51,27 @@ struct Answer {
     @Guide(description: "The criterion id exactly as given in the question.")
     let criterion: String
 
-    @Guide(description: "yes, no, or unknown. Use unknown when the listing does not state it.")
+    @Guide(description: "Classify only after locating decisive listing text. Silence, ambiguity, or a contradiction relevant to the criterion means unknown.")
     let value: Value
 
-    @Guide(description: "A verbatim quote from the listing. Null when value is unknown.")
+    @Guide(description: "For yes or no, copy a short exact contiguous span from the listing data or seller description that proves the value; never quote the question, paraphrase, translate, combine, or invent text. For unknown, produce Swift nil, never a textual placeholder such as 'null' or 'unknown'.")
     let evidence: String?
 }
+
+private let guidedDecisionInstructions = """
+Guided decision procedure:
+1. First locate a short, exact, contiguous span in the listing data or seller description that decisively supports "yes" or "no". Never use the question or instructions as evidence. Do not paraphrase, translate, combine passages, or invent evidence.
+2. If no decisive listing span exists, or statements relevant to the criterion conflict, answer "unknown" with evidence nil.
+3. For "unknown", produce Swift nil for evidence, never a string such as "null", "unknown", or an explanation.
+"""
+
+private let guidedWarrantyInstructions = """
+For warranty_included, decide whether warranty above the statutory warranty is included in the asking price:
+- "yes": the listing explicitly says this additional warranty is included in the asking price or in an included/default package at no extra cost. An optional extended-warranty upgrade does not negate qualifying warranty already included at no extra cost.
+- "no": the asking price explicitly excludes this warranty, or it is available only through an optional or extra-cost package. Optional means "no" even when no package price is shown, and extra cost overrides words such as "standard" or "default".
+- "unknown": the listing is silent or ambiguous, mentions only statutory warranty, or conflicts about whether any qualifying warranty is included. Different included and optional warranty tiers are not by themselves a conflict.
+- The warranty and warrantyExists fields alone never prove inclusion or exclusion from the asking price. Their absence or false value alone is "unknown", not "no".
+"""
 
 // MARK: - Arguments
 
@@ -92,7 +106,11 @@ for (index, line) in lines.enumerated() {
 
     // A fresh session per prompt. Reusing one would let an earlier listing's
     // reasoning leak into the next answer, which is a confound, not a feature.
-    let session = LanguageModelSession(instructions: prompt.system)
+    let guidedInstructions = prompt.criterion == "warranty_included"
+        ? "\(guidedDecisionInstructions)\n\n\(guidedWarrantyInstructions)"
+        : guidedDecisionInstructions
+    let instructions = guided ? "\(prompt.system)\n\n\(guidedInstructions)" : prompt.system
+    let session = LanguageModelSession(instructions: instructions)
 
     let started = Date()
     var raw: String
