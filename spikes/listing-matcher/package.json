@@ -1,0 +1,21 @@
+{
+  "name": "@projectos/listing-matcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "D7 spike: does fuzzy identity matching over real listings work?",
+  "engines": {
+    "node": "24.18.1"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types 'test/**/*.test.ts'",
+    "evaluate": "node --experimental-strip-types src/evaluate.ts",
+    "stress": "node --experimental-strip-types src/stress.ts",
+    "validate": "npm run typecheck && npm test && npm run evaluate && npm run stress"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.12",
+    "typescript": "~7.0.2"
+  }
+}
