@@ -89,6 +89,10 @@ addresses. Annotations in the CSVs should stay free of personal data.
   the result and, more usefully, what the corpus cannot yet decide.
 - Extraction spike: the part answerable from `raw/` is done — see `FINDINGS.md`.
   The WKWebView half still runs on the Mac.
-- `tools/extract.py` turns `raw/` into `extracted.csv`, the matcher's input.
-  Re-run it after adding captures.
-- Screening test: Apple Foundation Models, on the Mac.
+- Screening test: harness **built**, `spikes/listing-screening/`. Criteria,
+  strict schema, grading and two no-model baselines run anywhere; the Foundation
+  Models call runs on the Mac. Its `labels.csv` holds three **disputed** rows
+  where the seller's prose and `verdict_reasons` conflict — worth a review.
+- `tools/extract.py` turns `raw/` into `extracted.csv`, the matcher's input;
+  `tools/build_screening_fixtures.py` turns it into the screening fixtures.
+  Re-run both after adding captures.

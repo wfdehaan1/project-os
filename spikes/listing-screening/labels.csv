@@ -1,0 +1,52 @@
+id,criterion,expected,provenance,note
+autoscout24_129514,warranty_included,no,user,"""meeneemprijs ... zonder garantie""; the 12-month BOVAG pack is a paid add-on"
+autoscout24_129514,reversing_camera,yes,structured,equipment: Parkeerhulp met camera
+autoscout24_129514,leather_upholstery,yes,structured,vehicle.upholstery = 'Leder'
+autoscout24_2709040739,warranty_included,unknown,text,description never mentions warranty
+autoscout24_2709040739,reversing_camera,no,structured,no camera entry in the equipment list
+autoscout24_2709040739,leather_upholstery,yes,structured,vehicle.upholstery = 'Leder'
+autoscout24_473794,warranty_included,unknown,disputed,"description never mentions warranty; verdict_reasons records ""geen garantie inbegrepen"""
+autoscout24_473794,reversing_camera,yes,structured,equipment: Parkeerhulp met camera
+autoscout24_473794,leather_upholstery,yes,structured,vehicle.upholstery = 'Leder'
+autoscout24_677215,warranty_included,no,user,"""BOVAG-garantie is in overleg mogelijk""; base pack carries only wettelijke garantie"
+autoscout24_677215,reversing_camera,yes,structured,equipment: Parkeerhulp met camera
+autoscout24_677215,leather_upholstery,yes,structured,vehicle.upholstery = 'Leder'
+autoscout24_volvo-v60-2-0-b3-business-pro-apple-carplay-android-navi-elektro-benzine-grijs-cat_ma73mo19610-358a63a4-905a-4adc-ae81-8ce3960da35d,warranty_included,yes,both,"Garantielabel: BOVAG Garantie (12 maanden); structured warranty ""12 maand"""
+autoscout24_volvo-v60-2-0-b3-business-pro-apple-carplay-android-navi-elektro-benzine-grijs-cat_ma73mo19610-358a63a4-905a-4adc-ae81-8ce3960da35d,reversing_camera,no,structured,no camera entry in the equipment list
+autoscout24_volvo-v60-2-0-b3-business-pro-apple-carplay-android-navi-elektro-benzine-grijs-cat_ma73mo19610-358a63a4-905a-4adc-ae81-8ce3960da35d,leather_upholstery,no,structured,vehicle.upholstery = 'Stof'
+autoscout24_volvo-v60-2-0-b3-inscription-pilot-assist-trekhaak-led-benzine-grijs-cat_ma73mo19610-0d61a993-06be-45a5-a55c-305a5c820b40,warranty_included,unknown,disputed,"ad contradicts itself: ""Broekhuis Basis (zonder meerprijs): Wettelijke garantie"" vs ""all-in prijs ... geleverd met 12 maanden BOVAG garantie"""
+autoscout24_volvo-v60-2-0-b3-inscription-pilot-assist-trekhaak-led-benzine-grijs-cat_ma73mo19610-0d61a993-06be-45a5-a55c-305a5c820b40,reversing_camera,yes,structured,equipment: Parkeerhulp met camera
+autoscout24_volvo-v60-2-0-b3-inscription-pilot-assist-trekhaak-led-benzine-grijs-cat_ma73mo19610-0d61a993-06be-45a5-a55c-305a5c820b40,leather_upholstery,yes,structured,vehicle.upholstery = 'Leder'
+autoscout24_volvo-v60-2-0-b3-momentum-advantage-achteropkomend-verkeer-benzine-grijs-cat_ma73mo19610-f029e35f-9ba6-4dc7-84f9-ed0f7ddf4df3,warranty_included,yes,text,"""Standaard (inbegrepen): 12 maanden BOVAG-garantie""; verdict_reasons says the opposite"
+autoscout24_volvo-v60-2-0-b3-momentum-advantage-achteropkomend-verkeer-benzine-grijs-cat_ma73mo19610-f029e35f-9ba6-4dc7-84f9-ed0f7ddf4df3,reversing_camera,yes,structured,equipment: Parkeerhulp met camera
+autoscout24_volvo-v60-2-0-b3-momentum-advantage-achteropkomend-verkeer-benzine-grijs-cat_ma73mo19610-f029e35f-9ba6-4dc7-84f9-ed0f7ddf4df3,leather_upholstery,yes,structured,vehicle.upholstery = 'Leder'
+autoscout24_volvo-v60-2-0-b3-momentum-advantage-automaat-trekhaak-applec-benzine-grijs-cat_ma73mo19610-2e4a0b76-6610-4fe2-8bd0-30a36d44a4a8,warranty_included,no,user,"""standaard wettelijke garantie""; BOVAG packs explicitly optional"
+autoscout24_volvo-v60-2-0-b3-momentum-advantage-automaat-trekhaak-applec-benzine-grijs-cat_ma73mo19610-2e4a0b76-6610-4fe2-8bd0-30a36d44a4a8,reversing_camera,yes,structured,equipment: Parkeerhulp met camera
+autoscout24_volvo-v60-2-0-b3-momentum-advantage-automaat-trekhaak-applec-benzine-grijs-cat_ma73mo19610-2e4a0b76-6610-4fe2-8bd0-30a36d44a4a8,leather_upholstery,unknown,structured,vehicle.upholstery = None
+autoscout24_volvo-v60-2-0-b3-momentum-advantage-camera-led-17-lmv-benzine-grijs-cat_ma73mo19610-ff7dc77b-c41c-4381-9ba2-2ef33aa4c317,warranty_included,unknown,disputed,same self-contradicting Broekhuis text as b3-inscription
+autoscout24_volvo-v60-2-0-b3-momentum-advantage-camera-led-17-lmv-benzine-grijs-cat_ma73mo19610-ff7dc77b-c41c-4381-9ba2-2ef33aa4c317,reversing_camera,yes,structured,equipment: Parkeerhulp met camera
+autoscout24_volvo-v60-2-0-b3-momentum-advantage-camera-led-17-lmv-benzine-grijs-cat_ma73mo19610-ff7dc77b-c41c-4381-9ba2-2ef33aa4c317,leather_upholstery,unknown,structured,vehicle.upholstery = None
+autoscout24_volvo-v60-2-0-t4-inscription-trekhaak-achteruitrijcamera-benzine-grijs-cat_ma73mo19610-5066ae05-f88a-429a-8540-83405ebaeccd,warranty_included,yes,text,"""Inbegrepen afleverpakket: Standaard ... BOVAG garantie (12 maanden)""; verdict_reasons says the opposite"
+autoscout24_volvo-v60-2-0-t4-inscription-trekhaak-achteruitrijcamera-benzine-grijs-cat_ma73mo19610-5066ae05-f88a-429a-8540-83405ebaeccd,reversing_camera,yes,structured,equipment: Parkeerhulp met camera
+autoscout24_volvo-v60-2-0-t4-inscription-trekhaak-achteruitrijcamera-benzine-grijs-cat_ma73mo19610-5066ae05-f88a-429a-8540-83405ebaeccd,leather_upholstery,yes,structured,vehicle.upholstery = 'Leder'
+autoscout24_volvo-v60-2-0-t5-inscription-panoramadak-cruise-control-benzine-grijs-cat_ma73mo19610-aa4901f2-54ab-4fdb-b4ca-5a62f38f02c3,warranty_included,no,user,Basic pack (inbegrepen) is wettelijke garantie only; BOVAG 12 mnd costs EUR 995
+autoscout24_volvo-v60-2-0-t5-inscription-panoramadak-cruise-control-benzine-grijs-cat_ma73mo19610-aa4901f2-54ab-4fdb-b4ca-5a62f38f02c3,reversing_camera,no,structured,no camera entry in the equipment list
+autoscout24_volvo-v60-2-0-t5-inscription-panoramadak-cruise-control-benzine-grijs-cat_ma73mo19610-aa4901f2-54ab-4fdb-b4ca-5a62f38f02c3,leather_upholstery,yes,structured,vehicle.upholstery = 'Leder'
+autoscout24_volvo-v60-2-0-t8-te-awd-elektro-benzine-blauw-cat_ma73mo19610-8dddd543-fd7c-4f4f-83a7-212b06e0e6b8,warranty_included,unknown,text,description never mentions warranty
+autoscout24_volvo-v60-2-0-t8-te-awd-elektro-benzine-blauw-cat_ma73mo19610-8dddd543-fd7c-4f4f-83a7-212b06e0e6b8,reversing_camera,no,structured,no camera entry in the equipment list
+autoscout24_volvo-v60-2-0-t8-te-awd-elektro-benzine-blauw-cat_ma73mo19610-8dddd543-fd7c-4f4f-83a7-212b06e0e6b8,leather_upholstery,unknown,structured,vehicle.upholstery = None
+autoscout24_volvo-v60-b3-164pk-automaat-inscription-el-voorstoelen-benzine-blauw-cat_ma73mo19610-bb91a3b0-f0aa-4fbb-ab5c-bdd4a30ec6b4,warranty_included,no,user,"""meeneemprijs ... zonder BOVAG- of Volvo Selekt garantie"""
+autoscout24_volvo-v60-b3-164pk-automaat-inscription-el-voorstoelen-benzine-blauw-cat_ma73mo19610-bb91a3b0-f0aa-4fbb-ab5c-bdd4a30ec6b4,reversing_camera,yes,structured,equipment: Parkeerhulp met camera
+autoscout24_volvo-v60-b3-164pk-automaat-inscription-el-voorstoelen-benzine-blauw-cat_ma73mo19610-bb91a3b0-f0aa-4fbb-ab5c-bdd4a30ec6b4,leather_upholstery,yes,structured,vehicle.upholstery = 'Leder'
+autoscout24_volvo-v60-t5-inscription-12-mnd-garantie-harman-kardon-dab-benzine-grijs-cat_ma73mo19610-980f3fcd-5a83-4316-8271-ef1ee1c689a7,warranty_included,yes,text,"""We leveren deze Volvo V60 inclusief 12 maanden BOVAG-garantie""; structured flag says false"
+autoscout24_volvo-v60-t5-inscription-12-mnd-garantie-harman-kardon-dab-benzine-grijs-cat_ma73mo19610-980f3fcd-5a83-4316-8271-ef1ee1c689a7,reversing_camera,yes,structured,equipment: Parkeerhulp met camera
+autoscout24_volvo-v60-t5-inscription-12-mnd-garantie-harman-kardon-dab-benzine-grijs-cat_ma73mo19610-980f3fcd-5a83-4316-8271-ef1ee1c689a7,leather_upholstery,yes,structured,vehicle.upholstery = 'Leder'
+autoscout24_volvo-v60-v60-2-0-b3-momen-bns-benzine-zwart-cat_ma73mo19610-7f67c0cc-833a-4a4a-914f-28c21e6b1a5b,warranty_included,unknown,text,"private sale, description never mentions warranty"
+autoscout24_volvo-v60-v60-2-0-b3-momen-bns-benzine-zwart-cat_ma73mo19610-7f67c0cc-833a-4a4a-914f-28c21e6b1a5b,reversing_camera,yes,structured,"equipment: 360° camera, Parkeerhulp met camera"
+autoscout24_volvo-v60-v60-2-0-b3-momen-bns-benzine-zwart-cat_ma73mo19610-7f67c0cc-833a-4a4a-914f-28c21e6b1a5b,leather_upholstery,no,structured,vehicle.upholstery = 'Stof'
+autoscout24_volvo-v90-2-0-t4-leer-memory-auto-pilot-acc-carplay-lm-benzine-grijs-cat_ma73mo2081-970a6ca1-be10-427a-8da5-89389a087a90,warranty_included,yes,text,"""aangeboden met ... 12 maanden Bovag Garantie"""
+autoscout24_volvo-v90-2-0-t4-leer-memory-auto-pilot-acc-carplay-lm-benzine-grijs-cat_ma73mo2081-970a6ca1-be10-427a-8da5-89389a087a90,reversing_camera,no,structured,no camera entry in the equipment list
+autoscout24_volvo-v90-2-0-t4-leer-memory-auto-pilot-acc-carplay-lm-benzine-grijs-cat_ma73mo2081-970a6ca1-be10-427a-8da5-89389a087a90,leather_upholstery,yes,structured,vehicle.upholstery = 'Leder'
+autoscout24_volvo-v90-t4-aut-momentum-12mnd-garantie-trekhaak-blis-benzine-zwart-cat_ma73mo2081-578c6645-b251-4cdc-a685-6307b2e43fd3,warranty_included,yes,user,"""Wij leveren deze Volvo V90 met maar liefst 12 maanden garantie"""
+autoscout24_volvo-v90-t4-aut-momentum-12mnd-garantie-trekhaak-blis-benzine-zwart-cat_ma73mo2081-578c6645-b251-4cdc-a685-6307b2e43fd3,reversing_camera,no,structured,no camera entry in the equipment list
+autoscout24_volvo-v90-t4-aut-momentum-12mnd-garantie-trekhaak-blis-benzine-zwart-cat_ma73mo2081-578c6645-b251-4cdc-a685-6307b2e43fd3,leather_upholstery,yes,structured,vehicle.upholstery = 'Leder'
