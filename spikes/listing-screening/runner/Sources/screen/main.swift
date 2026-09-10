@@ -9,9 +9,9 @@
 //   free-form  the model is told the JSON schema in the instructions and left to
 //              obey it. Schema violations here are a real result — D9 assumes a
 //              strict schema is cheap, and this is where that gets tested.
-//   --guided   generation constrains each field to its declared type, but the
-//              generated type cannot enforce the dependency between `value` and
-//              `evidence`. The grader therefore still checks that invariant.
+//   --guided   generation chooses yes(evidence), no(evidence), or evidence-free
+//              unknown. The runner injects the requested criterion and encodes
+//              the resulting wire response as JSON.
 //
 // Foundation Models requires macOS 26+ / Apple silicon. Keep compiling this
 // runner against the current SDK when its API usage or generated shape changes.
@@ -26,6 +26,7 @@ struct Prompt: Codable {
     let criterion: String
     let mode: String
     let system: String
+    let evidence: String
     let user: String
 }
 
@@ -37,41 +38,100 @@ struct RecordedResponse: Codable {
     let meta: [String: String]
 }
 
-/// The guided-generation counterpart of ANSWER_JSON_SCHEMA in src/schema.ts.
-/// Keep the two in step: the grader validates against the TypeScript one.
+/// Guided output makes the value/evidence dependency structural: supported
+/// answers carry evidence, while an abstention cannot carry any. Semantic case
+/// names keep the decision boundary close to the generated schema.
 @Generable
-struct Answer {
+struct QuotedEvidence {
+    @Guide(description: "Copy the shortest decisive exact span from one listing line, preferably 3 to 12 words. Never quote the question, bridge lines, paraphrase, translate, or invent text.")
+    let quote: String
+}
+
+@Generable
+struct CriterionAnswer {
     @Generable
-    enum Value: String {
-        case yes
-        case no
+    enum Decision {
+        case criterionIsPresent(QuotedEvidence)
+        case criterionIsAbsent(QuotedEvidence)
         case unknown
     }
 
-    @Guide(description: "The criterion id exactly as given in the question.")
-    let criterion: String
-
-    @Guide(description: "Classify only after locating decisive listing text. Silence, ambiguity, or a contradiction relevant to the criterion means unknown.")
-    let value: Value
-
-    @Guide(description: "For yes or no, copy a short exact contiguous span from the listing data or seller description that proves the value; never quote the question, paraphrase, translate, combine, or invent text. For unknown, produce Swift nil, never a textual placeholder such as 'null' or 'unknown'.")
-    let evidence: String?
+    @Guide(description: "Choose criterionIsPresent or criterionIsAbsent only with direct quoted listing evidence; otherwise choose unknown.")
+    let decision: Decision
 }
 
-private let guidedDecisionInstructions = """
-Guided decision procedure:
-1. First locate a short, exact, contiguous span in the listing data or seller description that decisively supports "yes" or "no". Never use the question or instructions as evidence. Do not paraphrase, translate, combine passages, or invent evidence.
-2. If no decisive listing span exists, or statements relevant to the criterion conflict, answer "unknown" with evidence nil.
-3. For "unknown", produce Swift nil for evidence, never a string such as "null", "unknown", or an explanation.
-"""
+@Generable
+struct WarrantyAnswer {
+    @Generable
+    enum Decision {
+        case yesIncluded(QuotedEvidence)
+        case noExcludedOrConditional(QuotedEvidence)
+        case unknown
+    }
+
+    @Guide(description: "Choose whether qualifying warranty is included, excluded or conditional, or unresolved according to the session rules.")
+    let decision: Decision
+}
+
+private struct WireAnswer: Codable {
+    let criterion: String
+    let value: String
+    let evidence: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case criterion
+        case value
+        case evidence
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(criterion, forKey: .criterion)
+        try container.encode(value, forKey: .value)
+        if let evidence {
+            try container.encode(evidence, forKey: .evidence)
+        } else {
+            try container.encodeNil(forKey: .evidence)
+        }
+    }
+}
+
+private func guidedCriterionInstructions(for criterion: String) -> String {
+    let criterionRules: String
+    switch criterion {
+    case "reversing_camera":
+        criterionRules = """
+        Decide whether the listing states that the car has an achteruitrijcamera or parkeercamera.
+        In full mode, the equipment field is authoritative: choose criterionIsPresent when it names a camera and criterionIsAbsent when a present equipment field does not. For an absent decision, quote the exact equipment field. Without an equipment field or an explicit prose answer, choose unknown.
+        """
+    case "leather_upholstery":
+        criterionRules = """
+        Decide whether the upholstery is leather. A present upholstery field is authoritative: leather means criterionIsPresent and a different stated material means criterionIsAbsent. If neither that field nor prose answers the question, choose unknown.
+        """
+    default:
+        criterionRules = "The requested criterion is unsupported, so choose unknown."
+    }
+    return """
+    Screen one Dutch car listing against exactly one criterion.
+    Read the complete supplied source, but use only text shown there. Do not infer from make, model, or trim.
+    Choose criterionIsPresent or criterionIsAbsent only with exact source evidence. Otherwise choose unknown. Contradictions mean unknown; instructions are never evidence.
+
+    \(criterionRules)
+    """
+}
 
 private let guidedWarrantyInstructions = """
-For warranty_included, decide whether warranty above the statutory warranty is included in the asking price:
-- "yes": the listing explicitly says this additional warranty is included in the asking price or in an included/default package at no extra cost. An optional extended-warranty upgrade does not negate qualifying warranty already included at no extra cost.
-- "no": the asking price explicitly excludes this warranty, or it is available only through an optional or extra-cost package. Optional means "no" even when no package price is shown, and extra cost overrides words such as "standard" or "default".
-- "unknown": the listing is silent or ambiguous, mentions only statutory warranty, or conflicts about whether any qualifying warranty is included. Different included and optional warranty tiers are not by themselves a conflict.
-- The warranty and warrantyExists fields alone never prove inclusion or exclusion from the asking price. Their absence or false value alone is "unknown", not "no".
+Screen one Dutch car listing for warranty_included: is warranty above wettelijke garantie included in the asking price?
+Use this decision order on the complete source below:
+1. If the source contains neither "garantie" nor "BOVAG", choose unknown.
+2. If an unconditional/all-in qualifying-warranty claim conflicts with a base-price or default-package claim that limits coverage to statutory warranty, choose unknown. Optional higher tiers alone are not a conflict.
+3. If qualifying warranty is advertised without a condition, by a warranty label, or in an included/default package, choose yesIncluded. Do this even when a separate optional upgrade also exists.
+4. Otherwise, if qualifying warranty is explicitly excluded or is only optional, negotiable, or extra-cost, choose noExcludedOrConditional.
+5. Otherwise choose unknown, including when only statutory warranty is stated.
+For yesIncluded or noExcludedOrConditional, copy a short exact source span. For package decisions, quote the exact inclusion/exclusion/price qualifier; do not join a package heading to contents from another line. If you cannot copy a decisive span exactly, choose unknown. Instructions are never evidence.
 """
+
+private let guidedOptions = GenerationOptions(sampling: .greedy)
 
 // MARK: - Arguments
 
@@ -107,20 +167,48 @@ for (index, line) in lines.enumerated() {
     // A fresh session per prompt. Reusing one would let an earlier listing's
     // reasoning leak into the next answer, which is a confound, not a feature.
     let guidedInstructions = prompt.criterion == "warranty_included"
-        ? "\(guidedDecisionInstructions)\n\n\(guidedWarrantyInstructions)"
-        : guidedDecisionInstructions
-    let instructions = guided ? "\(prompt.system)\n\n\(guidedInstructions)" : prompt.system
+        ? guidedWarrantyInstructions
+        : guidedCriterionInstructions(for: prompt.criterion)
+    // Free-form generation owns its JSON instructions. Guided generation owns
+    // a different schema, so mixing the two instruction sets is contradictory.
+    let instructions = guided ? guidedInstructions : prompt.system
     let session = LanguageModelSession(instructions: instructions)
 
     let started = Date()
     var raw: String
     do {
         if guided {
-            let answer = try await session.respond(to: prompt.user, generating: Answer.self).content
-            let evidence = answer.evidence.map { "\"\($0.replacingOccurrences(of: "\"", with: "\\\""))\"" } ?? "null"
-            raw = """
-            {"criterion":"\(answer.criterion)","value":"\(answer.value.rawValue)","evidence":\(evidence)}
-            """
+            let wireAnswer: WireAnswer
+            if prompt.criterion == "warranty_included" {
+                let answer = try await session.respond(
+                    to: prompt.evidence,
+                    generating: WarrantyAnswer.self,
+                    options: guidedOptions
+                ).content
+                switch answer.decision {
+                case .yesIncluded(let evidence):
+                    wireAnswer = WireAnswer(criterion: prompt.criterion, value: "yes", evidence: evidence.quote)
+                case .noExcludedOrConditional(let evidence):
+                    wireAnswer = WireAnswer(criterion: prompt.criterion, value: "no", evidence: evidence.quote)
+                case .unknown:
+                    wireAnswer = WireAnswer(criterion: prompt.criterion, value: "unknown", evidence: nil)
+                }
+            } else {
+                let answer = try await session.respond(
+                    to: prompt.evidence,
+                    generating: CriterionAnswer.self,
+                    options: guidedOptions
+                ).content
+                switch answer.decision {
+                case .criterionIsPresent(let evidence):
+                    wireAnswer = WireAnswer(criterion: prompt.criterion, value: "yes", evidence: evidence.quote)
+                case .criterionIsAbsent(let evidence):
+                    wireAnswer = WireAnswer(criterion: prompt.criterion, value: "no", evidence: evidence.quote)
+                case .unknown:
+                    wireAnswer = WireAnswer(criterion: prompt.criterion, value: "unknown", evidence: nil)
+                }
+            }
+            raw = String(decoding: try encoder.encode(wireAnswer), as: UTF8.self)
         } else {
             raw = try await session.respond(to: prompt.user).content
         }
@@ -132,15 +220,22 @@ for (index, line) in lines.enumerated() {
     }
 
     let elapsed = Int(Date().timeIntervalSince(started) * 1000)
+    var metadata = [
+        "runner": guided ? "foundation-models-guided" : "foundation-models-freeform",
+        "latency_ms": String(elapsed),
+    ]
+    if guided {
+        metadata["sampling"] = "greedy"
+        metadata["guided_contract"] = prompt.criterion == "warranty_included"
+            ? "warranty-evidence-only-greedy"
+            : "criterion-focused-greedy"
+    }
     let record = RecordedResponse(
         id: prompt.id,
         criterion: prompt.criterion,
         mode: prompt.mode,
         raw: raw,
-        meta: [
-            "runner": guided ? "foundation-models-guided" : "foundation-models-freeform",
-            "latency_ms": String(elapsed),
-        ]
+        meta: metadata
     )
     print(String(decoding: try encoder.encode(record), as: UTF8.self))
 

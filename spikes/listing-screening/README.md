@@ -43,7 +43,11 @@ Three criteria are scored, chosen to span the difficulty range:
 
 ## Two modes, because abstention is the point
 
-- **`full`** — structured page fields *and* the description. What would ship.
+- **`full`** — criterion-relevant structured page fields and the description.
+  Camera receives `equipment`, upholstery receives `upholstery`, and warranty
+  receives no structured field because none reliably proves price inclusion.
+  This prevents identity, price, and unrelated fields from burying the evidence
+  or inviting inference.
 - **`text_only`** — description only. With the structured block withheld, most
   camera and upholstery cases have no stated answer, so a model that keeps
   saying `yes` is inferring from make and model rather than reading. That is the
@@ -74,8 +78,9 @@ Two further checks:
   generation; a wrong value is a capability problem and is not. Averaging them
   hides which one you have.
 - **Fabricated evidence** — every `yes`/`no` must quote a span that actually
-  occurs in what the model was shown. A fluent Dutch sentence that was never in
-  the listing is a failure no value-level metric catches.
+  occurs exactly in the listing fields or seller description. The question and
+  instructions are not valid evidence. A fluent Dutch sentence that was never
+  in the listing is a failure no value-level metric catches.
 
 The schema also rejects an `unknown` that cites evidence (a model arguing itself
 out of an answer) and a `yes`/`no` with no citation (unauditable, so unusable).
@@ -100,29 +105,35 @@ So the bar on warranty is **9/17 with at most 2 hallucinations**. That is a low
 bar, and it should be: it is a three-way choice, and a coin weighted to `unknown`
 would score 6/17.
 
+The grading command is also the acceptance gate: it exits non-zero unless both
+`full` and `text_only` independently meet that warranty bar.
+
 ## Running it on the Mac
 
 ```bash
 npm run emit                                    # -> fixtures/prompts.jsonl
 cd runner
-swift run screen ../fixtures/prompts.jsonl > ../responses-freeform.jsonl
-swift run screen --guided ../fixtures/prompts.jsonl > ../responses-guided.jsonl
+swift run screen ../fixtures/prompts.jsonl > ../responses-freeform-v10.jsonl
+swift run screen --guided ../fixtures/prompts.jsonl > ../responses-guided-v10.jsonl
 cd ..
-npm run grade -- responses-freeform.jsonl
-npm run grade -- responses-guided.jsonl
+npm run grade -- responses-freeform-v10.jsonl
+npm run grade -- responses-guided-v10.jsonl
 ```
+
+Choose an unused suffix for every run; the example starts at `v10` because
+`v5` through `v9` are retained locally as experimental evidence.
 
 Run **both**. They answer different questions:
 
 - **free-form** — the model is handed the JSON schema in its instructions and
   left to obey it. Violations here are a genuine result: D9 assumes a strict
   schema is cheap, and this is where that assumption gets tested.
-- **`--guided`** — generation is constrained to a `@Generable` type, which
-  constrains individual field types but cannot enforce the dependency between
-  `value` and `evidence`. The grader must still reject combinations such as
-  `unknown` with string evidence. This mode also adds guided-only decision
-  instructions, so its result evaluates that complete candidate approach; it
-  does not isolate constrained decoding as the cause of any accuracy change.
+- **`--guided`** — generation chooses a semantic evidence-bearing decision or
+  evidence-free `unknown`. It receives listing evidence without the free-form
+  JSON instructions or criterion question, uses criterion-specific instructions
+  and greedy sampling, then injects the requested criterion and serializes wire
+  JSON with `JSONEncoder`. This evaluates that complete candidate approach; it
+  does not isolate constrained decoding as the cause of an accuracy change.
 
 `runner/Sources/screen/main.swift` opens a fresh `LanguageModelSession` per
 prompt — reusing one would let an earlier listing's reasoning leak into the next
@@ -137,6 +148,31 @@ generated shape changes.
 Worth capturing while you run it: `meta.latency_ms` is in every response. D9 puts
 screening on every new listing, so if a listing costs several seconds the feature
 needs a different place in the UI than if it costs 300 ms.
+
+## Latest guided result: value gate accepts, evidence trust rejects
+
+`responses-guided-v9.jsonl` is one untouched live run of all 102 prompts using
+the current runner. It completed with zero runner errors and zero schema
+violations. The warranty result improved from `v5`'s 6/17 (`full`) and 8/17
+(`text_only`) to:
+
+| Mode | Correct | Hallucinations | Wrong direction | Over-abstention | Fabricated warranty quotes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `full` | **13/17** | **2** | 0 | 2 | **5** |
+| `text_only` | **13/17** | **2** | 0 | 2 | **5** |
+
+The fixed value gate therefore prints `screening gate: ACCEPT`. Warranty has no
+reliable structured input, so its focused `full` evidence is identical to
+`text_only`; greedy sampling consequently produces the same warranty decisions
+in both modes. The two recorded modes prove fixture completeness, not two
+different warranty contexts.
+
+This is **not a trustworthy or shipping result**. Five warranty answers in each
+mode synthesize wording across lines or remove source markup rather than quoting
+an exact input span. The grader exposes those failures, but the generated schema
+does not structurally prevent them. D16 therefore remains unresolved: value
+classification now clears its floor, while evidence integrity still rejects the
+candidate approach.
 
 ## Ground truth, and a caveat about it
 

@@ -29,40 +29,54 @@ ${JSON.stringify(ANSWER_JSON_SCHEMA, null, 2)}
 "evidence" must be a verbatim quote from the listing, and must be null when the value is "unknown".
 When in doubt, answer "unknown". An honest "unknown" is more useful than a confident guess.`;
 
-/** The structured facts worth showing in `full` mode. Deliberately narrow: dumping every field buries the question. */
-const STRUCTURED_KEYS = [
-  "make", "model", "trim", "firstRegistration", "mileageKm", "priceEur",
-  "upholstery", "warranty", "warrantyExists", "equipment",
-] as const;
+/**
+ * Only show structured fields that can answer the active criterion. Identity,
+ * mileage and price invite inference; unrelated facts bury the evidence in a
+ * small model's context. Warranty inclusion has no reliable structured field.
+ */
+const STRUCTURED_KEYS_BY_CRITERION: Readonly<Record<CriterionId, readonly string[]>> = {
+  warranty_included: [],
+  reversing_camera: ["equipment"],
+  leather_upholstery: ["upholstery"],
+};
 
 export interface Prompt {
   readonly id: string;
   readonly criterion: CriterionId;
   readonly mode: PromptMode;
   readonly system: string;
+  /** Listing content only. Guided generation uses this so the question cannot become evidence. */
+  readonly evidence: string;
   readonly user: string;
+}
+
+/** Input spans that are valid answer evidence. The question is deliberately excluded. */
+export function buildEvidenceSource(item: Case, criterion: CriterionId, mode: PromptMode): string {
+  const sections: string[] = [];
+
+  if (mode === "full") {
+    const facts = STRUCTURED_KEYS_BY_CRITERION[criterion].flatMap((key) => {
+      const value = item.structured[key];
+      if (value === undefined || value === null || value === "") return [];
+      if (Array.isArray(value)) return value.length === 0 ? [] : [`${key}: ${value.join(", ")}`];
+      return [`${key}: ${String(value)}`];
+    });
+    if (facts.length > 0) sections.push(`GESTRUCTUREERDE GEGEVENS VAN DE PAGINA\n${facts.join("\n")}`);
+  }
+
+  sections.push(`OMSCHRIJVING VAN DE VERKOPER\n${item.description || "(geen omschrijving)"}`);
+  return sections.join("\n\n---\n\n");
 }
 
 export function buildPrompt(item: Case, criterion: CriterionId, mode: PromptMode): Prompt {
   const definition = CRITERIA_BY_ID.get(criterion);
   if (definition === undefined) throw new Error(`unknown criterion: ${criterion}`);
 
-  const sections: string[] = [];
-
-  if (mode === "full") {
-    const facts = STRUCTURED_KEYS.map((key) => {
-      const value = item.structured[key];
-      if (value === undefined || value === null) return `${key}: (niet vermeld)`;
-      if (Array.isArray(value)) return `${key}: ${value.join(", ")}`;
-      return `${key}: ${String(value)}`;
-    });
-    sections.push(`GESTRUCTUREERDE GEGEVENS VAN DE PAGINA\n${facts.join("\n")}`);
-  }
-
-  sections.push(`OMSCHRIJVING VAN DE VERKOPER\n${item.description || "(geen omschrijving)"}`);
+  const evidence = buildEvidenceSource(item, criterion, mode);
+  const sections = [evidence];
   sections.push(`VRAAG (criterion id: ${criterion})\n${definition.question}`);
 
-  return { id: item.id, criterion, mode, system: SYSTEM, user: sections.join("\n\n---\n\n") };
+  return { id: item.id, criterion, mode, system: SYSTEM, evidence, user: sections.join("\n\n---\n\n") };
 }
 
 /**

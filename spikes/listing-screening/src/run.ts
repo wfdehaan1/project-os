@@ -18,10 +18,10 @@ import { baselineAnswer, structuredAnswer } from "./baseline.ts";
 import { loadCases, loadLabels, loadResponses, labelIndex, ROOT } from "./corpus.ts";
 import { CRITERIA } from "./criteria.ts";
 import {
-  classify, evidenceIsFabricated, gradeAnswerer, printByCriterion, printReport, summarize,
+  classify, evidenceIsFabricated, evaluateWarrantyGate, gradeAnswerer, printByCriterion, printReport, summarize,
   type Judgement,
 } from "./grade.ts";
-import { buildAll, buildPrompt } from "./prompt.ts";
+import { buildAll, buildEvidenceSource } from "./prompt.ts";
 import { parseAnswer } from "./schema.ts";
 import type { CriterionId, PromptMode } from "./types.ts";
 
@@ -139,7 +139,7 @@ function grade(path: string): void {
     if (expectation === undefined) continue;
 
     const parsed = parseAnswer(response.raw, response.criterion);
-    const shown = buildPrompt(item, response.criterion, response.mode).user;
+    const shown = buildEvidenceSource(item, response.criterion, response.mode);
     const judgement: Judgement = parsed.ok
       ? {
           id: response.id,
@@ -174,10 +174,17 @@ function grade(path: string): void {
     return;
   }
 
+  const gateByMode = new Map<PromptMode, boolean>();
   for (const [mode, judgements] of byMode) {
     const report = summarize(`model, ${mode} mode`, judgements);
     printReport(report);
     printByCriterion(report, ALL_CRITERIA);
+    const gate = evaluateWarrantyGate(report);
+    gateByMode.set(mode, gate.passes);
+    console.log(
+      `  warranty gate      ${gate.passes ? "PASS" : "FAIL"}   ` +
+      `${gate.correct}/17 correct, ${gate.hallucinations} hallucinations (requires >=9 and <=2)`,
+    );
 
     const notable = judgements.filter(
       (judgement) =>
@@ -205,6 +212,14 @@ function grade(path: string): void {
     for (const judgement of disputed) {
       console.log(`    ${judgement.id.slice(12, 52).padEnd(42)} expected ${judgement.expected.padEnd(7)} got ${String(judgement.actual)}`);
     }
+  }
+
+  const requiredModes: readonly PromptMode[] = ["full", "text_only"];
+  if (!requiredModes.every((mode) => gateByMode.get(mode) === true)) {
+    console.error("\nscreening gate: REJECT — both full and text_only warranty modes must pass");
+    process.exitCode = 1;
+  } else {
+    console.log("\nscreening gate: ACCEPT");
   }
 }
 

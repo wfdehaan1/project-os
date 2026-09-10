@@ -59,13 +59,10 @@ export interface Report {
  */
 export function evidenceIsFabricated(evidence: string | null, shown: string): boolean {
   if (evidence === null) return false;
-  const needle = normalize(evidence);
-  if (needle.length < 8) return false; // too short to judge
-  return !normalize(shown).includes(needle);
+  const exactEvidence = evidence.trim();
+  if (exactEvidence === "") return true;
+  return !shown.includes(exactEvidence);
 }
-
-const normalize = (value: string): string =>
-  value.toLowerCase().replace(/\s+/g, " ").replace(/[^\p{L}\p{N} ]/gu, "").trim();
 
 export function summarize(label: string, judgements: readonly Judgement[]): Report {
   const count = (kind: ErrorKind): number =>
@@ -80,6 +77,28 @@ export function summarize(label: string, judgements: readonly Judgement[]): Repo
     overAbstention: count("over_abstention"),
     fabricatedEvidence: judgements.filter((judgement) => judgement.fabricatedEvidence).length,
     judgements,
+  };
+}
+
+export interface WarrantyGate {
+  readonly passes: boolean;
+  readonly correct: number;
+  readonly hallucinations: number;
+}
+
+/** Shipping bar from the spike README; both prompt modes must meet it independently. */
+export function evaluateWarrantyGate(report: Report): WarrantyGate {
+  const warranty = report.judgements.filter(
+    (judgement) => judgement.criterion === "warranty_included",
+  );
+  const correct = warranty.filter((judgement) => judgement.kind === "correct").length;
+  const hallucinations = warranty.filter(
+    (judgement) => judgement.kind === "hallucination",
+  ).length;
+  return {
+    passes: warranty.length === 17 && correct >= 9 && hallucinations <= 2,
+    correct,
+    hallucinations,
   };
 }
 
