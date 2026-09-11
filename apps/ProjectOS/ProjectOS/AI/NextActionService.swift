@@ -61,7 +61,8 @@ public actor NextActionService {
         provider: ProviderDescriptor,
         acceptedRecords: [NextActionSupportingRecord],
         maximumOutputTokens: Int = 800,
-        approvedSpendingCeilingUSD: Decimal? = nil
+        approvedSpendingCeilingUSD: Decimal? = nil,
+        progress: AIJobProgress? = nil
     ) async throws -> NextActionSuggestion {
         let context = acceptedRecords.map {
             PromptContextEntry(
@@ -88,18 +89,22 @@ public actor NextActionService {
             maximumOutputTokens: maximumOutputTokens,
             approvedSpendingCeilingUSD: approvedSpendingCeilingUSD
         )
+        await progress?(.waiting)
         let handle = try await coordinator.start(request)
         var data = ""
         var usage: AIUsage?
         var completionMetadata: AICompletionMetadata?
         for try await event in handle.events {
             switch event {
-            case .textDelta(let chunk): data.append(chunk)
+            case .textDelta(let chunk):
+                if data.isEmpty { await progress?(.receiving) }
+                data.append(chunk)
             case .usage(let value): usage = value
             case .completed(let value): completionMetadata = value
             }
         }
 
+        await progress?(.checking)
         let wire = try Self.decodeStrict(data)
         let available = Dictionary(uniqueKeysWithValues: acceptedRecords.map {
             (NextActionSupportingReference(id: $0.id, version: $0.version), $0)

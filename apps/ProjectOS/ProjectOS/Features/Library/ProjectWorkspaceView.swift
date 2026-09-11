@@ -84,6 +84,9 @@ private struct WorkspaceSidebar: View {
                 .padding(.vertical, Spacing.step3)
             }
             Spacer(minLength: 0)
+            GenerationActivityIndicator()
+                .padding(.horizontal, Spacing.step3)
+                .padding(.bottom, Spacing.step3)
             DecorativeDivider()
             Button {
                 environment.closeProject()

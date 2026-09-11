@@ -25,6 +25,9 @@ struct ConversationRecord: Identifiable, Codable, Hashable {
     var title: String
     var createdAt: Date
     var updatedAt: Date
+    /// The research item this conversation works on. Several conversations can
+    /// share one; an ordinary conversation has none.
+    var researchID: UUID? = nil
 }
 
 enum MessageRole: String, Codable { case user, assistant }
@@ -51,6 +54,27 @@ enum ArtifactKind: String, CaseIterable, Codable, Identifiable {
 
 enum ArtifactState: String, Codable, CaseIterable {
     case current, open, inProgress, blocked, done, resolved, dismissed, superseded, removed
+}
+
+extension ArtifactKind {
+    /// The status a new record of this kind starts in.
+    var initialState: ArtifactState {
+        switch self {
+        case .openQuestion, .task, .research: .open
+        case .topic, .decision: .current
+        }
+    }
+
+    /// The statuses a record of this kind may have.
+    var allowedStates: [ArtifactState] {
+        switch self {
+        case .topic: [.current, .removed]
+        case .research: [.open, .inProgress, .done, .removed]
+        case .decision: [.current, .superseded, .removed]
+        case .openQuestion: [.open, .resolved, .dismissed, .removed]
+        case .task: [.open, .inProgress, .blocked, .done, .removed]
+        }
+    }
 }
 
 struct EvidenceRecord: Codable, Hashable, Identifiable {
@@ -86,6 +110,37 @@ struct ArtifactRecord: Identifiable, Codable, Hashable {
     var relationships: [TypedRelationship] = []
     var version: Int
     var updatedAt: Date
+}
+
+extension ArtifactRecord {
+    /// Research used to share the topic's single "current" status. It now has
+    /// its own lifecycle, and a record saved before that reads as Open.
+    static func normalizedState(_ state: ArtifactState, kind: ArtifactKind) -> ArtifactState {
+        kind == .research && state == .current ? .open : state
+    }
+
+    /// Decoding is the one path every stored, archived, and historical record
+    /// takes, so legacy research is normalised here rather than in each reader.
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let kind = try container.decode(ArtifactKind.self, forKey: .kind)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            projectID: try container.decode(UUID.self, forKey: .projectID),
+            kind: kind,
+            title: try container.decode(String.self, forKey: .title),
+            content: try container.decode(String.self, forKey: .content),
+            state: Self.normalizedState(try container.decode(ArtifactState.self, forKey: .state), kind: kind),
+            rationale: try container.decodeIfPresent(String.self, forKey: .rationale),
+            decisionSubject: try container.decodeIfPresent(String.self, forKey: .decisionSubject),
+            certainty: try container.decodeIfPresent(String.self, forKey: .certainty),
+            limitations: try container.decodeIfPresent(String.self, forKey: .limitations),
+            evidence: try container.decode([EvidenceRecord].self, forKey: .evidence),
+            relationships: try container.decodeIfPresent([TypedRelationship].self, forKey: .relationships) ?? [],
+            version: try container.decode(Int.self, forKey: .version),
+            updatedAt: try container.decode(Date.self, forKey: .updatedAt)
+        )
+    }
 }
 
 enum ProposalOperation: String, Codable { case create, update, supersede, relate }

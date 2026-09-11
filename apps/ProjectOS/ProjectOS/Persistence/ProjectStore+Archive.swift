@@ -24,7 +24,7 @@ extension ProjectStore: ProjectArchiveSource {
         let now = Date()
 
         for conversation in conversationRecords {
-            records.append(.init(id: conversation.id, projectID: projectID, kind: .conversation, version: 1, state: "owned", createdAt: conversation.createdAt, updatedAt: conversation.updatedAt, parentID: nil, references: [], fields: ["title": .string(conversation.title)], importMetadata: nil))
+            records.append(.init(id: conversation.id, projectID: projectID, kind: .conversation, version: 1, state: "owned", createdAt: conversation.createdAt, updatedAt: conversation.updatedAt, parentID: nil, references: conversation.researchID.map { [.init(role: "research", targetID: $0)] } ?? [], fields: ["title": .string(conversation.title)], importMetadata: nil))
         }
         records += sourceRecords.map { source in
             .init(id: source.id, projectID: projectID, kind: .source, version: source.version, state: "current", createdAt: source.createdAt, updatedAt: source.createdAt, parentID: nil, references: [], fields: ["label": .string(source.label), "text": .string(source.text)], importMetadata: nil)

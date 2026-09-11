@@ -158,11 +158,15 @@ final class ProjectStore: @unchecked Sendable {
         }
     }
 
-    func createConversation(projectID: UUID) throws -> ConversationRecord {
+    func createConversation(projectID: UUID, researchID: UUID? = nil) throws -> ConversationRecord {
         try queue.sync {
             try ensureWritable(projectID)
             _ = try requireProject(projectID)
-            let record = ConversationRecord(id: UUID(), projectID: projectID, title: "New conversation", createdAt: Date(), updatedAt: Date())
+            if let researchID {
+                guard let research = try fetchOne("SELECT data FROM artifacts WHERE id = ?", bind: [researchID.uuidString], as: ArtifactRecord.self),
+                      research.projectID == projectID, research.kind == .research else { throw ProjectStoreError.notFound("Research item") }
+            }
+            let record = ConversationRecord(id: UUID(), projectID: projectID, title: "New conversation", createdAt: Date(), updatedAt: Date(), researchID: researchID)
             try put(record, table: "conversations", id: record.id, projectID: projectID)
             return record
         }
@@ -577,7 +581,7 @@ final class ProjectStore: @unchecked Sendable {
                         try put(message, table: "messages", id: message.id, projectID: project.id, conversationID: conversationID)
                     case .artifact:
                         guard let kindRaw = record.fields["kind"]?.stringValue, let kind = ArtifactKind(rawValue: kindRaw), let state = ArtifactState(rawValue: record.state) else { throw ProjectStoreError.encoding("Invalid archived artifact") }
-                        let artifact = ArtifactRecord(id: record.id, projectID: project.id, kind: kind, title: record.fields["title"]?.stringValue ?? "", content: record.fields["content"]?.stringValue ?? "", state: state, rationale: record.fields["rationale"]?.stringValue, decisionSubject: record.fields["decisionSubject"]?.stringValue, certainty: record.fields["certainty"]?.stringValue, limitations: record.fields["limitations"]?.stringValue, evidence: try decodeEvidence(record), relationships: try decodeRelationships(record), version: record.version, updatedAt: record.updatedAt)
+                        let artifact = ArtifactRecord(id: record.id, projectID: project.id, kind: kind, title: record.fields["title"]?.stringValue ?? "", content: record.fields["content"]?.stringValue ?? "", state: ArtifactRecord.normalizedState(state, kind: kind), rationale: record.fields["rationale"]?.stringValue, decisionSubject: record.fields["decisionSubject"]?.stringValue, certainty: record.fields["certainty"]?.stringValue, limitations: record.fields["limitations"]?.stringValue, evidence: try decodeEvidence(record), relationships: try decodeRelationships(record), version: record.version, updatedAt: record.updatedAt)
                         try put(artifact, table: "artifacts", id: artifact.id, projectID: project.id)
                     case .proposal:
                         guard let kindRaw = record.fields["kind"]?.stringValue, let kind = ArtifactKind(rawValue: kindRaw), let lifecycle = ProposalLifecycle(rawValue: record.state) else { throw ProjectStoreError.encoding("Invalid archived proposal") }
@@ -617,7 +621,7 @@ final class ProjectStore: @unchecked Sendable {
                         let job = InferenceJobRecord(id: record.id, contextID: contextID, projectID: project.id, sourceRevision: context.fields["sourceRevision"]?.intValue ?? 0, provider: context.fields["provider"]?.stringValue ?? "", model: context.fields["model"]?.stringValue ?? "", configuredUpstreamRoute: context.fields["configuredUpstreamRoute"]?.stringValue, purpose: context.fields["purpose"]?.stringValue ?? "", sourceIDs: sources, artifactIDs: artifacts, messageIDs: messages, createdAt: record.createdAt, status: status == .running ? .interrupted : status, inputTokens: record.fields["inputTokens"]?.intValue, outputTokens: record.fields["outputTokens"]?.intValue, cost: record.fields["cost"]?.stringValue.flatMap { Decimal(string: $0, locale: Locale(identifier: "en_US_POSIX")) }, currency: record.fields["currency"]?.stringValue, actualModel: record.fields["actualModel"]?.stringValue, actualUpstreamProvider: record.fields["actualUpstreamProvider"]?.stringValue)
                         try put(job, table: "jobs", id: job.id, projectID: project.id)
                     case .conversation:
-                        let conversation = ConversationRecord(id: record.id, projectID: project.id, title: record.fields["title"]?.stringValue ?? "Conversation", createdAt: record.createdAt, updatedAt: record.updatedAt)
+                        let conversation = ConversationRecord(id: record.id, projectID: project.id, title: record.fields["title"]?.stringValue ?? "Conversation", createdAt: record.createdAt, updatedAt: record.updatedAt, researchID: record.references.first(where: { $0.role == "research" })?.targetID)
                         try put(conversation, table: "conversations", id: conversation.id, projectID: project.id)
                     case .relation, .context:
                         continue
@@ -702,11 +706,7 @@ final class ProjectStore: @unchecked Sendable {
     }
 
     private func defaultState(for kind: ArtifactKind) -> ArtifactState {
-        switch kind {
-        case .openQuestion: .open
-        case .task: .open
-        default: .current
-        }
+        kind.initialState
     }
 
     private func normalizedDecisionSubject(_ value: String?) -> String? {

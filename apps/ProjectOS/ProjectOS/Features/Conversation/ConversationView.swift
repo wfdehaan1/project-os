@@ -63,11 +63,7 @@ struct ConversationView: View {
                 title: "Conversation",
                 titleIdentifier: "conversation.workspace-heading"
             ) {
-                StatusMark(
-                    text: environment.generationStatus,
-                    symbol: environment.isGenerating ? "circle.dotted" : "checkmark.circle",
-                    tone: environment.isGenerating ? .warning : .muted
-                )
+                researchStatus
             } actions: {
                 Button {
                     environment.showAddSource = true
@@ -92,6 +88,29 @@ struct ConversationView: View {
             composer
         }
         .frame(minWidth: 360)
+    }
+
+    /// The research item this conversation works on, and the way to finish it.
+    @ViewBuilder private var researchStatus: some View {
+        if let research = environment.linkedResearch {
+            HStack(spacing: Spacing.step2) {
+                Image(systemName: ArtifactKind.research.symbolName)
+                    .imageScale(.small)
+                    .foregroundStyle(theme.muted)
+                    .accessibilityHidden(true)
+                Text(research.title)
+                    .font(TypeRole.caption)
+                    .foregroundStyle(theme.muted)
+                    .lineLimit(1)
+                StatusBadge(text: research.state.displayName, symbol: research.state.symbolName, tone: research.state.tone)
+                if research.state == .inProgress {
+                    Button("Mark done") { environment.markResearchDone(research) }
+                        .buttonStyle(.posGhost)
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Research: \(research.title)")
+        }
     }
 
     private var transcript: some View {
@@ -201,7 +220,7 @@ private struct ConversationListView: View {
                     ForEach(environment.conversations) { conversation in
                         RecordRow(
                             title: conversation.title,
-                            subtitle: conversation.updatedAt.formatted(date: .abbreviated, time: .shortened),
+                            subtitle: subtitle(for: conversation),
                             isSelected: environment.selectedConversationID == conversation.id,
                             action: { environment.selectConversation(conversation.id) }
                         )
@@ -212,6 +231,15 @@ private struct ConversationListView: View {
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .background(theme.sidebar)
+    }
+
+    /// A research conversation names its subject; any other shows when it
+    /// last moved.
+    private func subtitle(for conversation: ConversationRecord) -> String {
+        if let researchID = conversation.researchID, let research = environment.artifact(with: researchID) {
+            return "Research · \(research.title)"
+        }
+        return conversation.updatedAt.formatted(date: .abbreviated, time: .shortened)
     }
 }
 
@@ -314,6 +342,12 @@ private struct ContextPreviewPanel: View {
 
                 if isExpanded {
                     VStack(alignment: .leading, spacing: Spacing.step2) {
+                        if let research = environment.linkedResearch {
+                            DisclosureNote(
+                                text: "Focused on “\(research.title)”. It is always included; add sources or records as the research needs them.",
+                                systemImage: ArtifactKind.research.symbolName
+                            )
+                        }
                         Text(environment.contextPreview)
                             .font(TypeRole.caption)
                             .foregroundStyle(theme.muted)
@@ -345,6 +379,7 @@ private struct ContextPreviewPanel: View {
                                 Menu("Accepted records (\(environment.contextSelection.artifactIDs.count))") {
                                     ForEach(acceptedRecords) { artifact in
                                         Toggle("\(artifact.kind.rawValue): \(artifact.title)", isOn: binding(for: artifact))
+                                            .disabled(artifact.id == environment.linkedResearch?.id)
                                     }
                                 }
                                 .frame(width: 220)

@@ -23,8 +23,9 @@ final class AppEnvironment: ObservableObject {
     @Published var showOutcome = false
     @Published var alertMessage: String?
     @Published var evidenceInspection: EvidenceInspection?
-    @Published var isGenerating = false
-    @Published var generationStatus = "Idle"
+    /// The provider request in flight, or the one that just ended.
+    @Published private(set) var activity: GenerationActivity?
+    var isGenerating: Bool { activity?.isRunning == true }
     @Published var contextSelection = ContextSelection()
     @Published var provider: ProviderChoice
     @Published var ollamaURL: String {
@@ -60,6 +61,9 @@ final class AppEnvironment: ObservableObject {
     private var activeJobRecord: InferenceJobRecord?
     private var visitBaseline: Int?
     private var contextInitializedProjectID: UUID?
+    /// Context choices per conversation for this session, so each thread keeps
+    /// its own focus. A conversation without an entry starts from its default.
+    private var contextSelections: [UUID: ContextSelection] = [:]
     private var lastExportReceipt: ProjectArchiveReceipt?
     private var started = false
 
@@ -139,6 +143,7 @@ final class AppEnvironment: ObservableObject {
         if activeJobRecord?.projectID != nil, activeJobRecord?.projectID != project.id {
             stopGeneration()
         }
+        if activity?.projectID != project.id { activity = nil }
         if lastExportReceipt?.projectID != project.id { lastExportReceipt = nil }
         selectedProject = project
         destination = .overview
@@ -152,6 +157,7 @@ final class AppEnvironment: ObservableObject {
     func closeProject() {
         completeVisit()
         stopGeneration()
+        activity = nil
         selectedProject = nil
         visitBaseline = nil
         try? reloadLibrary()
@@ -183,12 +189,14 @@ final class AppEnvironment: ObservableObject {
             let eligibleSourceIDs = Set(sources.map(\.id))
             let eligibleArtifactIDs = Set(artifacts.filter { $0.state != .removed && $0.state != .superseded }.map(\.id))
             if contextInitializedProjectID != id {
-                contextSelection.sourceIDs = eligibleSourceIDs
-                contextSelection.artifactIDs = eligibleArtifactIDs
+                contextSelections = [:]
+                contextSelection = defaultContextSelection(for: selectedConversation)
                 contextInitializedProjectID = id
             } else {
                 contextSelection.sourceIDs.formIntersection(eligibleSourceIDs)
                 contextSelection.artifactIDs.formIntersection(eligibleArtifactIDs)
+                // A research conversation always carries its subject.
+                if let research = linkedResearch { contextSelection.artifactIDs.insert(research.id) }
             }
         }
     }
@@ -221,23 +229,75 @@ final class AppEnvironment: ObservableObject {
 
     func createConversation() {
         guard let projectID = selectedProject?.id else { return }
-        perform {
-            let conversation = try requireStore().createConversation(projectID: projectID)
-            conversations.insert(conversation, at: 0)
-            selectedConversationID = conversation.id
-            messages = []
-            draft = ""
-        }
+        perform { try openNewConversation(projectID: projectID, researchID: nil) }
     }
 
     func selectConversation(_ id: UUID) {
         guard let projectID = selectedProject?.id, id != selectedConversationID else { return }
         saveDraft()
         perform {
+            let previousID = selectedConversationID
             selectedConversationID = id
+            switchContextSelection(from: previousID, to: id)
             messages = try requireStore().messages(projectID: projectID, conversationID: id)
             draft = try requireStore().draft(projectID: projectID, conversationID: id)
         }
+    }
+
+    func openConversation(_ id: UUID) {
+        selectConversation(id)
+        show(.conversation)
+    }
+
+    /// Opens a new conversation about a research item, focused on that item.
+    /// Starting from Open moves the research to In progress; a conversation on
+    /// research already under way or done leaves its status alone.
+    func startResearchConversation(for research: ArtifactRecord) {
+        guard let project = selectedProject, research.kind == .research, research.state != .removed else { return }
+        perform {
+            if research.state == .open {
+                var started = research
+                started.state = .inProgress
+                try requireStore().saveArtifact(started, expectedProjectRevision: project.revision, summary: "Started Research: \(research.title)")
+                refreshProject()
+            }
+            try openNewConversation(projectID: project.id, researchID: research.id)
+            show(.conversation)
+        }
+    }
+
+    func markResearchDone(_ research: ArtifactRecord) {
+        guard research.kind == .research else { return }
+        var done = research
+        done.state = .done
+        saveArtifact(done, summary: "Completed Research: \(research.title)")
+    }
+
+    private func openNewConversation(projectID: UUID, researchID: UUID?) throws {
+        let conversation = try requireStore().createConversation(projectID: projectID, researchID: researchID)
+        conversations.insert(conversation, at: 0)
+        let previousID = selectedConversationID
+        selectedConversationID = conversation.id
+        switchContextSelection(from: previousID, to: conversation.id)
+        messages = []
+        draft = ""
+    }
+
+    /// Keeps the outgoing conversation's context choices and restores the
+    /// incoming one's, or its default when it has none yet.
+    private func switchContextSelection(from previousID: UUID?, to nextID: UUID) {
+        if let previousID { contextSelections[previousID] = contextSelection }
+        contextSelection = contextSelections[nextID] ?? defaultContextSelection(for: conversations.first { $0.id == nextID })
+    }
+
+    /// A research conversation starts from its research item alone; any other
+    /// conversation starts from everything accepted plus every source.
+    private func defaultContextSelection(for conversation: ConversationRecord?) -> ContextSelection {
+        let eligibleArtifactIDs = Set(artifacts.filter { $0.state != .removed && $0.state != .superseded }.map(\.id))
+        if let researchID = conversation?.researchID {
+            return ContextSelection(includeDescription: false, sourceIDs: [], artifactIDs: eligibleArtifactIDs.intersection([researchID]))
+        }
+        return ContextSelection(sourceIDs: Set(sources.map(\.id)), artifactIDs: eligibleArtifactIDs)
     }
 
     var contextPreview: String {
@@ -274,10 +334,8 @@ final class AppEnvironment: ObservableObject {
         } catch { alertMessage = error.localizedDescription; return }
 
         let frozen = makeFrozenContext(project: project)
-        guard let appJobID = beginJob(purpose: "chat", context: frozen) else { return }
+        guard let appJobID = beginJob(purpose: .chat, context: frozen) else { return }
         let frozenConversationID = conversationID
-        isGenerating = true
-        generationStatus = "Generating with \(provider.rawValue)…"
         let configuration = currentProviderConfiguration
         activeTask = Task { [weak self] in
             guard let self else { return }
@@ -287,7 +345,9 @@ final class AppEnvironment: ObservableObject {
                 for try await event in service.chat(context: frozen, userMessage: userText) {
                     guard !Task.isCancelled else { throw CancellationError() }
                     switch event {
+                    case .phase(let phase): self.advanceActivity(to: phase, expectedID: appJobID)
                     case .text(let token):
+                        self.advanceActivity(to: .receiving, expectedID: appJobID)
                         answer += token
                         let partial = MessageRecord(id: assistantID, projectID: project.id, conversationID: frozenConversationID, role: .assistant, text: answer, completion: .partial, createdAt: Date())
                         try self.requireStore().saveMessage(partial)
@@ -299,23 +359,22 @@ final class AppEnvironment: ObservableObject {
                 let completed = MessageRecord(id: assistantID, projectID: project.id, conversationID: frozenConversationID, role: .assistant, text: answer, completion: .complete, createdAt: Date())
                 try self.requireStore().saveMessage(completed)
                 if self.selectedProject?.id == project.id, self.selectedConversationID == frozenConversationID { self.upsertMessage(completed) }
-                self.generationStatus = "Completed"
+                self.finishActivity(.completed("Reply complete"), expectedID: appJobID)
                 self.finishActiveJob(.completed, expectedID: appJobID)
             } catch is CancellationError {
                 let cancelled = MessageRecord(id: assistantID, projectID: project.id, conversationID: frozenConversationID, role: .assistant, text: answer, completion: .cancelled, createdAt: Date())
                 try? self.requireStore().saveMessage(cancelled)
                 if self.selectedProject?.id == project.id, self.selectedConversationID == frozenConversationID { self.upsertMessage(cancelled) }
-                self.generationStatus = "Stopped · provider compute may continue"
+                self.finishActivity(.stopped, expectedID: appJobID)
                 self.finishActiveJob(.cancelled, expectedID: appJobID)
             } catch {
                 let failed = MessageRecord(id: assistantID, projectID: project.id, conversationID: frozenConversationID, role: .assistant, text: answer, completion: .failed, createdAt: Date())
                 try? self.requireStore().saveMessage(failed)
                 if self.selectedProject?.id == project.id, self.selectedConversationID == frozenConversationID { self.upsertMessage(failed) }
                 self.alertMessage = error.localizedDescription
-                self.generationStatus = "Failed · retry explicitly"
+                self.finishActivity(.failed(error.localizedDescription), expectedID: appJobID)
                 self.finishActiveJob(.failed, expectedID: appJobID)
             }
-            self.isGenerating = false
             self.activeTask = nil
         }
     }
@@ -323,38 +382,43 @@ final class AppEnvironment: ObservableObject {
     func stopGeneration() {
         activeTask?.cancel()
         finishActiveJob(.cancelled, expectedID: activeJobRecord?.id)
+        if let id = activity?.id { finishActivity(.stopped, expectedID: id) }
         activeTask = nil
-        isGenerating = false
+    }
+
+    /// Clears an ended request from the sidebar once it has been read.
+    func dismissActivity() {
+        guard activity?.isRunning == false else { return }
+        activity = nil
     }
 
     func suggestUpdates() {
         guard let project = selectedProject, validateContextBounds(extraText: "") else { return }
         let frozen = makeFrozenContext(project: project)
-        guard let appJobID = beginJob(purpose: "proposals", context: frozen) else { return }
+        guard let appJobID = beginJob(purpose: .proposals, context: frozen) else { return }
         let configuration = currentProviderConfiguration
-        isGenerating = true
-        generationStatus = "Requesting reviewable proposals…"
         activeTask = Task { [weak self] in
             guard let self else { return }
             do {
                 let service = InferenceService(configuration: configuration)
-                let generated = try await service.proposals(context: frozen)
+                let generated = try await service.proposals(context: frozen, progress: self.progress(for: appJobID))
                 guard self.selectedProject?.id == project.id else { throw InferenceError.contextChanged }
                 guard self.selectedProject?.revision == frozen.projectRevision else { throw InferenceError.contextChanged }
                 let records = generated.proposals.map { item in
                     ProposalRecord(id: item.id, projectID: project.id, originatingRevision: frozen.projectRevision, operation: item.operation, targetID: item.targetID, expectedTargetRevision: item.expectedTargetRevision, kind: item.kind, title: item.title, content: item.content, rationale: item.rationale, decisionSubject: item.decisionSubject, proposedState: item.proposedState, certainty: item.certainty, limitations: item.limitations, evidence: item.evidence, relationships: item.relationships, dependencyIDs: item.dependencyIDs, lifecycle: .pending, createdAt: Date())
                 }
+                self.advanceActivity(to: .saving, expectedID: appJobID)
                 try self.requireStore().saveProposals(records, expectedProjectRevision: frozen.projectRevision)
                 self.recordTelemetry(usage: generated.usage, metadata: generated.completionMetadata, expectedID: appJobID)
                 self.proposals = try self.requireStore().proposals(projectID: project.id)
-                self.generationStatus = records.isEmpty ? "No consequential updates suggested" : "\(records.count) proposals ready for review"
+                let summary = records.isEmpty ? "No consequential updates suggested" : "\(records.count) proposals ready for review"
+                self.finishActivity(.completed(summary), expectedID: appJobID)
                 self.finishActiveJob(.completed, expectedID: appJobID)
             } catch {
                 self.alertMessage = error.localizedDescription
-                self.generationStatus = "Proposal request failed · accepted state unchanged"
+                self.finishActivity(.failed(error.localizedDescription), expectedID: appJobID)
                 self.finishActiveJob(.failed, expectedID: appJobID)
             }
-            self.isGenerating = false
             self.activeTask = nil
         }
     }
@@ -362,28 +426,26 @@ final class AppEnvironment: ObservableObject {
     func suggestNextAction() {
         guard let project = selectedProject, !artifacts.isEmpty, validateContextBounds(extraText: "") else { return }
         let frozen = makeFrozenContext(project: project)
-        guard let appJobID = beginJob(purpose: "nextAction", context: frozen) else { return }
+        guard let appJobID = beginJob(purpose: .nextAction, context: frozen) else { return }
         let configuration = currentProviderConfiguration
-        isGenerating = true
-        generationStatus = "Suggesting a revision-bound next action..."
         activeTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let suggestion = try await InferenceService(configuration: configuration).nextAction(context: frozen)
+                let suggestion = try await InferenceService(configuration: configuration).nextAction(context: frozen, progress: self.progress(for: appJobID))
                 guard self.selectedProject?.id == project.id,
                       self.selectedProject?.revision == frozen.projectRevision else { throw InferenceError.contextChanged }
+                self.advanceActivity(to: .saving, expectedID: appJobID)
                 let record = RecommendationRecord(id: suggestion.id, projectID: project.id, text: suggestion.text, supportingRecords: suggestion.supportingRecords.map { RecommendationSupport(id: $0.id, version: Int($0.version)) }, uncertainty: suggestion.uncertainty, originatingRevision: Int(suggestion.originatingRevision), createdAt: suggestion.createdAt, isDismissed: false)
                 try self.requireStore().saveRecommendation(record)
                 self.recordTelemetry(usage: suggestion.usage, metadata: suggestion.completionMetadata, expectedID: appJobID)
                 self.recommendation = record
-                self.generationStatus = "Next action ready"
+                self.finishActivity(.completed("Next action ready"), expectedID: appJobID)
                 self.finishActiveJob(.completed, expectedID: appJobID)
             } catch {
                 self.alertMessage = error.localizedDescription
-                self.generationStatus = "Next-action request failed"
+                self.finishActivity(.failed(error.localizedDescription), expectedID: appJobID)
                 self.finishActiveJob(.failed, expectedID: appJobID)
             }
-            self.isGenerating = false
             self.activeTask = nil
         }
     }
@@ -455,8 +517,7 @@ final class AppEnvironment: ObservableObject {
 
     func createArtifact(kind: ArtifactKind, title: String, content: String, rationale: String, decisionSubject: String) {
         guard let project = selectedProject else { return }
-        let state: ArtifactState = kind == .task || kind == .openQuestion ? .open : .current
-        let artifact = ArtifactRecord(id: UUID(), projectID: project.id, kind: kind, title: title, content: content, state: state, rationale: rationale.isEmpty ? nil : rationale, decisionSubject: decisionSubject.isEmpty ? nil : decisionSubject, evidence: [], version: 0, updatedAt: Date())
+        let artifact = ArtifactRecord(id: UUID(), projectID: project.id, kind: kind, title: title, content: content, state: kind.initialState, rationale: rationale.isEmpty ? nil : rationale, decisionSubject: decisionSubject.isEmpty ? nil : decisionSubject, evidence: [], version: 0, updatedAt: Date())
         saveArtifact(artifact, summary: "Added \(kind.rawValue): \(title)")
     }
 
@@ -603,7 +664,6 @@ final class AppEnvironment: ObservableObject {
                 let service = InferenceService(configuration: configuration)
                 try await service.connectivityTest()
                 providerReadiness = .connected
-                generationStatus = "Connected, not quality-qualified"
             } catch {
                 providerReadiness = .unavailable
                 alertMessage = error.localizedDescription
@@ -617,9 +677,11 @@ final class AppEnvironment: ObservableObject {
 
     private func makeFrozenContext(project: ProjectRecord) -> FrozenProjectContext {
         let selectedSources = sources.filter { contextSelection.sourceIDs.contains($0.id) }
-        let selectedArtifacts = artifacts.filter { contextSelection.artifactIDs.contains($0.id) && $0.state != .removed && $0.state != .superseded }
+        // A research conversation's subject is pinned, even if deselected.
+        let research = linkedResearch
+        let selectedArtifacts = artifacts.filter { (contextSelection.artifactIDs.contains($0.id) || $0.id == research?.id) && $0.state != .removed && $0.state != .superseded }
         let completeMessages = messages.filter { $0.completion == .complete }.suffix(contextSelection.messageCount)
-        return FrozenProjectContext(projectID: project.id, projectRevision: project.revision, projectName: project.name, projectDescription: contextSelection.includeDescription ? project.summary : nil, sources: selectedSources, artifacts: selectedArtifacts, messages: Array(completeMessages), provider: provider, model: selectedModel)
+        return FrozenProjectContext(projectID: project.id, projectRevision: project.revision, projectName: project.name, projectDescription: contextSelection.includeDescription ? project.summary : nil, sources: selectedSources, artifacts: selectedArtifacts, messages: Array(completeMessages), provider: provider, model: selectedModel, focusResearchID: research?.id)
     }
 
     private func validateContextBounds(extraText: String) -> Bool {
@@ -649,12 +711,17 @@ final class AppEnvironment: ObservableObject {
         else { messages.append(message) }
     }
 
-    private func beginJob(purpose: String, context: FrozenProjectContext) -> UUID? {
-        let job = InferenceJobRecord(id: UUID(), contextID: UUID(), projectID: context.projectID, sourceRevision: context.projectRevision, provider: context.provider.rawValue, model: context.model, configuredUpstreamRoute: context.provider == .openRouter ? openRouterRoute : nil, purpose: purpose, sourceIDs: context.sources.map(\.id), artifactIDs: context.artifacts.map(\.id), messageIDs: context.messages.map(\.id), createdAt: Date(), status: .running)
+    private func beginJob(purpose: AIJobPurpose, context: FrozenProjectContext) -> UUID? {
+        let job = InferenceJobRecord(id: UUID(), contextID: UUID(), projectID: context.projectID, sourceRevision: context.projectRevision, provider: context.provider.rawValue, model: context.model, configuredUpstreamRoute: context.provider == .openRouter ? openRouterRoute : nil, purpose: purpose.rawValue, sourceIDs: context.sources.map(\.id), artifactIDs: context.artifacts.map(\.id), messageIDs: context.messages.map(\.id), createdAt: Date(), status: .running)
         do {
             try requireStore().saveJob(job)
             activeJobRecord = job
             upsertJob(job)
+            // A next action is grounded in accepted records alone.
+            let contextSummary = purpose == .nextAction
+                ? GenerationActivity.contextSummary(includesDescription: false, sources: 0, records: context.artifacts.count, messages: 0)
+                : GenerationActivity.contextSummary(includesDescription: context.projectDescription != nil, sources: context.sources.count, records: context.artifacts.count, messages: context.messages.count)
+            activity = GenerationActivity(id: job.id, projectID: context.projectID, projectName: context.projectName, purpose: purpose, provider: context.provider, model: context.model, route: job.configuredUpstreamRoute, contextSummary: contextSummary)
             return job.id
         } catch {
             alertMessage = "Inference did not start because its recovery record could not be saved. \(error.localizedDescription)"
@@ -686,9 +753,30 @@ final class AppEnvironment: ObservableObject {
             try store?.saveJob(job)
             activeJobRecord = job
             upsertJob(job)
-            if let cost = job.cost { generationStatus = "Generating · returned cost \(cost) \(job.currency ?? "")" }
-            else if usage != nil { generationStatus = "Generating · usage returned; cost unknown" }
         } catch { alertMessage = error.localizedDescription }
+    }
+
+    /// Phase reports from a provider request, applied only while that request
+    /// is still the one on screen.
+    private func progress(for jobID: UUID) -> AIJobProgress {
+        { [weak self] phase in await self?.advanceActivity(to: phase, expectedID: jobID) }
+    }
+
+    private func advanceActivity(to phase: AIJobPhase, expectedID: UUID) {
+        guard var current = activity, current.id == expectedID, current.advance(to: phase) else { return }
+        activity = current
+    }
+
+    private func finishActivity(_ outcome: GenerationActivity.Outcome, expectedID: UUID) {
+        guard var current = activity, current.id == expectedID, current.finish(outcome) else { return }
+        activity = current
+        guard case .completed = outcome else { return }
+        // A success needs no acknowledgement, so it clears once it has been seen.
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(8))
+            guard let self, self.activity?.id == expectedID else { return }
+            self.activity = nil
+        }
     }
 
     private func upsertJob(_ job: InferenceJobRecord) {

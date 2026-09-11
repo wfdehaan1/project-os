@@ -24,14 +24,7 @@ struct ArtifactInspectorView: View {
     }
 
     /// Only the statuses that make sense for this type may be chosen.
-    private var allowedStates: [ArtifactState] {
-        switch draft.kind {
-        case .topic, .research: [.current, .removed]
-        case .decision: [.current, .superseded, .removed]
-        case .openQuestion: [.open, .resolved, .dismissed, .removed]
-        case .task: [.open, .inProgress, .blocked, .done, .removed]
-        }
-    }
+    private var allowedStates: [ArtifactState] { draft.kind.allowedStates }
 
     private var hasEdits: Bool {
         draft.title != original.title || draft.content != original.content || draft.state != original.state
@@ -48,6 +41,7 @@ struct ArtifactInspectorView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.step4) {
                     contentSection
+                    researchConversationsSection
                     contextSection
                     provenanceSection
                     relationshipsSection
@@ -111,6 +105,45 @@ struct ArtifactInspectorView: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
+            }
+        }
+    }
+
+    /// Research is worked on in conversations. Each one starts focused on this
+    /// record, and all of them stay listed here.
+    @ViewBuilder
+    private var researchConversationsSection: some View {
+        // Read the stored record: starting research changes its status
+        // underneath this inspector's editable draft.
+        let research = environment.artifact(with: original.id) ?? original
+        if research.kind == .research, research.state != .removed {
+            let linked = environment.linkedConversations(for: research)
+            SectionCard(title: "Conversations", role: .surface) {
+                VStack(alignment: .leading, spacing: Spacing.step2) {
+                    if linked.isEmpty {
+                        InlineEmptyText(text: "No conversation about this research yet.")
+                    } else {
+                        ForEach(linked) { conversation in
+                            RecordRow(
+                                title: conversation.title,
+                                subtitle: conversation.updatedAt.formatted(date: .abbreviated, time: .shortened),
+                                isSelected: false,
+                                action: { environment.openConversation(conversation.id) }
+                            )
+                        }
+                    }
+                    Button {
+                        environment.startResearchConversation(for: research)
+                    } label: {
+                        Label(
+                            research.state == .open ? "Start research" : "New conversation",
+                            systemImage: "bubble.left.and.bubble.right"
+                        )
+                    }
+                    .buttonStyle(.posSecondary)
+                    .disabled(hasEdits)
+                    .help(hasEdits ? "Save or discard your edits first." : "Open a conversation focused on this research.")
+                }
             }
         }
     }

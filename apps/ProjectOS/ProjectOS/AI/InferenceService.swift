@@ -36,6 +36,8 @@ struct FrozenProjectContext: @unchecked Sendable {
     let messages: [MessageRecord]
     let provider: ProviderChoice
     let model: String
+    /// The research item a linked conversation works on; it is among `artifacts`.
+    var focusResearchID: UUID? = nil
 }
 
 struct GeneratedProposal: Sendable {
@@ -63,6 +65,7 @@ struct GeneratedProposalBatch: Sendable {
 }
 
 enum AppInferenceEvent: Sendable {
+    case phase(AIJobPhase)
     case text(String)
     case usage(AIUsage)
     case completed(AICompletionMetadata)
@@ -113,7 +116,11 @@ final class InferenceService: @unchecked Sendable {
             let task = Task {
                 do {
                     let provider = try makeProvider()
-                    var messages = [AIMessage(role: .system, content: PromptFactory.chatSystemPrompt)]
+                    var systemPrompt = PromptFactory.chatSystemPrompt
+                    if let focus = context.focusResearchID, context.artifacts.contains(where: { $0.id == focus }) {
+                        systemPrompt += "\n" + PromptFactory.researchFocusPrompt(artifactID: focus.uuidString)
+                    }
+                    var messages = [AIMessage(role: .system, content: systemPrompt)]
                     // Transcript turns are appended below with their original roles;
                     // do not also duplicate them inside the rendered context block.
                     messages.append(AIMessage(role: .user, content: render(context, includeMessages: false)))
@@ -124,6 +131,7 @@ final class InferenceService: @unchecked Sendable {
                         messages.append(AIMessage(role: .user, content: userMessage))
                     }
                     let request = makeRequest(context: context, purpose: .chat, messages: messages)
+                    continuation.yield(.phase(.waiting))
                     let handle = try await Self.runtime.start(provider: provider, request: request)
                     for try await event in handle.events {
                         try Task.checkCancellation()
@@ -146,7 +154,7 @@ final class InferenceService: @unchecked Sendable {
         }
     }
 
-    func proposals(context: FrozenProjectContext) async throws -> GeneratedProposalBatch {
+    func proposals(context: FrozenProjectContext, progress: AIJobProgress? = nil) async throws -> GeneratedProposalBatch {
         let provider = try makeProvider()
         let schema = StructuredOutputSchema(name: "projectos_proposals", schema: try Self.proposalSchema())
         let messages = [
@@ -154,6 +162,7 @@ final class InferenceService: @unchecked Sendable {
             AIMessage(role: .user, content: render(context))
         ]
         let request = makeRequest(context: context, purpose: .proposals, messages: messages, schema: schema)
+        await progress?(.waiting)
         let handle = try await Self.runtime.start(provider: provider, request: request)
         var output = ""
         var usage: AIUsage?
@@ -161,15 +170,18 @@ final class InferenceService: @unchecked Sendable {
         for try await event in handle.events {
             try Task.checkCancellation()
             switch event {
-            case .textDelta(let text): output.append(text)
+            case .textDelta(let text):
+                if output.isEmpty { await progress?(.receiving) }
+                output.append(text)
             case .usage(let value): usage = value
             case .completed(let value): completionMetadata = value
             }
         }
+        await progress?(.checking)
         return GeneratedProposalBatch(proposals: try decodeProposals(output, context: context, jobID: request.id), usage: usage, completionMetadata: completionMetadata)
     }
 
-    func nextAction(context: FrozenProjectContext) async throws -> NextActionSuggestion {
+    func nextAction(context: FrozenProjectContext, progress: AIJobProgress? = nil) async throws -> NextActionSuggestion {
         let provider = try makeProvider()
         let registry = ProviderRegistry()
         await registry.register(provider)
@@ -182,7 +194,7 @@ final class InferenceService: @unchecked Sendable {
         let accepted = context.artifacts.filter { $0.state != .removed && $0.state != .superseded }.map {
             NextActionSupportingRecord(id: $0.id, version: Int64($0.version), kind: $0.kind.rawValue, title: $0.title, content: $0.content, rationale: $0.rationale)
         }
-        return try await service.suggest(projectID: context.projectID, projectRevision: expectedRevision, provider: provider.descriptor, acceptedRecords: accepted, maximumOutputTokens: min(800, configuration.maximumOutputTokens), approvedSpendingCeilingUSD: configuration.approvedSpendingCeilingUSD)
+        return try await service.suggest(projectID: context.projectID, projectRevision: expectedRevision, provider: provider.descriptor, acceptedRecords: accepted, maximumOutputTokens: min(800, configuration.maximumOutputTokens), approvedSpendingCeilingUSD: configuration.approvedSpendingCeilingUSD, progress: progress)
     }
 
     private func makeProvider() throws -> any AIProvider {
@@ -279,7 +291,7 @@ final class InferenceService: @unchecked Sendable {
                 content: proposal.content,
                 rationale: proposal.rationale,
                 decisionSubject: proposal.decisionSubject,
-                proposedState: proposal.proposedState.map(Self.appState),
+                proposedState: proposal.proposedState.flatMap { Self.appState($0, kind: Self.appKind(proposal.kind)) },
                 certainty: proposal.certainty,
                 limitations: proposal.limitations,
                 evidence: proposal.evidence.map { EvidenceRecord(id: $0.id, sourceType: $0.sourceType.rawValue, sourceID: $0.referenceID, version: $0.version, quote: $0.quote, aiAuthored: $0.isAIAuthored) },
@@ -307,6 +319,12 @@ final class InferenceService: @unchecked Sendable {
         switch kind { case .topic: .topic; case .research: .research; case .decision: .decision; case .openQuestion: .openQuestion; case .task: .task }
     }
 
+    private static func appState(_ state: ProjectOSCore.ArtifactState, kind: ArtifactKind) -> ArtifactState? {
+        // Research tracks its own progress; a proposal's "active" never resets it.
+        if state == .active && kind == .research { return nil }
+        return appState(state)
+    }
+
     private static func appState(_ state: ProjectOSCore.ArtifactState) -> ArtifactState {
         switch state {
         case .active, .governing: .current
@@ -322,7 +340,10 @@ final class InferenceService: @unchecked Sendable {
     }
 
     private static func coreState(_ state: ArtifactState, kind: ArtifactKind) -> ProjectOSCore.ArtifactState {
-        switch state {
+        // Core knows one live state for topics and research; research's open,
+        // in-progress, and done are the app's finer reading of that one state.
+        if (kind == .topic || kind == .research) && state != .removed { return .active }
+        return switch state {
         case .current: kind == .decision ? .governing : .active
         case .open: .open
         case .inProgress: .inProgress

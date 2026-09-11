@@ -80,6 +80,23 @@ extension AppEnvironment {
         proposals.filter { !$0.lifecycle.isActionable }
     }
 
+    // MARK: - Research conversations
+
+    var selectedConversation: ConversationRecord? {
+        conversations.first { $0.id == selectedConversationID }
+    }
+
+    /// The live research item the selected conversation works on.
+    var linkedResearch: ArtifactRecord? {
+        guard let id = selectedConversation?.researchID else { return nil }
+        return artifacts.first { $0.id == id && $0.kind == .research && $0.state != .removed }
+    }
+
+    /// Every conversation about a research item, most recent first.
+    func linkedConversations(for research: ArtifactRecord) -> [ConversationRecord] {
+        conversations.filter { $0.researchID == research.id }
+    }
+
     // MARK: - Covers
 
     /// The cover for a project in the library.

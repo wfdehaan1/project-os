@@ -16,6 +16,20 @@ public enum AIJobPurpose: String, Codable, Sendable {
     case nextAction
 }
 
+/// Where a request is in its lifecycle, reported so the app can say what is
+/// happening rather than only that something is. Phases only move forward.
+public enum AIJobPhase: Int, Comparable, Sendable {
+    case preparing
+    case waiting
+    case receiving
+    case checking
+    case saving
+
+    public static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
+}
+
+public typealias AIJobProgress = @Sendable (AIJobPhase) async -> Void
+
 public enum AIMessageRole: String, Codable, Sendable {
     case system
     case user
