@@ -4,67 +4,103 @@ struct ConversationView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @State private var showContext = true
     @State private var showProjectUpdates = true
+    private let sideBySideRailMinimumWidth: CGFloat = 900
 
     var body: some View {
-        HSplitView {
-            ConversationListView()
-                .frame(minWidth: 170, idealWidth: 210, maxWidth: 260)
-            VStack(spacing: 0) {
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text("Conversation").font(.title2.bold())
-                        Text(environment.generationStatus).font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button("Paste Source", systemImage: "doc.on.clipboard") { environment.showAddSource = true }
-                    Button("Project Updates", systemImage: "tray.full") { showProjectUpdates.toggle() }
-                }.padding()
-                Divider()
+        GeometryReader { geometry in
+            let listWidth = min(210, max(170, geometry.size.width * 0.22))
+            let railWidth = min(340, max(280, geometry.size.width * 0.35))
+            let showsSideBySideRail = showProjectUpdates && geometry.size.width >= sideBySideRailMinimumWidth
+            let dividerWidth: CGFloat = showsSideBySideRail ? 2 : 1
+            let contentWidth = geometry.size.width - listWidth - dividerWidth - (showsSideBySideRail ? railWidth : 0)
 
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 14) {
-                            if environment.messages.isEmpty {
-                                ContentUnavailableView("Start with your project", systemImage: "bubble.left", description: Text("Select context below, then ask a question. Sending never applies project updates."))
-                            }
-                            ForEach(environment.messages) { message in
-                                MessageBubble(message: message).id(message.id)
-                            }
-                        }.padding()
+            ZStack(alignment: .topTrailing) {
+                HStack(spacing: 0) {
+                    ConversationListView()
+                        .frame(width: listWidth)
+                    Divider()
+                    conversationContent
+                        .frame(width: contentWidth)
+
+                    if showsSideBySideRail {
+                        Divider()
+                        projectUpdatesRail
+                            .frame(width: railWidth)
                     }
-                    .onChange(of: environment.messages.count) { _, _ in if let id = environment.messages.last?.id { proxy.scrollTo(id) } }
                 }
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
 
-                Divider()
-                DisclosureGroup(isExpanded: $showContext) {
-                    ContextPreviewView()
-                } label: {
-                    Label("Context Preview", systemImage: "scope")
-                        .font(.headline)
-                }.padding(.horizontal).padding(.top, 10)
-
-                TextEditor(text: $environment.draft)
-                    .frame(minHeight: 70, maxHeight: 130)
-                    .padding(8)
-                    .overlay { RoundedRectangle(cornerRadius: 8).stroke(.separator) }
-                    .padding(.horizontal)
-                    .onChange(of: environment.draft) { _, _ in environment.saveDraft() }
-                    .onKeyPress(.return, phases: .down) { press in
-                        if press.modifiers.contains(.command) { environment.sendMessage(); return .handled }
-                        return .ignored
-                    }
-                HStack {
-                    Text("⌘↩ Send · AI proposes text only").font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                    if environment.isGenerating { Button("Stop", systemImage: "stop.fill") { environment.stopGeneration() } }
-                    Button("Send", systemImage: "arrow.up.circle.fill") { environment.sendMessage() }.buttonStyle(.borderedProminent).disabled(environment.isGenerating || environment.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }.padding()
+                if showProjectUpdates && !showsSideBySideRail {
+                    projectUpdatesRail
+                        .frame(width: min(340, max(280, geometry.size.width - 80)))
+                        .shadow(color: .black.opacity(0.18), radius: 12, x: -4)
+                }
             }
-            .frame(minWidth: 360)
         }
-        .inspector(isPresented: $showProjectUpdates) {
-            ProposalRailView()
-                .inspectorColumnWidth(min: 280, ideal: 340, max: 440)
+    }
+
+    private var conversationContent: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("Conversation")
+                        .font(.title2.bold())
+                        .accessibilityIdentifier("conversation.workspace-heading")
+                    Text(environment.generationStatus).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Paste Source", systemImage: "doc.on.clipboard") { environment.showAddSource = true }
+                Button("Project Updates", systemImage: "tray.full") { showProjectUpdates.toggle() }
+                    .accessibilityIdentifier("conversation.toggle-project-updates")
+            }.padding()
+            Divider()
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        if environment.messages.isEmpty {
+                            ContentUnavailableView("Start with your project", systemImage: "bubble.left", description: Text("Select context below, then ask a question. Sending never applies project updates."))
+                        }
+                        ForEach(environment.messages) { message in
+                            MessageBubble(message: message).id(message.id)
+                        }
+                    }
+                    .padding()
+                }
+                .onChange(of: environment.messages.count) { _, _ in if let id = environment.messages.last?.id { proxy.scrollTo(id) } }
+            }
+
+            Divider()
+            DisclosureGroup(isExpanded: $showContext) {
+                ContextPreviewView()
+            } label: {
+                Label("Context Preview", systemImage: "scope")
+                    .font(.headline)
+            }.padding(.horizontal).padding(.top, 10)
+
+            TextEditor(text: $environment.draft)
+                .frame(minHeight: 70, maxHeight: 130)
+                .padding(8)
+                .overlay { RoundedRectangle(cornerRadius: 8).stroke(.separator) }
+                .padding(.horizontal)
+                .onChange(of: environment.draft) { _, _ in environment.saveDraft() }
+                .onKeyPress(.return, phases: .down) { press in
+                    if press.modifiers.contains(.command) { environment.sendMessage(); return .handled }
+                    return .ignored
+                }
+            HStack {
+                Text("⌘↩ Send · AI proposes text only").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if environment.isGenerating { Button("Stop", systemImage: "stop.fill") { environment.stopGeneration() } }
+                Button("Send", systemImage: "arrow.up.circle.fill") { environment.sendMessage() }.buttonStyle(.borderedProminent).disabled(environment.isGenerating || environment.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }.padding()
+        }
+        .frame(minWidth: 360)
+    }
+
+    private var projectUpdatesRail: some View {
+        ProposalRailView {
+            showProjectUpdates = false
         }
     }
 }
@@ -141,12 +177,20 @@ private struct ContextPreviewView: View {
 
 private struct ProposalRailView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    let onClose: () -> Void
     var pending: [ProposalRecord] { environment.proposals.filter { $0.lifecycle == .pending || $0.lifecycle == .deferred } }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                VStack(alignment: .leading) { Text("Project Updates").font(.headline); Text("Pending, never automatic truth").font(.caption).foregroundStyle(.secondary) }
+                VStack(alignment: .leading) {
+                    Text("Project Updates")
+                        .font(.headline)
+                        .accessibilityIdentifier("conversation.project-updates-heading")
+                    Text("Pending, never automatic truth").font(.caption).foregroundStyle(.secondary)
+                }
                 Spacer()
+                Button("Close Project Updates", systemImage: "xmark", action: onClose)
+                    .labelStyle(.iconOnly)
             }
             Button("Suggest Project Updates", systemImage: "sparkles") { environment.suggestUpdates() }
                 .buttonStyle(.borderedProminent).disabled(environment.isGenerating)
@@ -158,7 +202,10 @@ private struct ProposalRailView: View {
                     LazyVStack(spacing: 12) { ForEach(pending) { ProposalCard(proposal: $0) } }
                 }
             }
-        }.padding().background(.background.secondary)
+        }
+        .padding()
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(.background.secondary)
     }
 }
 
