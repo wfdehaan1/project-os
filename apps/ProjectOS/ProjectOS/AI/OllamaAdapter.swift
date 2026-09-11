@@ -6,6 +6,10 @@ public struct OllamaConfiguration: Equatable, Sendable {
     public let baseURL: URL
     public let contextWindowTokens: Int?
     public let maximumOutputTokens: Int
+    /// Longest silence tolerated while waiting for the next byte — covers model
+    /// load and prompt evaluation before the first token. It does not bound the
+    /// whole generation: a local model may stream for many minutes, and Stop
+    /// cancels it explicitly.
     public let requestTimeout: TimeInterval
 
     public init(
@@ -14,7 +18,7 @@ public struct OllamaConfiguration: Equatable, Sendable {
         baseURL: URL = URL(string: "http://127.0.0.1:11434")!,
         contextWindowTokens: Int?,
         maximumOutputTokens: Int = 4_096,
-        requestTimeout: TimeInterval = 120
+        requestTimeout: TimeInterval = 300
     ) throws {
         try OllamaConfiguration.validate(baseURL: baseURL)
         let normalizedModel = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -35,7 +39,7 @@ public struct OllamaConfiguration: Equatable, Sendable {
         self.requestTimeout = requestTimeout
     }
 
-    private static func validate(baseURL: URL) throws {
+    static func validate(baseURL: URL) throws {
         guard let components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
               components.scheme?.lowercased() == "http",
               components.user == nil,
@@ -59,9 +63,10 @@ public struct OllamaConfiguration: Equatable, Sendable {
         return pieces[0] == "127"
     }
 
-    private static func isCloudModel(_ model: String) -> Bool {
+    static func isCloudModel(_ model: String) -> Bool {
         let value = model.lowercased()
-        return value.hasSuffix(":cloud") || value.contains(":cloud-") || value.hasPrefix("cloud/")
+        // Ollama names cloud-backed tags `name:cloud` or `name:size-cloud`.
+        return value.hasSuffix(":cloud") || value.hasSuffix("-cloud") || value.contains(":cloud-") || value.hasPrefix("cloud/")
     }
 }
 
@@ -83,16 +88,52 @@ public final class OllamaAdapter: AIProvider, @unchecked Sendable {
             maximumOutputTokens: configuration.maximumOutputTokens,
             capabilities: ProviderCapabilities(streaming: true, structuredOutput: true, cancellation: true)
         )
-        if let session {
-            self.session = session
-        } else {
-            let config = URLSessionConfiguration.ephemeral
-            config.timeoutIntervalForRequest = configuration.requestTimeout
-            config.timeoutIntervalForResource = configuration.requestTimeout
-            config.httpCookieStorage = nil
-            config.urlCache = nil
-            self.session = URLSession(configuration: config, delegate: RejectRedirectsDelegate(), delegateQueue: nil)
+        self.session = session ?? Self.makeSession(Self.generationSessionConfiguration(idleTimeout: configuration.requestTimeout))
+    }
+
+    /// Generation is bounded by silence, not duration: a 12B model producing
+    /// structured proposals routinely streams past two minutes, and a total cap
+    /// cut those off mid-answer.
+    static func generationSessionConfiguration(idleTimeout: TimeInterval) -> URLSessionConfiguration {
+        sessionConfiguration(idleTimeout: idleTimeout, totalTimeout: 24 * 60 * 60)
+    }
+
+    private static func sessionConfiguration(idleTimeout: TimeInterval, totalTimeout: TimeInterval) -> URLSessionConfiguration {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = idleTimeout
+        config.timeoutIntervalForResource = totalTimeout
+        config.httpCookieStorage = nil
+        config.urlCache = nil
+        return config
+    }
+
+    private static func makeSession(_ config: URLSessionConfiguration) -> URLSession {
+        URLSession(configuration: config, delegate: RejectRedirectsDelegate(), delegateQueue: nil)
+    }
+
+    /// Lists the models installed in the Ollama at `baseURL`, for an explicit
+    /// lookup in Settings. Cloud-backed models are left out because they are
+    /// outside the local execution boundary.
+    public static func installedModels(at baseURL: URL, session: URLSession? = nil) async throws -> [String] {
+        try OllamaConfiguration.validate(baseURL: baseURL)
+        let activeSession = session ?? makeSession(sessionConfiguration(idleTimeout: 10, totalTimeout: 10))
+        defer { if session == nil { activeSession.finishTasksAndInvalidate() } }
+
+        let data: Data
+        let response: URLResponse
+        do { (data, response) = try await activeSession.data(from: baseURL.appendingPathComponent("api/tags")) }
+        catch { throw AIProviderError.unavailable("Start Ollama locally at the configured loopback address, then retry.") }
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw AIProviderError.unavailable("Start Ollama locally, then retry the model lookup.")
         }
+        guard let tags = try? JSONDecoder().decode(TagsResponse.self, from: data) else {
+            throw AIProviderError.malformedStream
+        }
+        let names = tags.models
+            .filter { $0.remoteHost == nil }
+            .compactMap { $0.name ?? $0.model }
+            .filter { !OllamaConfiguration.isCloudModel($0) }
+        return Set(names).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     }
 
     public func checkConnectivity() async -> ProviderHealth {
@@ -123,7 +164,7 @@ public final class OllamaAdapter: AIProvider, @unchecked Sendable {
             messages: request.messages.map { .init(role: $0.role.rawValue, content: $0.content) },
             stream: true,
             format: request.structuredOutput?.schema,
-            options: .init(numPredict: request.maximumOutputTokens)
+            options: .init(numPredict: request.maximumOutputTokens, numCtx: configuration.contextWindowTokens)
         )
         var urlRequest = URLRequest(url: configuration.baseURL.appendingPathComponent("api/chat"))
         urlRequest.httpMethod = "POST"
@@ -180,6 +221,10 @@ public final class OllamaAdapter: AIProvider, @unchecked Sendable {
             continuation.yield(.textDelta(content))
         }
         if chunk.done == true {
+            // Ollama reports a normal-looking completion when it stops at
+            // `num_predict`; the text is cut mid-answer, so never pass it on as
+            // complete.
+            if chunk.doneReason == "length" { throw AIProviderError.outputLimitReached }
             if chunk.promptEvalCount != nil || chunk.evalCount != nil {
                 continuation.yield(.usage(AIUsage(inputTokens: chunk.promptEvalCount, outputTokens: chunk.evalCount)))
             }
@@ -194,7 +239,13 @@ private struct OllamaRequest: Encodable {
     struct Message: Encodable { let role: String; let content: String }
     struct Options: Encodable {
         let numPredict: Int
-        enum CodingKeys: String, CodingKey { case numPredict = "num_predict" }
+        /// Without this Ollama uses its own default window and silently
+        /// truncates prompts that the configured bound allowed.
+        let numCtx: Int?
+        enum CodingKeys: String, CodingKey {
+            case numPredict = "num_predict"
+            case numCtx = "num_ctx"
+        }
     }
     let model: String
     let messages: [Message]
@@ -208,17 +259,27 @@ private struct OllamaChunk: Decodable {
     let model: String?
     let message: Message?
     let done: Bool?
+    let doneReason: String?
     let error: String?
     let promptEvalCount: Int?
     let evalCount: Int?
     enum CodingKeys: String, CodingKey {
         case model, message, done, error
+        case doneReason = "done_reason"
         case promptEvalCount = "prompt_eval_count"
         case evalCount = "eval_count"
     }
 }
 
 private struct TagsResponse: Decodable {
-    struct Model: Decodable { let name: String?; let model: String? }
+    struct Model: Decodable {
+        let name: String?
+        let model: String?
+        let remoteHost: String?
+        enum CodingKeys: String, CodingKey {
+            case name, model
+            case remoteHost = "remote_host"
+        }
+    }
     let models: [Model]
 }

@@ -242,7 +242,7 @@ private struct MessageBubble: View {
                     .font(TypeRole.caption)
                     .foregroundStyle(theme.muted)
             }
-            Text(message.text.isEmpty ? "No text received." : message.text)
+            messageText
                 .font(TypeRole.body)
                 .foregroundStyle(theme.text)
                 .textSelection(.enabled)
@@ -259,6 +259,17 @@ private struct MessageBubble: View {
                 )
         }
         .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+    }
+
+    /// Agent replies arrive as Markdown; the user's own words stay literal.
+    @ViewBuilder private var messageText: some View {
+        if message.text.isEmpty {
+            Text("No text received.")
+        } else if isUser {
+            Text(message.text)
+        } else {
+            MarkdownText(message.text)
+        }
     }
 }
 

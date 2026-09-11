@@ -74,6 +74,8 @@ enum TypeRole {
     static let eyebrow = Font.caption.weight(.semibold)
     /// Shortcuts, identifiers, manifest values, technical excerpts only.
     static let code = Font.system(.caption, design: .monospaced)
+    /// Multi-line code blocks in agent replies; readable at length.
+    static let codeBlock = Font.system(.callout, design: .monospaced)
 }
 
 /// Hairline and boundary widths.

@@ -243,7 +243,9 @@ final class ProjectStore: @unchecked Sendable {
                 try ensureWritable(root.projectID)
                 guard root.lifecycle == .pending || root.lifecycle == .deferred else { return }
                 var project = try requireProject(root.projectID)
-                guard project.revision == root.originatingRevision else { throw ProjectStoreError.stale(expected: root.originatingRevision, actual: project.revision) }
+                let isCurrent = try project.revision == root.originatingRevision
+                    || movedOnlyBySameSnapshotAcceptances(projectID: project.id, since: root.originatingRevision, currentRevision: project.revision)
+                guard isCurrent else { throw ProjectStoreError.stale(expected: root.originatingRevision, actual: project.revision) }
                 let all: [ProposalRecord] = try fetchAll("SELECT data FROM proposals WHERE project_id = ?", bind: [project.id.uuidString], as: ProposalRecord.self)
                 let byID = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
                 var ordered: [ProposalRecord] = []
@@ -338,6 +340,23 @@ final class ProjectStore: @unchecked Sendable {
                 project.updatedAt = Date()
                 try put(project, table: "projects", id: project.id)
             }
+        }
+    }
+
+    /// Whether every revision after `revision` came from accepting a proposal
+    /// generated from that same snapshot, none of them undone. Such siblings were
+    /// reviewed against identical state, and the per-target version and
+    /// decision-subject checks still stop any overwrite. Any other edit, an undo,
+    /// or a proposal from another snapshot leaves the proposal stale.
+    private func movedOnlyBySameSnapshotAcceptances(projectID: UUID, since revision: Int, currentRevision: Int) throws -> Bool {
+        guard currentRevision > revision else { return false }
+        let later: [ChangeRecord] = try fetchAll("SELECT data FROM changes WHERE project_id = ? AND revision > ?", bind: [projectID.uuidString, String(revision)], as: ChangeRecord.self)
+        let proposals: [ProposalRecord] = try fetchAll("SELECT data FROM proposals WHERE project_id = ?", bind: [projectID.uuidString], as: ProposalRecord.self)
+        let sameSnapshot = Set(proposals.filter { $0.originatingRevision == revision && $0.lifecycle == .accepted }.map(\.id))
+        // A revision without a change record (e.g. a details edit) is a change we cannot vouch for.
+        guard Set(later.map(\.revision)) == Set((revision + 1)...currentRevision) else { return false }
+        return later.allSatisfy { change in
+            !change.undone && change.originatingProposalID.map(sameSnapshot.contains) == true
         }
     }
 

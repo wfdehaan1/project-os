@@ -8,23 +8,11 @@ struct GlobalSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @Environment(\.theme) private var theme
 
-    @State private var openRouterKey = ""
-    @State private var keyStatus = "Not inspected"
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.step4) {
                 appearanceCard
-                providerCard
-                ollamaCard
-                openRouterCard
-                HStack(spacing: Spacing.step2) {
-                    Button("Test connectivity") { environment.testProvider() }
-                        .buttonStyle(.posSecondary)
-                    Spacer()
-                    Button("Save settings") { environment.saveProviderSettings() }
-                        .buttonStyle(.posPrimary)
-                }
+                InferenceSettingsSection()
             }
             .padding(Spacing.step5)
         }
@@ -55,112 +43,6 @@ struct GlobalSettingsView: View {
                     .labelsHidden()
                 }
                 ThemeSwatchRow(preset: environment.themePreset)
-            }
-        }
-    }
-
-    private var providerCard: some View {
-        SectionCard(title: "Inference provider") {
-            VStack(alignment: .leading, spacing: Spacing.step3) {
-                SettingsRow(label: "Provider") {
-                    Picker("Provider", selection: $environment.provider) {
-                        ForEach(ProviderChoice.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .labelsHidden()
-                }
-                SettingsRow(label: "Readiness") {
-                    StatusBadge(
-                        text: environment.providerReadiness.displayName,
-                        symbol: environment.providerReadiness.symbolName,
-                        tone: environment.providerReadiness.tone
-                    )
-                }
-                SettingsRow(label: "Documented context window (tokens)") {
-                    TextField("", text: $environment.contextWindowTokens)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityLabel("Documented context window in tokens")
-                }
-                SettingsRow(label: "Maximum output tokens") {
-                    TextField("", text: $environment.maximumOutputTokens)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityLabel("Maximum output tokens")
-                }
-                DisclosureNote(
-                    text: "Connected means transport worked. Only a recorded live capability and quality walkthrough can mark a model qualified.",
-                    systemImage: "checkmark.seal"
-                )
-            }
-        }
-    }
-
-    private var ollamaCard: some View {
-        SectionCard(title: "Ollama", subtitle: "Runs on this Mac.") {
-            VStack(alignment: .leading, spacing: Spacing.step3) {
-                SettingsRow(label: "Loopback URL") {
-                    TextField("", text: $environment.ollamaURL)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityLabel("Ollama loopback URL")
-                }
-                SettingsRow(label: "Installed local model") {
-                    TextField("", text: $environment.ollamaModel)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityLabel("Installed local model")
-                }
-                DisclosureNote(
-                    text: "Only loopback addresses and ports are accepted. ProjectOS does not install, start, stop, or download Ollama models.",
-                    systemImage: "desktopcomputer"
-                )
-            }
-        }
-    }
-
-    private var openRouterCard: some View {
-        SectionCard(title: "OpenRouter", subtitle: "External, and billed separately.") {
-            VStack(alignment: .leading, spacing: Spacing.step3) {
-                SettingsRow(label: "Stable model ID") {
-                    TextField("", text: $environment.openRouterModel)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityLabel("Stable model ID")
-                }
-                SettingsRow(label: "Pinned upstream provider route") {
-                    TextField("", text: $environment.openRouterRoute)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityLabel("Pinned upstream provider route")
-                }
-                SettingsRow(label: "Approved test spending ceiling (USD)") {
-                    TextField("", text: $environment.approvedSpendingCeilingUSD)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityLabel("Approved test spending ceiling in US dollars")
-                }
-                SettingsRow(label: "API key", help: "Stored in the macOS Keychain, never in project data or exports.") {
-                    SecureField("", text: $openRouterKey)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityLabel("OpenRouter API key")
-                }
-                HStack(spacing: Spacing.step2) {
-                    Text(keyStatus)
-                        .font(TypeRole.caption)
-                        .foregroundStyle(theme.muted)
-                    Spacer()
-                    Button("Remove key") {
-                        environment.removeOpenRouterKey()
-                        openRouterKey = ""
-                        keyStatus = "Removed from Keychain"
-                    }
-                    .buttonStyle(.posDestructive)
-                    Button("Save key") {
-                        Task {
-                            keyStatus = await environment.saveOpenRouterKey(openRouterKey)
-                                ? "Saved in Keychain"
-                                : "Could not save key"
-                        }
-                    }
-                    .buttonStyle(.posSecondary)
-                }
-                DisclosureNote(
-                    text: "No automatic retry, model fallback, or hidden provider switch. Usage and cost are shown only when the provider returns them.",
-                    systemImage: "network"
-                )
             }
         }
     }

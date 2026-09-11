@@ -18,6 +18,12 @@ struct ProjectWorkspaceView: View {
                 )
         } detail: {
             destinationView
+                // The split view measures the detail at near-zero width when it
+                // works out the window's minimum size. Wrapped text is then one
+                // character per line and thousands of points tall, so the whole
+                // window overflowed vertically and clipped the sidebar. A real
+                // minimum width keeps that measurement sane.
+                .frame(minWidth: 480)
                 .background(theme.canvas)
         }
         .sheet(isPresented: $environment.showAddSource) { AddSourceSheet() }
@@ -90,6 +96,7 @@ private struct WorkspaceSidebar: View {
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .background(theme.sidebar)
+        .overlay(alignment: .trailing) { DecorativeDivider(axis: .vertical) }
     }
 }
 

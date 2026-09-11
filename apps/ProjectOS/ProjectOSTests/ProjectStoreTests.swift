@@ -83,6 +83,59 @@ final class ProjectStoreTests: XCTestCase {
         XCTAssertThrowsError(try store.saveProposals([stale], expectedProjectRevision: 0))
     }
 
+    func testProposalsFromOneSnapshotCanEachBeAccepted() throws {
+        let project = try store.createProject(name: "Bathroom", summary: "")
+        let batch = ["Pump quote", "Order tiles", "Heating choice"].map { pendingProposal(project.id, title: $0, originatingRevision: 0) }
+        try store.saveProposals(batch, expectedProjectRevision: 0)
+
+        for proposal in batch { try store.acceptProposal(proposal.id) }
+
+        XCTAssertEqual(try store.artifacts(projectID: project.id).count, 3)
+        XCTAssertEqual(try store.projects().first?.revision, 3)
+    }
+
+    func testUnrelatedEditUndoOrOtherSnapshotStillMakesSiblingsStale() throws {
+        let project = try store.createProject(name: "Bathroom", summary: "")
+        let first = pendingProposal(project.id, title: "Pump quote", originatingRevision: 0)
+        let sibling = pendingProposal(project.id, title: "Order tiles", originatingRevision: 0)
+        let laterSibling = pendingProposal(project.id, title: "Heating choice", originatingRevision: 0)
+        try store.saveProposals([first, sibling, laterSibling], expectedProjectRevision: 0)
+        try store.acceptProposal(first.id)
+
+        // A direct edit is not a sibling acceptance.
+        let edit = ArtifactRecord(id: UUID(), projectID: project.id, kind: .topic, title: "Budget", content: "€12.000", state: .current, rationale: nil, decisionSubject: nil, evidence: [], version: 0, updatedAt: Date())
+        try store.saveArtifact(edit, expectedProjectRevision: 1, summary: "Added topic")
+        XCTAssertThrowsError(try store.acceptProposal(sibling.id)) { error in
+            guard case ProjectStoreError.stale(0, 2) = error else { return XCTFail("Expected stale, got \(error)") }
+        }
+
+        // Undo of a sibling acceptance is also a change the batch was not reviewed against.
+        let undoProject = try store.createProject(name: "Kitchen", summary: "")
+        let undone = pendingProposal(undoProject.id, title: "Cabinets", originatingRevision: 0)
+        let remaining = pendingProposal(undoProject.id, title: "Worktop", originatingRevision: 0)
+        try store.saveProposals([undone, remaining], expectedProjectRevision: 0)
+        try store.acceptProposal(undone.id)
+        try store.undoLatest(projectID: undoProject.id)
+        XCTAssertThrowsError(try store.acceptProposal(remaining.id))
+
+        // Acceptance from a newer snapshot moves the project past this batch.
+        let otherProject = try store.createProject(name: "Garden", summary: "")
+        let old = pendingProposal(otherProject.id, title: "Fence", originatingRevision: 0)
+        let oldSibling = pendingProposal(otherProject.id, title: "Gate", originatingRevision: 0)
+        try store.saveProposals([old, oldSibling], expectedProjectRevision: 0)
+        try store.acceptProposal(old.id)
+        let newer = pendingProposal(otherProject.id, title: "Shed", originatingRevision: 1)
+        try store.saveProposals([newer], expectedProjectRevision: 1)
+        try store.acceptProposal(newer.id)
+        XCTAssertThrowsError(try store.acceptProposal(oldSibling.id))
+
+        XCTAssertEqual(try store.proposals(projectID: project.id).first { $0.id == sibling.id }?.lifecycle, .pending)
+    }
+
+    private func pendingProposal(_ projectID: UUID, title: String, originatingRevision: Int) -> ProposalRecord {
+        ProposalRecord(id: UUID(), projectID: projectID, originatingRevision: originatingRevision, kind: .task, title: title, content: title, rationale: nil, decisionSubject: nil, evidence: [], lifecycle: .pending, createdAt: Date())
+    }
+
     func testRejectingDependencyInvalidatesDependentsTransitively() throws {
         let project = try store.createProject(name: "Office", summary: "")
         let dependency = ProposalRecord(id: UUID(), projectID: project.id, originatingRevision: 0, kind: .research, title: "Check soil", content: "Inspect the soil.", rationale: nil, decisionSubject: nil, evidence: [], lifecycle: .pending, createdAt: Date())

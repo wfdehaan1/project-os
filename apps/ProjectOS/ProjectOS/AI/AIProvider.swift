@@ -222,6 +222,7 @@ public enum AIProviderError: Error, Equatable, Sendable {
     case unsupportedStructuredOutput
     case malformedStream
     case truncatedOutput
+    case outputLimitReached
     case providerFailure(code: String?)
     case cancelled
 }
@@ -242,6 +243,7 @@ extension AIProviderError: LocalizedError {
         case .unsupportedStructuredOutput: "The selected route does not support the required structured output parameters."
         case .malformedStream: "The provider returned a malformed stream. Partial output was retained."
         case .truncatedOutput: "The provider stream ended before a completion marker. Partial output was retained."
+        case .outputLimitReached: "The model reached the maximum output tokens before finishing, so its answer is incomplete. Raise the limit in Settings or narrow the context, then retry."
         case .providerFailure(let code): "The provider reported an in-stream error\(code.map { " (\($0))" } ?? "")."
         case .cancelled: "Generation was stopped. The provider may already have performed work or incurred cost."
         }

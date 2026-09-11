@@ -27,8 +27,18 @@ final class AppEnvironment: ObservableObject {
     @Published var generationStatus = "Idle"
     @Published var contextSelection = ContextSelection()
     @Published var provider: ProviderChoice
-    @Published var ollamaURL: String
+    @Published var ollamaURL: String {
+        didSet {
+            guard ollamaURL != oldValue else { return }
+            installedOllamaModels = []
+            ollamaModelLookupStatus = "Not looked up"
+        }
+    }
     @Published var ollamaModel: String
+    /// Filled only by an explicit lookup; empty means "not looked up".
+    @Published var installedOllamaModels: [String] = []
+    @Published var ollamaModelLookupStatus = "Not looked up"
+    @Published var isLookingUpOllamaModels = false
     @Published var openRouterModel: String
     @Published var openRouterRoute: String
     @Published var contextWindowTokens: String
@@ -552,6 +562,37 @@ final class AppEnvironment: ObservableObject {
         Task {
             do { try await KeychainCredentialStore().delete(account: "openrouter-api-key") }
             catch { alertMessage = error.localizedDescription }
+        }
+    }
+
+    /// Asks the local Ollama which models are installed. Only ever runs when
+    /// the person presses the lookup button in Settings.
+    func findInstalledOllamaModels() {
+        guard let url = URL(string: ollamaURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            alertMessage = "The Ollama URL is invalid."
+            return
+        }
+        let requestedURL = ollamaURL
+        isLookingUpOllamaModels = true
+        ollamaModelLookupStatus = "Looking up…"
+        Task {
+            defer { isLookingUpOllamaModels = false }
+            do {
+                let models = try await OllamaAdapter.installedModels(at: url)
+                // The URL was edited while the lookup ran; this list belongs to the old one.
+                guard ollamaURL == requestedURL else { return }
+                installedOllamaModels = models
+                ollamaModelLookupStatus = switch models.count {
+                case 0: "No local models installed"
+                case 1: "1 local model found"
+                default: "\(models.count) local models found"
+                }
+            } catch {
+                guard ollamaURL == requestedURL else { return }
+                installedOllamaModels = []
+                ollamaModelLookupStatus = "Lookup failed"
+                alertMessage = error.localizedDescription
+            }
         }
     }
 

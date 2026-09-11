@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Project settings: identity, the inference record, ownership and recovery,
-/// and — separated at the bottom — deletion.
+/// Project settings: identity, the model configuration (global, shared with
+/// the Settings window), the inference record, ownership and recovery, and —
+/// separated at the bottom — deletion.
 struct ProjectSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @Environment(\.theme) private var theme
@@ -25,6 +26,7 @@ struct ProjectSettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.step4) {
                     identityCard
+                    InferenceSettingsSection()
                     inferenceCard
                     ownershipCard
                     deletionCard
