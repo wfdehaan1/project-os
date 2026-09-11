@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectos.local/schema/proposal-v1.json",
+  "title": "ProjectOS proposal batch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "proposals"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "proposals": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/proposal" }
+    }
+  },
+  "$defs": {
+    "nullableUUID": { "type": ["string", "null"], "format": "uuid" },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temporaryID", "operation", "kind", "targetID", "expectedTargetRevision", "title", "content",
+        "rationale", "decisionSubject", "state", "certainty", "limitations", "evidence", "relationships", "dependencyIDs"
+      ],
+      "properties": {
+        "temporaryID": { "type": "string", "format": "uuid" },
+        "operation": { "enum": ["create", "update", "supersede", "relate"] },
+        "kind": { "enum": ["topic", "research", "decision", "open_question", "task"] },
+        "targetID": { "$ref": "#/$defs/nullableUUID" },
+        "expectedTargetRevision": { "type": ["integer", "null"], "minimum": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "content": { "type": "string", "minLength": 1 },
+        "rationale": { "type": ["string", "null"] },
+        "decisionSubject": { "type": ["string", "null"] },
+        "certainty": { "type": ["string", "null"] },
+        "limitations": { "type": ["string", "null"] },
+        "state": {
+          "type": ["string", "null"],
+          "enum": [null, "active", "governing", "superseded", "open", "resolved", "dismissed", "in_progress", "blocked", "done", "removed"]
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence" }
+        },
+        "relationships": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/relation" }
+        },
+        "dependencyIDs": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceType", "referenceID", "version", "quote"],
+      "properties": {
+        "sourceType": { "enum": ["source", "message"] },
+        "referenceID": { "type": "string", "format": "uuid" },
+        "version": { "type": "integer", "minimum": 1 },
+        "quote": { "type": "string", "minLength": 1 }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "targetArtifactID", "targetProposalID"],
+      "properties": {
+        "type": { "enum": ["supports", "concerns", "advances", "blocks", "supersedes"] },
+        "targetArtifactID": { "$ref": "#/$defs/nullableUUID" },
+        "targetProposalID": { "$ref": "#/$defs/nullableUUID" }
+      },
+      "oneOf": [
+        { "required": ["targetArtifactID"], "properties": { "targetArtifactID": { "type": "string" }, "targetProposalID": { "type": "null" } } },
+        { "required": ["targetProposalID"], "properties": { "targetProposalID": { "type": "string" }, "targetArtifactID": { "type": "null" } } }
+      ]
+    }
+  }
+}
