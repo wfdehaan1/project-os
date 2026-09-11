@@ -1,15 +1,25 @@
 import SwiftUI
 
+/// Conversation List, Transcript and Composer, and the Proposal Rail when the
+/// width permits.
+///
+/// A narrow window turns the rail into an overlay pane rather than hiding it,
+/// so pending proposal status and its approval effects never disappear.
 struct ConversationView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    @Environment(\.theme) private var theme
+
     @State private var showContext = true
     @State private var showProjectUpdates = true
+
+    /// Below this width the rail overlays the transcript instead of sitting
+    /// beside it.
     private let sideBySideRailMinimumWidth: CGFloat = 900
 
     var body: some View {
         GeometryReader { geometry in
-            let listWidth = min(210, max(170, geometry.size.width * 0.22))
-            let railWidth = min(340, max(280, geometry.size.width * 0.35))
+            let listWidth = min(220, max(180, geometry.size.width * 0.22))
+            let railWidth = min(360, max(300, geometry.size.width * 0.35))
             let showsSideBySideRail = showProjectUpdates && geometry.size.width >= sideBySideRailMinimumWidth
             let dividerWidth: CGFloat = showsSideBySideRail ? 2 : 1
             let contentWidth = geometry.size.width - listWidth - dividerWidth - (showsSideBySideRail ? railWidth : 0)
@@ -18,12 +28,12 @@ struct ConversationView: View {
                 HStack(spacing: 0) {
                     ConversationListView()
                         .frame(width: listWidth)
-                    Divider()
+                    DecorativeDivider(axis: .vertical)
                     conversationContent
                         .frame(width: contentWidth)
 
                     if showsSideBySideRail {
-                        Divider()
+                        DecorativeDivider(axis: .vertical)
                         projectUpdatesRail
                             .frame(width: railWidth)
                     }
@@ -32,236 +42,333 @@ struct ConversationView: View {
 
                 if showProjectUpdates && !showsSideBySideRail {
                     projectUpdatesRail
-                        .frame(width: min(340, max(280, geometry.size.width - 80)))
+                        .frame(width: min(360, max(300, geometry.size.width - 80)))
                         .shadow(color: .black.opacity(0.18), radius: 12, x: -4)
                 }
             }
         }
+        .background(theme.canvas)
+        .navigationTitle("Conversation")
     }
+
+    private var projectUpdatesRail: some View {
+        ProposalRailView { showProjectUpdates = false }
+    }
+
+    // MARK: - Transcript and composer
 
     private var conversationContent: some View {
         VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("Conversation")
-                        .font(.title2.bold())
-                        .accessibilityIdentifier("conversation.workspace-heading")
-                    Text(environment.generationStatus).font(.caption).foregroundStyle(.secondary)
+            SurfaceHeader(
+                title: "Conversation",
+                titleIdentifier: "conversation.workspace-heading"
+            ) {
+                StatusMark(
+                    text: environment.generationStatus,
+                    symbol: environment.isGenerating ? "circle.dotted" : "checkmark.circle",
+                    tone: environment.isGenerating ? .warning : .muted
+                )
+            } actions: {
+                Button {
+                    environment.showAddSource = true
+                } label: {
+                    Label("Paste source", systemImage: "doc.on.clipboard")
                 }
-                Spacer()
-                Button("Paste Source", systemImage: "doc.on.clipboard") { environment.showAddSource = true }
-                Button("Project Updates", systemImage: "tray.full") { showProjectUpdates.toggle() }
-                    .accessibilityIdentifier("conversation.toggle-project-updates")
-            }.padding()
-            Divider()
+                .buttonStyle(.posSecondary)
 
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 14) {
-                        if environment.messages.isEmpty {
-                            ContentUnavailableView("Start with your project", systemImage: "bubble.left", description: Text("Select context below, then ask a question. Sending never applies project updates."))
-                        }
-                        ForEach(environment.messages) { message in
-                            MessageBubble(message: message).id(message.id)
-                        }
-                    }
-                    .padding()
+                Button {
+                    showProjectUpdates.toggle()
+                } label: {
+                    Label("Project Updates", systemImage: "tray.full")
                 }
-                .onChange(of: environment.messages.count) { _, _ in if let id = environment.messages.last?.id { proxy.scrollTo(id) } }
+                .buttonStyle(.posSecondary)
+                .accessibilityIdentifier("conversation.toggle-project-updates")
             }
+            DecorativeDivider()
 
-            Divider()
-            DisclosureGroup(isExpanded: $showContext) {
-                ContextPreviewView()
-            } label: {
-                Label("Context Preview", systemImage: "scope")
-                    .font(.headline)
-            }.padding(.horizontal).padding(.top, 10)
+            transcript
 
-            TextEditor(text: $environment.draft)
-                .frame(minHeight: 70, maxHeight: 130)
-                .padding(8)
-                .overlay { RoundedRectangle(cornerRadius: 8).stroke(.separator) }
-                .padding(.horizontal)
-                .onChange(of: environment.draft) { _, _ in environment.saveDraft() }
-                .onKeyPress(.return, phases: .down) { press in
-                    if press.modifiers.contains(.command) { environment.sendMessage(); return .handled }
-                    return .ignored
-                }
-            HStack {
-                Text("⌘↩ Send · AI proposes text only").font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                if environment.isGenerating { Button("Stop", systemImage: "stop.fill") { environment.stopGeneration() } }
-                Button("Send", systemImage: "arrow.up.circle.fill") { environment.sendMessage() }.buttonStyle(.borderedProminent).disabled(environment.isGenerating || environment.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }.padding()
+            DecorativeDivider()
+            composer
         }
         .frame(minWidth: 360)
     }
 
-    private var projectUpdatesRail: some View {
-        ProposalRailView {
-            showProjectUpdates = false
+    private var transcript: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: Spacing.step3) {
+                    if environment.messages.isEmpty {
+                        EmptyStateView(
+                            title: "Start with your project",
+                            message: "Choose the context below, then ask a question. Sending never applies project updates on its own.",
+                            systemImage: "bubble.left.and.bubble.right"
+                        )
+                        .padding(.top, Spacing.step6)
+                    }
+                    ForEach(environment.messages) { message in
+                        MessageBubble(message: message).id(message.id)
+                    }
+                }
+                .padding(Spacing.step4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .onChange(of: environment.messages.count) { _, _ in
+                if let id = environment.messages.last?.id { proxy.scrollTo(id) }
+            }
         }
+    }
+
+    private var composer: some View {
+        VStack(alignment: .leading, spacing: Spacing.step3) {
+            ContextPreviewPanel(isExpanded: $showContext)
+
+            TextEditor(text: $environment.draft)
+                .font(TypeRole.body)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 72, maxHeight: 140)
+                .padding(Spacing.step2)
+                .background(theme.surface, in: RoundedRectangle(cornerRadius: Radius.lg))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Radius.lg)
+                        .strokeBorder(theme.essentialBoundary.opacity(0.5), lineWidth: Stroke.hairline)
+                }
+                .accessibilityLabel("Message")
+                .onChange(of: environment.draft) { _, _ in environment.saveDraft() }
+                .onKeyPress(.return, phases: .down) { press in
+                    if press.modifiers.contains(.command) {
+                        environment.sendMessage()
+                        return .handled
+                    }
+                    return .ignored
+                }
+
+            HStack(spacing: Spacing.step2) {
+                Text("⌘↩")
+                    .font(TypeRole.code)
+                    .foregroundStyle(theme.muted)
+                Text("Send · the agent proposes text only")
+                    .font(TypeRole.caption)
+                    .foregroundStyle(theme.muted)
+                Spacer(minLength: Spacing.step2)
+                if environment.isGenerating {
+                    Button {
+                        environment.stopGeneration()
+                    } label: {
+                        Label("Stop", systemImage: "stop.fill")
+                    }
+                    .buttonStyle(.posSecondary)
+                }
+                Button {
+                    environment.sendMessage()
+                } label: {
+                    Label("Send", systemImage: "arrow.up")
+                }
+                .buttonStyle(.posPrimary)
+                .disabled(
+                    environment.isGenerating
+                        || environment.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+            }
+        }
+        .padding(Spacing.step4)
+        .background(theme.canvas)
     }
 }
 
+/// Recency list of conversations with a clear selected treatment.
 private struct ConversationListView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Conversations").font(.headline)
+                Text("Conversations")
+                    .font(TypeRole.heading)
+                    .foregroundStyle(theme.text)
                 Spacer()
-                Button("New Conversation", systemImage: "plus") { environment.createConversation() }
-                    .labelStyle(.iconOnly)
-            }.padding()
-            Divider()
-            List(selection: Binding(get: { environment.selectedConversationID }, set: { id in if let id { environment.selectConversation(id) } })) {
-                ForEach(environment.conversations) { conversation in
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(conversation.title).lineLimit(2)
-                        Text(conversation.updatedAt, style: .relative).font(.caption).foregroundStyle(.secondary)
-                    }.tag(conversation.id)
+                IconButton(systemImage: "plus", accessibilityLabel: "New conversation") {
+                    environment.createConversation()
                 }
             }
+            .padding(Spacing.step3)
+
+            DecorativeDivider()
+
+            ScrollView {
+                VStack(spacing: Spacing.step1) {
+                    ForEach(environment.conversations) { conversation in
+                        RecordRow(
+                            title: conversation.title,
+                            subtitle: conversation.updatedAt.formatted(date: .abbreviated, time: .shortened),
+                            isSelected: environment.selectedConversationID == conversation.id,
+                            action: { environment.selectConversation(conversation.id) }
+                        )
+                    }
+                }
+                .padding(Spacing.step2)
+            }
         }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(theme.sidebar)
     }
 }
 
+/// One turn. User, agent, incomplete, and failed turns are perceivably
+/// distinct without relying on colour.
 private struct MessageBubble: View {
     let message: MessageRecord
+
+    @Environment(\.theme) private var theme
+
+    private var isUser: Bool { message.role == .user }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(message.role == .user ? "You" : "Assistant").font(.caption.bold())
-                Text(message.completion.rawValue.capitalized).font(.caption2).padding(.horizontal, 6).padding(.vertical, 2).background(.quaternary, in: Capsule())
+        VStack(alignment: .leading, spacing: Spacing.step2) {
+            HStack(spacing: Spacing.step2) {
+                Text(message.role.displayName)
+                    .font(TypeRole.caption.weight(.semibold))
+                    .foregroundStyle(theme.muted)
+                if message.completion != .complete {
+                    StatusBadge(
+                        text: message.completion.displayName,
+                        symbol: message.completion.symbolName,
+                        tone: message.completion.tone
+                    )
+                }
+                Spacer(minLength: 0)
+                Text(message.createdAt, style: .time)
+                    .font(TypeRole.caption)
+                    .foregroundStyle(theme.muted)
             }
-            Text(message.text.isEmpty ? "No text received." : message.text).textSelection(.enabled)
+            Text(message.text.isEmpty ? "No text received." : message.text)
+                .font(TypeRole.body)
+                .foregroundStyle(theme.text)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(12)
-        .frame(maxWidth: 720, alignment: .leading)
-        .background(message.role == .user ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-        .frame(maxWidth: .infinity, alignment: message.role == .user ? .trailing : .leading)
-    }
-}
-
-private struct ContextPreviewView: View {
-    @EnvironmentObject private var environment: AppEnvironment
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(environment.contextPreview).font(.caption).textSelection(.enabled)
-            Toggle("Project description", isOn: $environment.contextSelection.includeDescription)
-            Stepper("Complete message range: last \(environment.contextSelection.messageCount)", value: $environment.contextSelection.messageCount, in: 0...100, step: 5)
-            if !environment.sources.isEmpty {
-                Menu("Choose sources (\(environment.contextSelection.sourceIDs.count))") {
-                    ForEach(environment.sources) { source in
-                        Toggle(source.label, isOn: Binding(get: { environment.contextSelection.sourceIDs.contains(source.id) }, set: { value in
-                            if value { environment.contextSelection.sourceIDs.insert(source.id) } else { environment.contextSelection.sourceIDs.remove(source.id) }
-                        }))
-                    }
-                }
-            }
-            if !environment.artifacts.filter({ $0.state != .removed && $0.state != .superseded }).isEmpty {
-                Menu("Choose accepted records (\(environment.contextSelection.artifactIDs.count))") {
-                    ForEach(environment.artifacts.filter { $0.state != .removed && $0.state != .superseded }) { artifact in
-                        Toggle("\(artifact.kind.rawValue): \(artifact.title)", isOn: Binding(get: { environment.contextSelection.artifactIDs.contains(artifact.id) }, set: { value in
-                            if value { environment.contextSelection.artifactIDs.insert(artifact.id) } else { environment.contextSelection.artifactIDs.remove(artifact.id) }
-                        }))
-                    }
-                }
-            }
-        }.padding(.vertical, 8)
-    }
-}
-
-private struct ProposalRailView: View {
-    @EnvironmentObject private var environment: AppEnvironment
-    let onClose: () -> Void
-    var pending: [ProposalRecord] { environment.proposals.filter { $0.lifecycle == .pending || $0.lifecycle == .deferred } }
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("Project Updates")
-                        .font(.headline)
-                        .accessibilityIdentifier("conversation.project-updates-heading")
-                    Text("Pending, never automatic truth").font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("Close Project Updates", systemImage: "xmark", action: onClose)
-                    .labelStyle(.iconOnly)
-            }
-            Button("Suggest Project Updates", systemImage: "sparkles") { environment.suggestUpdates() }
-                .buttonStyle(.borderedProminent).disabled(environment.isGenerating)
-            Divider()
-            if pending.isEmpty {
-                ContentUnavailableView("No Pending Updates", systemImage: "tray", description: Text("Request suggestions from the currently disclosed context."))
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) { ForEach(pending) { ProposalCard(proposal: $0) } }
-                }
-            }
+        .padding(Spacing.step3)
+        .frame(maxWidth: 760, alignment: .leading)
+        .background(isUser ? theme.selection : theme.surface, in: RoundedRectangle(cornerRadius: Radius.lg))
+        .overlay {
+            RoundedRectangle(cornerRadius: Radius.lg)
+                .strokeBorder(
+                    isUser ? theme.selectedBoundary.opacity(0.4) : theme.essentialBoundary.opacity(0.35),
+                    lineWidth: Stroke.hairline
+                )
         }
-        .padding()
-        .frame(maxHeight: .infinity, alignment: .top)
-        .background(.background.secondary)
+        .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
     }
 }
 
-private struct ProposalCard: View {
+/// The bounded preflight panel: what would be sent, to which adapter and
+/// model, and whether that leaves this Mac.
+private struct ContextPreviewPanel: View {
+    @Binding var isExpanded: Bool
+
     @EnvironmentObject private var environment: AppEnvironment
-    let proposal: ProposalRecord
-    @State private var title: String
-    @State private var content: String
-    @State private var confirmsDecision = false
-    private var dependencies: [ProposalRecord] { environment.dependencyClosure(for: proposal) }
-    private var requiresDecisionConfirmation: Bool {
-        proposal.kind == .decision || dependencies.contains { $0.kind == .decision }
+    @Environment(\.theme) private var theme
+
+    private var acceptedRecords: [ArtifactRecord] {
+        environment.artifacts.filter { $0.state != .removed && $0.state != .superseded }
     }
-    init(proposal: ProposalRecord) { self.proposal = proposal; _title = State(initialValue: proposal.title); _content = State(initialValue: proposal.content) }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(proposal.kind.rawValue, systemImage: "square.and.pencil").font(.caption.bold())
-            Text("\(proposal.operation.rawValue.capitalized) · \(proposal.dependencyIDs.count) dependencies · \(proposal.relationships.count) relationships").font(.caption2).foregroundStyle(.secondary)
-            TextField("Title", text: $title).font(.headline)
-            TextField("Content", text: $content, axis: .vertical).lineLimit(2...8)
-            if let rationale = proposal.rationale { Text("Why: \(rationale)").font(.caption).foregroundStyle(.secondary) }
-            if let state = proposal.proposedState { Text("Proposed state: \(state.rawValue)").font(.caption) }
-            if let certainty = proposal.certainty { Text("Certainty: \(certainty)").font(.caption) }
-            if let limitations = proposal.limitations { Text("Limitations: \(limitations)").font(.caption).foregroundStyle(.secondary) }
-            if requiresDecisionConfirmation {
-                Toggle("I confirm the decision(s) in this reviewed set", isOn: $confirmsDecision).font(.caption)
-                Text("A matching quote proves only that the text exists; review the commitment and rationale before accepting.").font(.caption2).foregroundStyle(.secondary)
-            }
-            if !dependencies.isEmpty {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Accepted atomically with:").font(.caption.bold())
-                    ForEach(dependencies) { dependency in
-                        Text("• \(dependency.kind.rawValue): \(dependency.title) — \(dependency.content)").font(.caption)
+        SurfaceContainer(role: .tint, radius: Radius.md, padding: Spacing.step3) {
+            VStack(alignment: .leading, spacing: Spacing.step3) {
+                Button {
+                    withAnimation(Motion.standard) { isExpanded.toggle() }
+                } label: {
+                    HStack(spacing: Spacing.step2) {
+                        Image(systemName: "scope").imageScale(.small)
+                        Text("Context Preview")
+                            .font(TypeRole.heading)
+                            .accessibilityIdentifier("conversation.context-preview-heading")
+                        Spacer()
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .imageScale(.small)
+                            .foregroundStyle(theme.muted)
                     }
-                }.padding(6).background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
+                    .foregroundStyle(theme.text)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Context Preview")
+
+                DisclosureNote(
+                    text: environment.providerDisclosure,
+                    systemImage: environment.runsLocally ? "desktopcomputer" : "network"
+                )
+
+                if isExpanded {
+                    VStack(alignment: .leading, spacing: Spacing.step2) {
+                        Text(environment.contextPreview)
+                            .font(TypeRole.caption)
+                            .foregroundStyle(theme.muted)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Toggle("Project description", isOn: $environment.contextSelection.includeDescription)
+                            .toggleStyle(.checkbox)
+                            .font(TypeRole.caption)
+
+                        Stepper(
+                            "Complete message range: last \(environment.contextSelection.messageCount)",
+                            value: $environment.contextSelection.messageCount,
+                            in: 0 ... 100,
+                            step: 5
+                        )
+                        .font(TypeRole.caption)
+
+                        HStack(spacing: Spacing.step2) {
+                            if !environment.sources.isEmpty {
+                                Menu("Sources (\(environment.contextSelection.sourceIDs.count))") {
+                                    ForEach(environment.sources) { source in
+                                        Toggle(source.label, isOn: binding(for: source))
+                                    }
+                                }
+                                .frame(width: 180)
+                            }
+                            if !acceptedRecords.isEmpty {
+                                Menu("Accepted records (\(environment.contextSelection.artifactIDs.count))") {
+                                    ForEach(acceptedRecords) { artifact in
+                                        Toggle("\(artifact.kind.rawValue): \(artifact.title)", isOn: binding(for: artifact))
+                                    }
+                                }
+                                .frame(width: 220)
+                            }
+                        }
+                    }
+                }
             }
-            if proposal.operation == .supersede,
-               let prior = proposal.targetID.flatMap({ id in environment.artifacts.first { $0.id == id } }) {
-                Text("Replaces current decision: \(prior.title)\n\(prior.content)").font(.caption).padding(6).background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
-            } else if let prior = environment.replacementCandidate(for: proposal) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("A current decision already governs this subject: \(prior.title)").font(.caption.bold())
-                    Button("Mark as explicit replacement") { environment.markAsReplacement(proposal, prior: prior) }
-                }.padding(6).background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func binding(for source: SourceRecord) -> Binding<Bool> {
+        Binding(
+            get: { environment.contextSelection.sourceIDs.contains(source.id) },
+            set: { included in
+                if included {
+                    environment.contextSelection.sourceIDs.insert(source.id)
+                } else {
+                    environment.contextSelection.sourceIDs.remove(source.id)
+                }
             }
-            ForEach(proposal.evidence) { evidence in
-                Button { environment.inspectEvidence(evidence) } label: {
-                    Text("“\(evidence.quote)”\(evidence.aiAuthored ? " · AI-authored/unverified" : "")").font(.caption).multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
-                }.buttonStyle(.plain).padding(6).background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
+        )
+    }
+
+    private func binding(for artifact: ArtifactRecord) -> Binding<Bool> {
+        Binding(
+            get: { environment.contextSelection.artifactIDs.contains(artifact.id) },
+            set: { included in
+                if included {
+                    environment.contextSelection.artifactIDs.insert(artifact.id)
+                } else {
+                    environment.contextSelection.artifactIDs.remove(artifact.id)
+                }
             }
-            HStack {
-                Button("Reject") { environment.setProposal(proposal, lifecycle: .rejected) }
-                Button("Defer") { environment.setProposal(proposal, lifecycle: .deferred) }
-                Spacer()
-                Button(proposal.dependencyIDs.isEmpty ? "Accept" : "Accept reviewed set") { environment.accept(proposal, title: title, content: content) }.buttonStyle(.borderedProminent).disabled(requiresDecisionConfirmation && !confirmsDecision)
-            }
-        }.padding(12).background(.background, in: RoundedRectangle(cornerRadius: 10)).overlay { RoundedRectangle(cornerRadius: 10).stroke(.separator) }
+        )
     }
 }

@@ -21,7 +21,8 @@ struct ProjectOSApp: App {
         Settings {
             GlobalSettingsView()
                 .environmentObject(environment)
-                .frame(width: 560, height: 440)
+                .themedRoot(environment)
+                .frame(width: 620, height: 560)
         }
     }
 }
@@ -38,6 +39,7 @@ private struct RootView: View {
                 ProjectWorkspaceView()
             }
         }
+        .themedRoot(environment)
         .task { environment.start() }
         .onChange(of: scenePhase) { _, phase in if phase != .active { environment.completeVisit() } }
         .alert("ProjectOS", isPresented: Binding(
@@ -48,5 +50,12 @@ private struct RootView: View {
         } message: {
             Text(environment.alertMessage ?? "")
         }
+    }
+}
+
+private extension View {
+    /// Applies the person's chosen appearance and theme preset to a scene root.
+    func themedRoot(_ environment: AppEnvironment) -> some View {
+        ThemedRoot(preset: environment.themePreset, appearance: environment.appearance) { self }
     }
 }

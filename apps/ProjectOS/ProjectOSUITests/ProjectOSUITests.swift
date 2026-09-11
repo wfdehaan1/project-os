@@ -24,9 +24,10 @@ final class ProjectOSUITests: XCTestCase {
         XCTAssertTrue(createSheet.waitForExistence(timeout: 5), app.debugDescription)
         createSheet.buttons["Create"].click()
 
-        let conversationSection = app.staticTexts["Conversation"].firstMatch
-        XCTAssertTrue(conversationSection.waitForExistence(timeout: 5), app.debugDescription)
-        conversationSection.click()
+        // The sidebar destinations are buttons addressed by a stable identifier.
+        let conversationDestination = app.buttons["sidebar.conversation"]
+        XCTAssertTrue(conversationDestination.waitForExistence(timeout: 5), app.debugDescription)
+        conversationDestination.click()
 
         let workspace = app.staticTexts["conversation.workspace-heading"]
         let projectUpdates = app.staticTexts["conversation.project-updates-heading"]

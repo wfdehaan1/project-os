@@ -1,87 +1,209 @@
 import SwiftUI
 
+/// Project settings: identity, the inference record, ownership and recovery,
+/// and — separated at the bottom — deletion.
 struct ProjectSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    @Environment(\.theme) private var theme
+
     @State private var confirmDelete = false
     @State private var projectName = ""
     @State private var projectSummary = ""
 
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Project Settings").font(.largeTitle.bold())
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Project Identity", systemImage: "folder").font(.headline)
-                    TextField("Name", text: $projectName)
-                    TextField("Description", text: $projectSummary, axis: .vertical).lineLimit(2...5)
-                    HStack { Spacer(); Button("Save Project Details") { environment.updateProject(name: projectName, summary: projectSummary) }.buttonStyle(.borderedProminent) }
-                }.card()
-                SourceListView().card()
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Recent Inference", systemImage: "waveform.path.ecg").font(.headline)
-                    if environment.inferenceJobs.isEmpty {
-                        Text("No inference requests recorded for this project.").foregroundStyle(.secondary)
-                    }
-                    ForEach(environment.inferenceJobs.prefix(8)) { job in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("\(job.purpose) · \(job.provider) · \(job.model) · \(job.status.rawValue)").font(.caption.bold())
-                            if let route = job.configuredUpstreamRoute { Text("Pinned route: \(route)").font(.caption) }
-                            if let actual = job.actualUpstreamProvider { Text("Returned route: \(actual)").font(.caption) }
-                            if let cost = job.cost { Text(verbatim: "Returned usage: \(job.inputTokens.map(String.init) ?? "?") in / \(job.outputTokens.map(String.init) ?? "?") out · \(NSDecimalNumber(decimal: cost).stringValue) \(job.currency ?? "")").font(.caption) }
-                            else { Text("Returned cost: unknown (not zero)").font(.caption).foregroundStyle(.secondary) }
-                        }
-                    }
-                }.card()
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Ownership and Recovery", systemImage: "externaldrive").font(.headline)
-                    Text("Exports contain local project state, exact source text, transcript distinctions, proposal and change history, evidence, relations, and outcomes. Credentials and runtime caches are excluded.")
-                        .foregroundStyle(.secondary)
-                    HStack {
-                        Button("Export Project...", systemImage: "square.and.arrow.up") { environment.exportSelectedProject() }
-                        Button("Restore as New Project...", systemImage: "square.and.arrow.down") { environment.restoreProject() }
-                    }
-                    Text("Restore validates the archive before creating a separate project copy. Existing projects are never overwritten.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }.card()
+    private var hasIdentityEdits: Bool {
+        projectName != environment.selectedProject?.name
+            || projectSummary != environment.selectedProject?.summary
+    }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Delete Project", systemImage: "trash").font(.headline).foregroundStyle(.red)
-                    Text("Deletion removes app-managed local content after cancelling active jobs. It does not remove exports, backups, local models, or data retained by an external provider.")
-                        .foregroundStyle(.secondary)
-                    Button("Permanently Delete Project", role: .destructive) { confirmDelete = true }
-                }.card()
-            }.padding(24).frame(maxWidth: 900, alignment: .leading)
+    var body: some View {
+        VStack(spacing: 0) {
+            SurfaceHeader(eyebrow: "Record", title: "Project Settings", status: {
+                LocalStorageStatus(detail: "Revision \(environment.selectedProject?.revision ?? 0)")
+            })
+            DecorativeDivider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.step4) {
+                    identityCard
+                    inferenceCard
+                    ownershipCard
+                    deletionCard
+                }
+                .padding(Spacing.step5)
+                .frame(maxWidth: Spacing.readableWidth, alignment: .leading)
+            }
         }
+        .background(theme.canvas)
+        .navigationTitle("Project Settings")
         .sheet(isPresented: $confirmDelete) { DeleteProjectSheet(isPresented: $confirmDelete) }
         .onAppear {
             projectName = environment.selectedProject?.name ?? ""
             projectSummary = environment.selectedProject?.summary ?? ""
         }
     }
+
+    private var identityCard: some View {
+        SectionCard(
+            title: "Project identity",
+            subtitle: "The description shown on Overview is edited here, not on Overview itself."
+        ) {
+            VStack(alignment: .leading, spacing: Spacing.step3) {
+                FormTextField(label: "Name", text: $projectName)
+                FormTextField(label: "Description", text: $projectSummary, lineLimit: 2 ... 5)
+                HStack {
+                    Spacer()
+                    Button("Save project details") {
+                        environment.updateProject(name: projectName, summary: projectSummary)
+                    }
+                    .buttonStyle(.posPrimary)
+                    .disabled(!hasIdentityEdits)
+                }
+            }
+        }
+    }
+
+    private var inferenceCard: some View {
+        SectionCard(
+            title: "Recent inference",
+            subtitle: "What was requested, which adapter answered, and what it reported back."
+        ) {
+            if environment.inferenceJobs.isEmpty {
+                InlineEmptyText(text: "No inference requests recorded for this project.")
+            } else {
+                RowList(items: Array(environment.inferenceJobs.prefix(8))) { job in
+                    RecordRow(
+                        title: "\(job.purpose) · \(job.model)",
+                        subtitle: usageDescription(for: job)
+                    ) {
+                        RowGlyph(
+                            systemImage: symbol(for: job.status),
+                            tone: tone(for: job.status),
+                            isFilled: false
+                        )
+                    } trailing: {
+                        StatusBadge(text: job.status.rawValue.capitalized, tone: .muted)
+                    }
+                }
+            }
+        }
+    }
+
+    private var ownershipCard: some View {
+        SectionCard(title: "Ownership and recovery") {
+            VStack(alignment: .leading, spacing: Spacing.step3) {
+                Text("Exports contain local project state, the exact source text, transcript distinctions, proposal and change history, provenance, relationships, and outcomes. Credentials and runtime caches are excluded.")
+                    .font(TypeRole.body)
+                    .foregroundStyle(theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: Spacing.step2) {
+                    Button {
+                        environment.exportSelectedProject()
+                    } label: {
+                        Label("Export project…", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.posSecondary)
+
+                    Button {
+                        environment.restoreProject()
+                    } label: {
+                        Label("Restore as new project…", systemImage: "square.and.arrow.down")
+                    }
+                    .buttonStyle(.posSecondary)
+                }
+                DisclosureNote(
+                    text: "Restore validates the archive before creating a separate copy. Existing projects are never overwritten.",
+                    systemImage: "checkmark.shield"
+                )
+            }
+        }
+    }
+
+    private var deletionCard: some View {
+        SectionCard(title: "Delete project") {
+            VStack(alignment: .leading, spacing: Spacing.step3) {
+                Text("Deletion removes app-managed local content after cancelling active jobs. It does not remove exports, backups, local models, or data retained by an external provider.")
+                    .font(TypeRole.body)
+                    .foregroundStyle(theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Permanently delete project") { confirmDelete = true }
+                    .buttonStyle(.posDestructive)
+            }
+        } accessory: {
+            StatusBadge(text: "Irreversible", symbol: "exclamationmark.triangle", tone: .warning)
+        }
+    }
+
+    private func usageDescription(for job: InferenceJobRecord) -> String {
+        var parts = [job.provider]
+        if let route = job.configuredUpstreamRoute { parts.append("pinned \(route)") }
+        if let actual = job.actualUpstreamProvider { parts.append("returned \(actual)") }
+        if let cost = job.cost {
+            let tokens = "\(job.inputTokens.map(String.init) ?? "?") in / \(job.outputTokens.map(String.init) ?? "?") out"
+            parts.append("\(tokens) · \(NSDecimalNumber(decimal: cost).stringValue) \(job.currency ?? "")")
+        } else {
+            parts.append("cost unknown, not zero")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func symbol(for status: InferenceJobStatus) -> String {
+        switch status {
+        case .running: "circle.dotted"
+        case .completed: "checkmark"
+        case .failed: "exclamationmark.triangle"
+        case .cancelled: "stop.circle"
+        case .interrupted: "bolt.horizontal"
+        }
+    }
+
+    private func tone(for status: InferenceJobStatus) -> StatusBadge.Tone {
+        switch status {
+        case .running: .accent
+        case .completed: .success
+        case .failed, .interrupted: .warning
+        case .cancelled: .muted
+        }
+    }
 }
 
+/// Concise effects, the affected data, an export offer, and a typed
+/// confirmation before the canonical action.
 private struct DeleteProjectSheet: View {
     @EnvironmentObject private var environment: AppEnvironment
     @Binding var isPresented: Bool
+
     @State private var confirmation = ""
 
     private var required: String { "DELETE \(environment.selectedProject?.name ?? "")" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Permanently Delete Project?").font(.title2.bold())
-            Text("Export is offered before deletion. Deletion removes ProjectOS-managed content, but not exports, backups, local models, or records retained by external providers.")
-            Button("Export First...") { environment.exportSelectedProject() }
-            Text("Type \(required) to confirm.").fontWeight(.semibold)
-            TextField(required, text: $confirmation)
-            HStack {
-                Spacer()
-                Button("Cancel") { isPresented = false }
-                Button("Delete Local Project", role: .destructive) {
-                    isPresented = false
-                    environment.deleteSelectedProject(typedConfirmation: confirmation)
-                }.disabled(confirmation != required)
+        SheetScaffold(
+            title: "Permanently delete this project?",
+            subtitle: "Deletion removes ProjectOS-managed content. It does not remove exports, backups, local models, or records retained by an external provider.",
+            confirmTitle: "Delete local project",
+            isConfirmEnabled: confirmation == required,
+            isDestructive: true,
+            confirm: {
+                isPresented = false
+                environment.deleteSelectedProject(typedConfirmation: confirmation)
+            },
+            cancel: { isPresented = false }
+        ) {
+            VStack(alignment: .leading, spacing: Spacing.step3) {
+                Button {
+                    environment.exportSelectedProject()
+                } label: {
+                    Label("Export first…", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.posSecondary)
+
+                FormTextField(
+                    label: "Type \(required) to confirm",
+                    text: $confirmation,
+                    prompt: required
+                )
             }
-        }.padding(24).frame(width: 520)
+        }
+        .frame(width: 540)
     }
 }

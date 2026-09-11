@@ -6,7 +6,7 @@ import SwiftUI
 final class AppEnvironment: ObservableObject {
     @Published var projects: [ProjectRecord] = []
     @Published var selectedProject: ProjectRecord?
-    @Published var section: WorkspaceSection = .overview
+    @Published var destination: WorkspaceDestination = .overview
     @Published var sources: [SourceRecord] = []
     @Published var conversations: [ConversationRecord] = []
     @Published var selectedConversationID: UUID?
@@ -36,6 +36,15 @@ final class AppEnvironment: ObservableObject {
     @Published var approvedSpendingCeilingUSD: String
     @Published var providerReadiness: ProviderReadiness = .unavailable
 
+    /// Appearance and theme are independent global preferences. Appearance
+    /// follows macOS until the person chooses otherwise.
+    @Published var appearance: AppearancePreference { didSet { persistAppearance() } }
+    @Published var themePreset: ThemePreset { didSet { persistThemePreset() } }
+
+    /// Deterministic Pile Cover composition per project, so the Project Library
+    /// can draw a cover without every card querying the store itself.
+    @Published private(set) var projectCovers: [UUID: PileCoverSpec] = [:]
+
     private(set) var store: ProjectStore?
     private var activeTask: Task<Void, Never>?
     private var activeJobRecord: InferenceJobRecord?
@@ -56,6 +65,16 @@ final class AppEnvironment: ObservableObject {
         let storedOutput = defaults.integer(forKey: "providerMaximumOutputTokens")
         maximumOutputTokens = String(storedOutput > 0 ? storedOutput : 4096)
         approvedSpendingCeilingUSD = defaults.string(forKey: "openRouterApprovedSpendingCeilingUSD") ?? ""
+        appearance = AppearancePreference(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .system
+        themePreset = ThemePreset(rawValue: defaults.string(forKey: "themePreset") ?? "") ?? .default
+    }
+
+    private func persistAppearance() {
+        UserDefaults.standard.set(appearance.rawValue, forKey: "appearance")
+    }
+
+    private func persistThemePreset() {
+        UserDefaults.standard.set(themePreset.rawValue, forKey: "themePreset")
     }
 
     func start() {
@@ -75,6 +94,22 @@ final class AppEnvironment: ObservableObject {
         if let selectedID = selectedProject?.id {
             selectedProject = projects.first { $0.id == selectedID }
         }
+        try reloadProjectCovers()
+    }
+
+    /// Recomposes every project's cover from local state. Composition is pure
+    /// and offline; nothing here contacts a provider.
+    private func reloadProjectCovers() throws {
+        guard let store else { projectCovers = [:]; return }
+        var covers: [UUID: PileCoverSpec] = [:]
+        for project in projects {
+            covers[project.id] = PileCoverComposer.spec(
+                artifacts: try store.artifacts(projectID: project.id),
+                proposals: try store.proposals(projectID: project.id),
+                changes: try store.changes(projectID: project.id)
+            )
+        }
+        projectCovers = covers
     }
 
     func createProject(name: String, summary: String) {
@@ -96,7 +131,7 @@ final class AppEnvironment: ObservableObject {
         }
         if lastExportReceipt?.projectID != project.id { lastExportReceipt = nil }
         selectedProject = project
-        section = .overview
+        destination = .overview
         visitBaseline = project.previousVisitRevision
         contextSelection = ContextSelection()
         contextInitializedProjectID = nil

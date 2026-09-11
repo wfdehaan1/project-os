@@ -1,22 +1,5 @@
 import Foundation
 
-enum WorkspaceSection: String, CaseIterable, Identifiable {
-    case overview = "Overview"
-    case conversation = "Conversation"
-    case knowledge = "Knowledge"
-    case settings = "Project Settings"
-
-    var id: String { rawValue }
-    var icon: String {
-        switch self {
-        case .overview: "rectangle.grid.1x2"
-        case .conversation: "bubble.left.and.bubble.right"
-        case .knowledge: "books.vertical"
-        case .settings: "gearshape"
-        }
-    }
-}
-
 struct ProjectRecord: Identifiable, Codable, Hashable {
     let id: UUID
     var name: String
