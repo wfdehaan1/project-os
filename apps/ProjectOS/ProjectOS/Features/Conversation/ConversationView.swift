@@ -170,6 +170,7 @@ struct ConversationView: View {
                     .font(TypeRole.caption)
                     .foregroundStyle(theme.muted)
                 Spacer(minLength: Spacing.step2)
+                webResearchToggle
                 if environment.isGenerating {
                     Button {
                         environment.stopGeneration()
@@ -192,6 +193,23 @@ struct ConversationView: View {
         }
         .padding(Spacing.step4)
         .background(theme.canvas)
+    }
+
+    /// Research conversations start with this on, ordinary ones off. Either way
+    /// it is the conversation's own setting, not a global one.
+    private var webResearchToggle: some View {
+        Toggle(isOn: Binding(
+            get: { environment.usesWebResearch },
+            set: { environment.setWebResearch($0) }
+        )) {
+            Label("Web research", systemImage: "globe")
+                .font(TypeRole.caption)
+        }
+        .toggleStyle(.switch)
+        .controlSize(.mini)
+        .disabled(environment.isGenerating || environment.selectedConversationID == nil)
+        .help("Let the model search the web through your SearXNG and read the pages it finds.")
+        .accessibilityIdentifier("conversation.web-research-toggle")
     }
 }
 
@@ -270,6 +288,9 @@ private struct MessageBubble: View {
                     .font(TypeRole.caption)
                     .foregroundStyle(theme.muted)
             }
+            if let research = message.research, !research.isEmpty {
+                WebResearchTrail(steps: research)
+            }
             messageText
                 .font(TypeRole.body)
                 .foregroundStyle(theme.text)
@@ -339,6 +360,10 @@ private struct ContextPreviewPanel: View {
                     text: environment.providerDisclosure,
                     systemImage: environment.runsLocally ? "desktopcomputer" : "network"
                 )
+
+                if environment.usesWebResearch {
+                    DisclosureNote(text: environment.webResearchDisclosure, systemImage: "globe")
+                }
 
                 if isExpanded {
                     VStack(alignment: .leading, spacing: Spacing.step2) {

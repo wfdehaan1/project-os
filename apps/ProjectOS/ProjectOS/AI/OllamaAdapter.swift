@@ -40,27 +40,9 @@ public struct OllamaConfiguration: Equatable, Sendable {
     }
 
     static func validate(baseURL: URL) throws {
-        guard let components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
-              components.scheme?.lowercased() == "http",
-              components.user == nil,
-              components.password == nil,
-              components.query == nil,
-              components.fragment == nil,
-              components.path.isEmpty || components.path == "/",
-              let host = components.host,
-              isNumericLoopback(host),
-              let port = components.port,
-              (1...65_535).contains(port) else {
+        guard LoopbackEndpoint.isValid(baseURL) else {
             throw AIProviderError.invalidConfiguration("Ollama must use an explicit HTTP loopback IP and port, without credentials, path, query, or fragment.")
         }
-    }
-
-    private static func isNumericLoopback(_ host: String) -> Bool {
-        if host == "::1" { return true }
-        let pieces = host.split(separator: ".", omittingEmptySubsequences: false)
-        guard pieces.count == 4,
-              pieces.allSatisfy({ UInt8($0) != nil }) else { return false }
-        return pieces[0] == "127"
     }
 
     static func isCloudModel(_ model: String) -> Bool {
@@ -86,7 +68,7 @@ public final class OllamaAdapter: AIProvider, @unchecked Sendable {
             executionBoundary: .local,
             contextWindowTokens: configuration.contextWindowTokens,
             maximumOutputTokens: configuration.maximumOutputTokens,
-            capabilities: ProviderCapabilities(streaming: true, structuredOutput: true, cancellation: true)
+            capabilities: ProviderCapabilities(streaming: true, structuredOutput: true, cancellation: true, toolCalling: true)
         )
         self.session = session ?? Self.makeSession(Self.generationSessionConfiguration(idleTimeout: configuration.requestTimeout))
     }
@@ -161,10 +143,11 @@ public final class OllamaAdapter: AIProvider, @unchecked Sendable {
         try ProviderRequestValidator.validate(request, against: descriptor)
         let body = OllamaRequest(
             model: configuration.modelID,
-            messages: request.messages.map { .init(role: $0.role.rawValue, content: $0.content) },
+            messages: request.messages.map(OllamaRequest.Message.init),
             stream: true,
             format: request.structuredOutput?.schema,
-            options: .init(numPredict: request.maximumOutputTokens, numCtx: configuration.contextWindowTokens)
+            options: .init(numPredict: request.maximumOutputTokens, numCtx: configuration.contextWindowTokens),
+            tools: request.tools.isEmpty ? nil : request.tools.map(OllamaRequest.Tool.init)
         )
         var urlRequest = URLRequest(url: configuration.baseURL.appendingPathComponent("api/chat"))
         urlRequest.httpMethod = "POST"
@@ -175,7 +158,12 @@ public final class OllamaAdapter: AIProvider, @unchecked Sendable {
 
         let (bytes, response) = try await session.bytes(for: urlRequest)
         guard let http = response as? HTTPURLResponse else { throw AIProviderError.malformedStream }
-        guard (200..<300).contains(http.statusCode) else { throw HTTPErrorMapper.map(status: http.statusCode) }
+        guard (200..<300).contains(http.statusCode) else {
+            if !request.tools.isEmpty, http.statusCode == 400, await Self.reportsMissingToolSupport(bytes) {
+                throw AIProviderError.toolsUnsupported
+            }
+            throw HTTPErrorMapper.map(status: http.statusCode)
+        }
         guard response.url?.host == configuration.baseURL.host,
               response.url?.port == configuration.baseURL.port else {
             throw AIProviderError.invalidConfiguration("Ollama redirected outside the configured loopback endpoint.")
@@ -207,6 +195,19 @@ public final class OllamaAdapter: AIProvider, @unchecked Sendable {
         }
     }
 
+    /// Ollama rejects tools for a model without tool support with a 400 whose
+    /// error names it; any other 400 keeps its plain status.
+    private static func reportsMissingToolSupport(_ bytes: URLSession.AsyncBytes) async -> Bool {
+        var body = Data()
+        do {
+            for try await byte in bytes {
+                body.append(byte)
+                if body.count >= 4_096 { break }
+            }
+        } catch { return false }
+        return String(decoding: body, as: UTF8.self).lowercased().contains("does not support tools")
+    }
+
     private static func consume(
         line: String,
         continuation: AsyncThrowingStream<AIStreamEvent, Error>.Continuation
@@ -219,6 +220,14 @@ public final class OllamaAdapter: AIProvider, @unchecked Sendable {
         if chunk.error != nil { throw AIProviderError.providerFailure(code: nil) }
         if let content = chunk.message?.content, !content.isEmpty {
             continuation.yield(.textDelta(content))
+        }
+        // Ollama sends each tool call whole, in the chunk that makes it.
+        for call in chunk.message?.toolCalls ?? [] {
+            guard let name = call.function.name, !name.isEmpty else { throw AIProviderError.malformedStream }
+            let arguments = call.function.arguments
+                .flatMap { try? JSONEncoder().encode($0) }
+                .map { String(decoding: $0, as: UTF8.self) } ?? "{}"
+            continuation.yield(.toolCall(AIToolCall(id: call.id ?? "call_\(UUID().uuidString)", name: name, arguments: arguments)))
         }
         if chunk.done == true {
             // Ollama reports a normal-looking completion when it stops at
@@ -236,7 +245,41 @@ public final class OllamaAdapter: AIProvider, @unchecked Sendable {
 }
 
 private struct OllamaRequest: Encodable {
-    struct Message: Encodable { let role: String; let content: String }
+    struct Message: Encodable {
+        struct ToolCall: Encodable {
+            struct Function: Encodable { let name: String; let arguments: JSONValue }
+            let function: Function
+        }
+        let role: String
+        let content: String
+        let toolCalls: [ToolCall]?
+        let toolName: String?
+        enum CodingKeys: String, CodingKey {
+            case role, content
+            case toolCalls = "tool_calls"
+            case toolName = "tool_name"
+        }
+
+        init(_ message: AIMessage) {
+            role = message.role.rawValue
+            content = message.content
+            // Ollama takes arguments as an object, not the text the model wrote.
+            toolCalls = message.toolCalls.isEmpty ? nil : message.toolCalls.map { call in
+                let arguments = (try? JSONDecoder().decode(JSONValue.self, from: Data(call.arguments.utf8))) ?? .object([:])
+                return ToolCall(function: .init(name: call.name, arguments: arguments))
+            }
+            toolName = message.toolName
+        }
+    }
+    struct Tool: Encodable {
+        struct Function: Encodable { let name: String; let description: String; let parameters: JSONValue }
+        let type = "function"
+        let function: Function
+
+        init(_ tool: AIToolDefinition) {
+            function = Function(name: tool.name, description: tool.description, parameters: tool.parameters)
+        }
+    }
     struct Options: Encodable {
         let numPredict: Int
         /// Without this Ollama uses its own default window and silently
@@ -252,10 +295,23 @@ private struct OllamaRequest: Encodable {
     let stream: Bool
     let format: JSONValue?
     let options: Options
+    let tools: [Tool]?
 }
 
 private struct OllamaChunk: Decodable {
-    struct Message: Decodable { let content: String? }
+    struct Message: Decodable {
+        struct ToolCall: Decodable {
+            struct Function: Decodable { let name: String?; let arguments: JSONValue? }
+            let id: String?
+            let function: Function
+        }
+        let content: String?
+        let toolCalls: [ToolCall]?
+        enum CodingKeys: String, CodingKey {
+            case content
+            case toolCalls = "tool_calls"
+        }
+    }
     let model: String?
     let message: Message?
     let done: Bool?

@@ -17,6 +17,7 @@ struct InferenceSettingsSection: View {
             providerCard
             ollamaCard
             openRouterCard
+            webResearchCard
             HStack(spacing: Spacing.step2) {
                 Button("Test connectivity") { environment.testProvider() }
                     .buttonStyle(.posSecondary)
@@ -159,6 +160,38 @@ struct InferenceSettingsSection: View {
                 DisclosureNote(
                     text: "No automatic retry, model fallback, or hidden provider switch. Usage and cost are shown only when the provider returns them.",
                     systemImage: "network"
+                )
+            }
+        }
+    }
+
+    /// Web research is off in ordinary conversations and on in research ones,
+    /// and each conversation can decide for itself. This is only where the
+    /// search service lives.
+    private var webResearchCard: some View {
+        SectionCard(title: "Web research", subtitle: "SearXNG on this Mac, used by conversations with web research on.") {
+            VStack(alignment: .leading, spacing: Spacing.step3) {
+                SettingsRow(label: "SearXNG loopback URL") {
+                    TextField("", text: $environment.searxngURL)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityLabel("SearXNG loopback URL")
+                }
+                HStack(spacing: Spacing.step2) {
+                    Text(environment.searxngStatus)
+                        .font(TypeRole.caption)
+                        .foregroundStyle(theme.muted)
+                    Spacer()
+                    Button("Test SearXNG") { environment.testSearXNG() }
+                        .buttonStyle(.posSecondary)
+                        .disabled(environment.isTestingSearXNG)
+                }
+                DisclosureNote(
+                    text: "Start SearXNG yourself, for example with: docker run -d -p 8888:8080 searxng/searxng. Then add json to search.formats in its settings.yml and restart it, or it will refuse to answer ProjectOS.",
+                    systemImage: "terminal"
+                )
+                DisclosureNote(
+                    text: "SearXNG has no index of its own: it passes your search terms to the engines it is configured for. Pages are downloaded from their own sites over HTTPS, without cookies. Only loopback addresses are accepted here.",
+                    systemImage: "globe"
                 )
             }
         }

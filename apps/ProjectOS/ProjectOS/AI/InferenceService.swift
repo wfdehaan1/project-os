@@ -67,6 +67,8 @@ struct GeneratedProposalBatch: Sendable {
 enum AppInferenceEvent: Sendable {
     case phase(AIJobPhase)
     case text(String)
+    /// A web search or page read, reported as it starts and again when it ends.
+    case research(WebResearchStep)
     case usage(AIUsage)
     case completed(AICompletionMetadata)
 }
@@ -111,14 +113,23 @@ final class InferenceService: @unchecked Sendable {
         }
     }
 
-    func chat(context: FrozenProjectContext, userMessage: String) -> AsyncThrowingStream<AppInferenceEvent, Error> {
+    /// One conversational turn. With a toolbox the model may search the web and
+    /// read pages first, which takes several provider requests; without one it
+    /// answers in a single request and cannot reach anything outside the
+    /// disclosed context.
+    func chat(
+        context: FrozenProjectContext,
+        userMessage: String,
+        webResearch: WebResearchToolbox? = nil
+    ) -> AsyncThrowingStream<AppInferenceEvent, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
                     let provider = try makeProvider()
-                    var systemPrompt = PromptFactory.chatSystemPrompt
+                    let researches = webResearch != nil
+                    var systemPrompt = PromptFactory.chatSystemPrompt(webResearch: researches)
                     if let focus = context.focusResearchID, context.artifacts.contains(where: { $0.id == focus }) {
-                        systemPrompt += "\n" + PromptFactory.researchFocusPrompt(artifactID: focus.uuidString)
+                        systemPrompt += "\n" + PromptFactory.researchFocusPrompt(artifactID: focus.uuidString, webResearch: researches)
                     }
                     var messages = [AIMessage(role: .system, content: systemPrompt)]
                     // Transcript turns are appended below with their original roles;
@@ -130,15 +141,37 @@ final class InferenceService: @unchecked Sendable {
                     if context.messages.last?.role != .user || context.messages.last?.text != userMessage {
                         messages.append(AIMessage(role: .user, content: userMessage))
                     }
-                    let request = makeRequest(context: context, purpose: .chat, messages: messages)
                     continuation.yield(.phase(.waiting))
-                    let handle = try await Self.runtime.start(provider: provider, request: request)
-                    for try await event in handle.events {
-                        try Task.checkCancellation()
-                        switch event {
-                        case .textDelta(let text): continuation.yield(.text(text))
-                        case .usage(let usage): continuation.yield(.usage(usage))
-                        case .completed(let metadata): continuation.yield(.completed(metadata))
+
+                    if let webResearch {
+                        try await ToolLoop.run(
+                            messages: messages,
+                            tools: WebResearchToolbox.definitions,
+                            contextLimit: provider.descriptor.contextWindowTokens,
+                            makeRequest: { turn, tools in
+                                self.makeRequest(context: context, purpose: .chat, messages: turn, tools: tools)
+                            },
+                            start: { request in
+                                try await Self.runtime.start(provider: provider, request: request).events
+                            },
+                            execute: { call, budget in
+                                let pending = WebResearchToolbox.pendingStep(for: call)
+                                continuation.yield(.phase(.researching))
+                                continuation.yield(.research(pending))
+                                let outcome = try await webResearch.run(call, stepID: pending.id, budget: budget)
+                                continuation.yield(.research(outcome.step))
+                                return outcome.modelText
+                            },
+                            emit: { event in
+                                if let appEvent = Self.appEvent(event) { continuation.yield(appEvent) }
+                            }
+                        )
+                    } else {
+                        let request = makeRequest(context: context, purpose: .chat, messages: messages)
+                        let handle = try await Self.runtime.start(provider: provider, request: request)
+                        for try await event in handle.events {
+                            try Task.checkCancellation()
+                            if let appEvent = Self.appEvent(event) { continuation.yield(appEvent) }
                         }
                     }
                     continuation.finish()
@@ -151,6 +184,16 @@ final class InferenceService: @unchecked Sendable {
                 }
             }
             continuation.onTermination = { @Sendable _ in task.cancel() }
+        }
+    }
+
+    /// A tool call is the loop's business; the conversation sees its result.
+    private static func appEvent(_ event: AIStreamEvent) -> AppInferenceEvent? {
+        switch event {
+        case .textDelta(let text): .text(text)
+        case .toolCall: nil
+        case .usage(let usage): .usage(usage)
+        case .completed(let metadata): .completed(metadata)
         }
     }
 
@@ -173,6 +216,8 @@ final class InferenceService: @unchecked Sendable {
             case .textDelta(let text):
                 if output.isEmpty { await progress?(.receiving) }
                 output.append(text)
+            // Proposals are offered no tools, so none can be asked for.
+            case .toolCall: throw AIProviderError.malformedStream
             case .usage(let value): usage = value
             case .completed(let value): completionMetadata = value
             }
@@ -230,7 +275,8 @@ final class InferenceService: @unchecked Sendable {
         context: FrozenProjectContext,
         purpose: AIJobPurpose,
         messages: [AIMessage],
-        schema: StructuredOutputSchema? = nil
+        schema: StructuredOutputSchema? = nil,
+        tools: [AIToolDefinition] = []
     ) -> AIRequest {
         AIRequest(
             projectID: context.projectID,
@@ -241,6 +287,7 @@ final class InferenceService: @unchecked Sendable {
             configurationID: configurationID,
             messages: messages,
             structuredOutput: schema,
+            tools: tools,
             maximumOutputTokens: configuration.maximumOutputTokens,
             approvedSpendingCeilingUSD: configuration.approvedSpendingCeilingUSD
         )

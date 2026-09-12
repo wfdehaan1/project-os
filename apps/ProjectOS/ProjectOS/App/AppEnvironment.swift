@@ -46,6 +46,15 @@ final class AppEnvironment: ObservableObject {
     @Published var maximumOutputTokens: String
     @Published var approvedSpendingCeilingUSD: String
     @Published var providerReadiness: ProviderReadiness = .unavailable
+    /// The SearXNG that serves web research, on this Mac.
+    @Published var searxngURL: String {
+        didSet {
+            guard searxngURL != oldValue else { return }
+            searxngStatus = "Not tested"
+        }
+    }
+    @Published var searxngStatus = "Not tested"
+    @Published var isTestingSearXNG = false
 
     /// Appearance and theme are independent global preferences. Appearance
     /// follows macOS until the person chooses otherwise.
@@ -74,6 +83,7 @@ final class AppEnvironment: ObservableObject {
         ollamaModel = defaults.string(forKey: "ollamaModel") ?? ""
         openRouterModel = defaults.string(forKey: "openRouterModel") ?? ""
         openRouterRoute = defaults.string(forKey: "openRouterRoute") ?? ""
+        searxngURL = defaults.string(forKey: "searxngURL") ?? SearXNGClient.defaultURL
         let storedWindow = defaults.integer(forKey: "providerContextWindowTokens")
         contextWindowTokens = storedWindow > 0 ? String(storedWindow) : ""
         let storedOutput = defaults.integer(forKey: "providerMaximumOutputTokens")
@@ -212,6 +222,28 @@ final class AppEnvironment: ObservableObject {
         }
     }
 
+    /// Keeps a page the model read as a project source, exactly as it was read.
+    /// Only then can a record quote it, and the origin keeps the way back to
+    /// the live page.
+    func saveWebPageAsSource(_ page: WebPageSnapshot) {
+        guard let projectID = selectedProject?.id, savedSource(for: page) == nil else { return }
+        perform {
+            let source = try requireStore().addSource(
+                projectID: projectID,
+                label: page.title,
+                text: page.text,
+                origin: page.origin
+            )
+            sources = try requireStore().sources(projectID: projectID)
+            contextSelection.sourceIDs.insert(source.id)
+        }
+    }
+
+    /// The source already kept from this exact retrieval, if there is one.
+    func savedSource(for page: WebPageSnapshot) -> SourceRecord? {
+        sources.first { $0.origin?.matches(page) == true }
+    }
+
     func updateProject(name: String, summary: String) {
         guard var project = selectedProject, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         perform {
@@ -247,6 +279,16 @@ final class AppEnvironment: ObservableObject {
     func openConversation(_ id: UUID) {
         selectConversation(id)
         show(.conversation)
+    }
+
+    /// Turns web research on or off for the open conversation. The choice is
+    /// remembered with the conversation, not with the session.
+    func setWebResearch(_ enabled: Bool) {
+        guard let projectID = selectedProject?.id, let conversationID = selectedConversationID else { return }
+        perform {
+            let updated = try requireStore().setWebResearch(enabled, conversationID: conversationID, projectID: projectID)
+            if let index = conversations.firstIndex(where: { $0.id == updated.id }) { conversations[index] = updated }
+        }
     }
 
     /// Opens a new conversation about a research item, focused on that item.
@@ -323,6 +365,16 @@ final class AppEnvironment: ObservableObject {
         guard !userText.isEmpty else { return }
         guard validateContextBounds(extraText: userText) else { return }
 
+        // Web research needs a reachable SearXNG address before anything is
+        // saved, so a misconfigured one fails before the question is sent.
+        let webResearch: WebResearchToolbox?
+        if usesWebResearch {
+            do { webResearch = try makeWebResearchToolbox(userMessage: userText) }
+            catch { alertMessage = error.localizedDescription; return }
+        } else {
+            webResearch = nil
+        }
+
         let userMessage = MessageRecord(id: UUID(), projectID: project.id, conversationID: conversationID, role: .user, text: userText, completion: .complete, createdAt: Date())
         let assistantID = UUID()
         do {
@@ -334,41 +386,54 @@ final class AppEnvironment: ObservableObject {
         } catch { alertMessage = error.localizedDescription; return }
 
         let frozen = makeFrozenContext(project: project)
-        guard let appJobID = beginJob(purpose: .chat, context: frozen) else { return }
+        guard let appJobID = beginJob(purpose: .chat, context: frozen, usesWebResearch: webResearch != nil) else { return }
         let frozenConversationID = conversationID
         let configuration = currentProviderConfiguration
         activeTask = Task { [weak self] in
             guard let self else { return }
             var answer = ""
+            var research: [WebResearchStep] = []
+            /// The reply as it stands, with the research that produced it.
+            func reply(_ completion: MessageCompletion) -> MessageRecord {
+                let trail = completion == .partial ? research : research.map { $0.interrupted() }
+                return MessageRecord(id: assistantID, projectID: project.id, conversationID: frozenConversationID, role: .assistant, text: answer, completion: completion, createdAt: Date(), research: trail.isEmpty ? nil : trail)
+            }
             do {
                 let service = InferenceService(configuration: configuration)
-                for try await event in service.chat(context: frozen, userMessage: userText) {
+                for try await event in service.chat(context: frozen, userMessage: userText, webResearch: webResearch) {
                     guard !Task.isCancelled else { throw CancellationError() }
                     switch event {
                     case .phase(let phase): self.advanceActivity(to: phase, expectedID: appJobID)
                     case .text(let token):
                         self.advanceActivity(to: .receiving, expectedID: appJobID)
                         answer += token
-                        let partial = MessageRecord(id: assistantID, projectID: project.id, conversationID: frozenConversationID, role: .assistant, text: answer, completion: .partial, createdAt: Date())
+                        let partial = reply(.partial)
+                        try self.requireStore().saveMessage(partial)
+                        if self.selectedProject?.id == project.id, self.selectedConversationID == frozenConversationID { self.upsertMessage(partial) }
+                    case .research(let step):
+                        if let index = research.firstIndex(where: { $0.id == step.id }) { research[index] = step }
+                        else { research.append(step) }
+                        self.noteResearch(step, expectedID: appJobID)
+                        let partial = reply(.partial)
                         try self.requireStore().saveMessage(partial)
                         if self.selectedProject?.id == project.id, self.selectedConversationID == frozenConversationID { self.upsertMessage(partial) }
                     case .usage(let usage): self.recordTelemetry(usage: usage, metadata: nil, expectedID: appJobID)
                     case .completed(let metadata): self.recordTelemetry(usage: nil, metadata: metadata, expectedID: appJobID)
                     }
                 }
-                let completed = MessageRecord(id: assistantID, projectID: project.id, conversationID: frozenConversationID, role: .assistant, text: answer, completion: .complete, createdAt: Date())
+                let completed = reply(.complete)
                 try self.requireStore().saveMessage(completed)
                 if self.selectedProject?.id == project.id, self.selectedConversationID == frozenConversationID { self.upsertMessage(completed) }
                 self.finishActivity(.completed("Reply complete"), expectedID: appJobID)
                 self.finishActiveJob(.completed, expectedID: appJobID)
             } catch is CancellationError {
-                let cancelled = MessageRecord(id: assistantID, projectID: project.id, conversationID: frozenConversationID, role: .assistant, text: answer, completion: .cancelled, createdAt: Date())
+                let cancelled = reply(.cancelled)
                 try? self.requireStore().saveMessage(cancelled)
                 if self.selectedProject?.id == project.id, self.selectedConversationID == frozenConversationID { self.upsertMessage(cancelled) }
                 self.finishActivity(.stopped, expectedID: appJobID)
                 self.finishActiveJob(.cancelled, expectedID: appJobID)
             } catch {
-                let failed = MessageRecord(id: assistantID, projectID: project.id, conversationID: frozenConversationID, role: .assistant, text: answer, completion: .failed, createdAt: Date())
+                let failed = reply(.failed)
                 try? self.requireStore().saveMessage(failed)
                 if self.selectedProject?.id == project.id, self.selectedConversationID == frozenConversationID { self.upsertMessage(failed) }
                 self.alertMessage = error.localizedDescription
@@ -505,7 +570,7 @@ final class AppEnvironment: ObservableObject {
             } else {
                 guard let source = sources.first(where: { $0.id == evidence.sourceID && $0.version == evidence.version }),
                       source.text.range(of: evidence.quote) != nil else { throw ProjectStoreError.notFound("Retained evidence source version") }
-                evidenceInspection = EvidenceInspection(id: evidence.id, label: source.label, version: source.version, fullText: source.text, quote: evidence.quote, aiAuthored: evidence.aiAuthored)
+                evidenceInspection = EvidenceInspection(id: evidence.id, label: source.label, version: source.version, fullText: source.text, quote: evidence.quote, aiAuthored: evidence.aiAuthored, origin: source.origin)
             }
         } catch { alertMessage = error.localizedDescription }
     }
@@ -600,6 +665,7 @@ final class AppEnvironment: ObservableObject {
         defaults.set(ollamaModel, forKey: "ollamaModel")
         defaults.set(openRouterModel, forKey: "openRouterModel")
         defaults.set(openRouterRoute, forKey: "openRouterRoute")
+        defaults.set(searxngURL, forKey: "searxngURL")
         if let window = Int(contextWindowTokens), window > 0 { defaults.set(window, forKey: "providerContextWindowTokens") }
         else { defaults.removeObject(forKey: "providerContextWindowTokens") }
         if let output = Int(maximumOutputTokens), output > 0 { defaults.set(output, forKey: "providerMaximumOutputTokens") }
@@ -671,6 +737,42 @@ final class AppEnvironment: ObservableObject {
         }
     }
 
+    /// Runs one real search, because reaching SearXNG is not the same as it
+    /// being willing to answer in JSON.
+    func testSearXNG() {
+        let requestedURL = searxngURL
+        isTestingSearXNG = true
+        searxngStatus = "Testing…"
+        Task {
+            defer { isTestingSearXNG = false }
+            do {
+                guard let url = URL(string: requestedURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+                    throw WebResearchError.invalidSearchEndpoint
+                }
+                let results = try await SearXNGClient(baseURL: url).search("ProjectOS")
+                guard searxngURL == requestedURL else { return }
+                searxngStatus = results.isEmpty
+                    ? "Answered, but returned no results for a test search"
+                    : "Connected · JSON results enabled"
+            } catch {
+                guard searxngURL == requestedURL else { return }
+                searxngStatus = "Not reachable"
+                alertMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func makeWebResearchToolbox(userMessage: String) throws -> WebResearchToolbox {
+        guard let url = URL(string: searxngURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw WebResearchError.invalidSearchEndpoint
+        }
+        return WebResearchToolbox(
+            searcher: try SearXNGClient(baseURL: url),
+            reader: WebPageReader(),
+            userMessage: userMessage
+        )
+    }
+
     private var currentProviderConfiguration: InferenceConfiguration {
         InferenceConfiguration(provider: provider, ollamaURL: ollamaURL, model: selectedModel, openRouterRoute: openRouterRoute)
     }
@@ -711,7 +813,7 @@ final class AppEnvironment: ObservableObject {
         else { messages.append(message) }
     }
 
-    private func beginJob(purpose: AIJobPurpose, context: FrozenProjectContext) -> UUID? {
+    private func beginJob(purpose: AIJobPurpose, context: FrozenProjectContext, usesWebResearch: Bool = false) -> UUID? {
         let job = InferenceJobRecord(id: UUID(), contextID: UUID(), projectID: context.projectID, sourceRevision: context.projectRevision, provider: context.provider.rawValue, model: context.model, configuredUpstreamRoute: context.provider == .openRouter ? openRouterRoute : nil, purpose: purpose.rawValue, sourceIDs: context.sources.map(\.id), artifactIDs: context.artifacts.map(\.id), messageIDs: context.messages.map(\.id), createdAt: Date(), status: .running)
         do {
             try requireStore().saveJob(job)
@@ -721,7 +823,7 @@ final class AppEnvironment: ObservableObject {
             let contextSummary = purpose == .nextAction
                 ? GenerationActivity.contextSummary(includesDescription: false, sources: 0, records: context.artifacts.count, messages: 0)
                 : GenerationActivity.contextSummary(includesDescription: context.projectDescription != nil, sources: context.sources.count, records: context.artifacts.count, messages: context.messages.count)
-            activity = GenerationActivity(id: job.id, projectID: context.projectID, projectName: context.projectName, purpose: purpose, provider: context.provider, model: context.model, route: job.configuredUpstreamRoute, contextSummary: contextSummary)
+            activity = GenerationActivity(id: job.id, projectID: context.projectID, projectName: context.projectName, purpose: purpose, provider: context.provider, model: context.model, route: job.configuredUpstreamRoute, contextSummary: contextSummary, usesWebResearch: usesWebResearch)
             return job.id
         } catch {
             alertMessage = "Inference did not start because its recovery record could not be saved. \(error.localizedDescription)"
@@ -764,6 +866,19 @@ final class AppEnvironment: ObservableObject {
 
     private func advanceActivity(to phase: AIJobPhase, expectedID: UUID) {
         guard var current = activity, current.id == expectedID, current.advance(to: phase) else { return }
+        activity = current
+    }
+
+    /// Names the search or page the model is on, so the sidebar says what is
+    /// happening rather than only that something is.
+    private func noteResearch(_ step: WebResearchStep, expectedID: UUID) {
+        guard var current = activity, current.id == expectedID else { return }
+        let note: String? = switch (step.action, step.status) {
+        case (.search, .running): step.subject.isEmpty ? "Searching the web" : "Searching “\(step.subject)”"
+        case (.read, .running): "Reading \(URL(string: step.subject)?.host ?? "a page")"
+        default: nil
+        }
+        guard current.note(note) else { return }
         activity = current
     }
 

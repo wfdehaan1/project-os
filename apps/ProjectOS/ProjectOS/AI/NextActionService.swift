@@ -99,6 +99,8 @@ public actor NextActionService {
             case .textDelta(let chunk):
                 if data.isEmpty { await progress?(.receiving) }
                 data.append(chunk)
+            // A next action is offered no tools, so none can be asked for.
+            case .toolCall: throw AIProviderError.malformedStream
             case .usage(let value): usage = value
             case .completed(let value): completionMetadata = value
             }

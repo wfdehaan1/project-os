@@ -33,8 +33,12 @@ struct GenerationActivity: Identifiable, Equatable {
     /// The configured OpenRouter upstream route; `nil` for a local model.
     let route: String?
     let contextSummary: String
+    /// Whether this reply may search the web, which adds a step of its own.
+    let usesWebResearch: Bool
     private(set) var phase: AIJobPhase = .preparing
     private(set) var outcome: Outcome?
+    /// The search or page the model is on, while it is researching.
+    private(set) var researchNote: String?
 
     init(
         id: UUID,
@@ -44,7 +48,8 @@ struct GenerationActivity: Identifiable, Equatable {
         provider: ProviderChoice,
         model: String,
         route: String?,
-        contextSummary: String
+        contextSummary: String,
+        usesWebResearch: Bool = false
     ) {
         self.id = id
         self.projectID = projectID
@@ -54,11 +59,16 @@ struct GenerationActivity: Identifiable, Equatable {
         self.model = model
         self.route = route
         self.contextSummary = contextSummary
+        self.usesWebResearch = usesWebResearch
     }
 
     var isRunning: Bool { outcome == nil }
     var runsLocally: Bool { provider == .ollama }
-    var steps: [AIJobPhase] { purpose.steps }
+
+    var steps: [AIJobPhase] {
+        guard usesWebResearch, purpose == .chat else { return purpose.steps }
+        return [.preparing, .waiting, .researching, .receiving]
+    }
 
     /// Moves to a later phase. Phases never go back, and an ended request
     /// stays where it ended, so a late event cannot rewrite what happened.
@@ -69,11 +79,21 @@ struct GenerationActivity: Identifiable, Equatable {
         return true
     }
 
+    /// Names what the model is looking at right now. Only meaningful while the
+    /// request runs.
+    @discardableResult
+    mutating func note(_ note: String?) -> Bool {
+        guard isRunning, researchNote != note else { return false }
+        researchNote = note
+        return true
+    }
+
     /// Records how the request ended. Only the first ending counts.
     @discardableResult
     mutating func finish(_ ending: Outcome) -> Bool {
         guard isRunning else { return false }
         outcome = ending
+        researchNote = nil
         return true
     }
 
@@ -92,7 +112,7 @@ struct GenerationActivity: Identifiable, Equatable {
     /// The status line the sidebar shows.
     var headline: String {
         switch outcome {
-        case nil: phase.title(for: purpose)
+        case nil: researchNote ?? phase.title(for: purpose)
         case .completed(let message): message
         case .failed: "\(purpose.activityTitle) failed"
         case .stopped: "\(purpose.activityTitle) stopped"
@@ -140,6 +160,7 @@ extension AIJobPhase {
         switch (self, purpose) {
         case (.preparing, _): "Preparing context"
         case (.waiting, _): "Waiting for the model"
+        case (.researching, _): "Researching the web"
         case (.receiving, .chat): "Writing the reply"
         case (.receiving, .proposals): "Drafting project updates"
         case (.receiving, .nextAction): "Drafting the next action"
@@ -161,6 +182,9 @@ extension AIJobPhase {
             }
             let destination = route.map { "to \($0)" } ?? "upstream"
             return "OpenRouter forwards the request \(destination), and the model reads the context before it starts writing."
+        case (.researching, _):
+            let cost = runsLocally ? "" : " Each step is another request to OpenRouter."
+            return "The model searches through SearXNG and reads pages it found. Every search and page appears in the reply.\(cost)"
         case (.receiving, .chat):
             return "The reply appears in the conversation as it arrives."
         case (.receiving, _):

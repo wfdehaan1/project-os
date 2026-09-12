@@ -2,8 +2,9 @@ import SwiftUI
 
 /// The source material a project has imported.
 ///
-/// A source is retained exactly as pasted. Including one in context is a
-/// deliberate act, so selection lives on the row rather than being implied.
+/// A source is retained exactly as pasted, or exactly as read from a web page.
+/// Including one in context is a deliberate act, so selection lives on the row
+/// rather than being implied.
 struct SourcesView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @Environment(\.theme) private var theme
@@ -85,8 +86,8 @@ struct SourcesView: View {
     }
 }
 
-/// One retained source: label, import metadata, context inclusion, and the
-/// original text on demand.
+/// One retained source: label, import metadata, context inclusion, the page it
+/// came from when it came from the web, and the original text on demand.
 private struct SourceCard: View {
     let source: SourceRecord
     let isIncluded: Bool
@@ -115,6 +116,9 @@ private struct SourceCard: View {
                         Text("Version \(source.version) · \(source.text.count) characters · added \(source.createdAt.formatted(date: .abbreviated, time: .omitted))")
                             .font(TypeRole.caption)
                             .foregroundStyle(theme.muted)
+                        if let origin = source.origin {
+                            originLine(origin)
+                        }
                     }
 
                     Spacer(minLength: Spacing.step2)
@@ -141,6 +145,24 @@ private struct SourceCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// Where a web page's text came from, and a way back to the live page. The
+    /// retained text is the copy taken on that date, which is what records
+    /// quote.
+    private func originLine(_ origin: SourceOrigin) -> some View {
+        HStack(spacing: Spacing.step2) {
+            Image(systemName: "globe")
+                .imageScale(.small)
+                .accessibilityHidden(true)
+            Text("Read from \(origin.url.host ?? origin.url.absoluteString) on \(origin.fetchedAt.formatted(date: .abbreviated, time: .shortened))")
+            Link(destination: origin.url) {
+                Label("Open original", systemImage: "arrow.up.right.square")
+            }
+            .help(origin.url.absoluteString)
+        }
+        .font(TypeRole.caption)
+        .foregroundStyle(theme.muted)
     }
 }
 

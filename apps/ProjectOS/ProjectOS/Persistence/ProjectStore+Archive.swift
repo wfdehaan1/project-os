@@ -1,5 +1,22 @@
 import Foundation
 
+extension ProjectStore {
+    /// The page an archived source was read from, when it carries one. A
+    /// source without a complete origin is treated as pasted text.
+    static func archivedOrigin(_ record: ArchivedRecord) -> SourceOrigin? {
+        guard let address = record.fields["originURL"]?.stringValue,
+              let url = URL(string: address),
+              let fetchedAt = record.fields["originFetchedAt"]?.stringValue.flatMap({ try? Date($0, strategy: .iso8601) }) else {
+            return nil
+        }
+        return SourceOrigin(
+            url: url,
+            title: record.fields["originTitle"]?.stringValue ?? url.host ?? address,
+            fetchedAt: fetchedAt
+        )
+    }
+}
+
 extension ProjectStore: ProjectArchiveSource {
     func archiveSnapshot(for projectID: UUID) async throws -> ProjectArchiveSnapshot {
         let snapshotRows = try queue.sync {
@@ -24,10 +41,20 @@ extension ProjectStore: ProjectArchiveSource {
         let now = Date()
 
         for conversation in conversationRecords {
-            records.append(.init(id: conversation.id, projectID: projectID, kind: .conversation, version: 1, state: "owned", createdAt: conversation.createdAt, updatedAt: conversation.updatedAt, parentID: nil, references: conversation.researchID.map { [.init(role: "research", targetID: $0)] } ?? [], fields: ["title": .string(conversation.title)], importMetadata: nil))
+            var fields: [String: ArchiveValue] = ["title": .string(conversation.title)]
+            if let webResearch = conversation.webResearch { fields["webResearch"] = .boolean(webResearch) }
+            records.append(.init(id: conversation.id, projectID: projectID, kind: .conversation, version: 1, state: "owned", createdAt: conversation.createdAt, updatedAt: conversation.updatedAt, parentID: nil, references: conversation.researchID.map { [.init(role: "research", targetID: $0)] } ?? [], fields: fields, importMetadata: nil))
         }
-        records += sourceRecords.map { source in
-            .init(id: source.id, projectID: projectID, kind: .source, version: source.version, state: "current", createdAt: source.createdAt, updatedAt: source.createdAt, parentID: nil, references: [], fields: ["label": .string(source.label), "text": .string(source.text)], importMetadata: nil)
+        records += sourceRecords.map { source -> ArchivedRecord in
+            var fields: [String: ArchiveValue] = ["label": .string(source.label), "text": .string(source.text)]
+            // A restored copy keeps the page its text came from, and when it
+            // was taken, so provenance survives the round trip.
+            if let origin = source.origin {
+                fields["originURL"] = .string(origin.url.absoluteString)
+                fields["originTitle"] = .string(origin.title)
+                fields["originFetchedAt"] = .string(origin.fetchedAt.formatted(.iso8601))
+            }
+            return .init(id: source.id, projectID: projectID, kind: .source, version: source.version, state: "current", createdAt: source.createdAt, updatedAt: source.createdAt, parentID: nil, references: [], fields: fields, importMetadata: nil)
         }
         records += messageRecords.map { message in
             .init(id: message.id, projectID: projectID, kind: .message, version: 1, state: message.completion.rawValue, createdAt: message.createdAt, updatedAt: message.createdAt, parentID: message.conversationID, references: [.init(role: "conversation", targetID: message.conversationID)], fields: ["role": .string(message.role.rawValue), "text": .string(message.text)], importMetadata: nil)

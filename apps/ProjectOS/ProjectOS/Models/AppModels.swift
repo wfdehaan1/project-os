@@ -17,6 +17,9 @@ struct SourceRecord: Identifiable, Codable, Hashable {
     var text: String
     var version: Int
     var createdAt: Date
+    /// Set when the text was kept from a web page, so it can be traced back to
+    /// it. Pasted sources have none.
+    var origin: SourceOrigin? = nil
 }
 
 struct ConversationRecord: Identifiable, Codable, Hashable {
@@ -28,6 +31,18 @@ struct ConversationRecord: Identifiable, Codable, Hashable {
     /// The research item this conversation works on. Several conversations can
     /// share one; an ordinary conversation has none.
     var researchID: UUID? = nil
+    /// An explicit choice about web research. Unset means the default for this
+    /// kind of conversation still applies.
+    var webResearch: Bool? = nil
+}
+
+extension ConversationRecord {
+    /// Whether the model may search the web in this conversation. Research
+    /// conversations are for finding things out, so they start with it on;
+    /// every other conversation starts with it off.
+    var usesWebResearch: Bool {
+        webResearch ?? (researchID != nil)
+    }
 }
 
 enum MessageRole: String, Codable { case user, assistant }
@@ -41,6 +56,9 @@ struct MessageRecord: Identifiable, Codable, Hashable {
     var text: String
     var completion: MessageCompletion
     var createdAt: Date
+    /// What the model did on the web while writing this reply, kept so the
+    /// answer can still be traced to its pages afterwards.
+    var research: [WebResearchStep]? = nil
 }
 
 enum ArtifactKind: String, CaseIterable, Codable, Identifiable {
@@ -93,6 +111,8 @@ struct EvidenceInspection: Identifiable {
     let fullText: String
     let quote: String
     let aiAuthored: Bool
+    /// The page this text was kept from, when it came from the web.
+    var origin: SourceOrigin? = nil
 }
 
 struct ArtifactRecord: Identifiable, Codable, Hashable {

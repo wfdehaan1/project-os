@@ -138,6 +138,13 @@ private struct GenerationActivityDetails: View {
                                 .foregroundStyle(theme.muted)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
+                        // The search or page the model is on right now.
+                        if step == .researching, state == .current, let note = activity.researchNote {
+                            Text(note)
+                                .font(TypeRole.caption)
+                                .foregroundStyle(theme.text)
+                                .lineLimit(2)
+                        }
                     }
                 }
                 .accessibilityElement(children: .combine)

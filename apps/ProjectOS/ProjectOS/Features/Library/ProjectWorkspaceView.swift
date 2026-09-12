@@ -235,6 +235,22 @@ private struct SourceInspectorSheet: View {
                             )
                         }
                     }
+                    // Text kept from the web stays traceable to its page, and
+                    // says plainly that it is a copy from a moment in time.
+                    if let origin = evidence.origin {
+                        HStack(spacing: Spacing.step2) {
+                            Image(systemName: "globe")
+                                .imageScale(.small)
+                                .accessibilityHidden(true)
+                            Text("Read from \(origin.url.host ?? origin.url.absoluteString) on \(origin.fetchedAt.formatted(date: .abbreviated, time: .shortened)). The live page may have changed since.")
+                            Link(destination: origin.url) {
+                                Label("Open original page", systemImage: "arrow.up.right.square")
+                            }
+                            .help(origin.url.absoluteString)
+                        }
+                        .font(TypeRole.caption)
+                        .foregroundStyle(theme.muted)
+                    }
                 }
                 Spacer()
                 Button("Done") { dismiss() }

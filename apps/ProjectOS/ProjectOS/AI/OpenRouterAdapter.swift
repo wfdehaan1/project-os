@@ -58,6 +58,54 @@ struct OpenRouterMaxPrice: Encodable, Equatable {
     let request: Decimal
 }
 
+/// Streamed tool calls arrive in pieces: the first piece of a call carries its
+/// id and tool name, and the arguments follow as text fragments, each keyed by
+/// the call's index.
+struct OpenRouterToolCallAssembler {
+    struct Fragment: Decodable {
+        struct Function: Decodable {
+            let name: String?
+            let arguments: String?
+        }
+        let index: Int?
+        let id: String?
+        let function: Function?
+    }
+
+    private struct PartialCall {
+        var id: String?
+        var name = ""
+        var arguments = ""
+    }
+
+    private var partials: [Int: PartialCall] = [:]
+
+    var isEmpty: Bool { partials.isEmpty }
+
+    mutating func add(_ fragment: Fragment) {
+        let index = fragment.index ?? 0
+        var partial = partials[index] ?? PartialCall()
+        if let id = fragment.id, !id.isEmpty { partial.id = id }
+        if let name = fragment.function?.name { partial.name += name }
+        if let arguments = fragment.function?.arguments { partial.arguments += arguments }
+        partials[index] = partial
+    }
+
+    /// The finished calls, in the order the model made them.
+    func finish() throws -> [AIToolCall] {
+        try partials.keys.sorted().map { index in
+            guard let partial = partials[index], !partial.name.isEmpty else {
+                throw AIProviderError.malformedStream
+            }
+            return AIToolCall(
+                id: partial.id ?? "call_\(index)",
+                name: partial.name,
+                arguments: partial.arguments.isEmpty ? "{}" : partial.arguments
+            )
+        }
+    }
+}
+
 public final class OpenRouterAdapter: AIProvider, @unchecked Sendable {
     public let descriptor: ProviderDescriptor
 
@@ -90,7 +138,7 @@ public final class OpenRouterAdapter: AIProvider, @unchecked Sendable {
             executionBoundary: .external,
             contextWindowTokens: configuration.contextWindowTokens,
             maximumOutputTokens: configuration.maximumOutputTokens,
-            capabilities: ProviderCapabilities(streaming: true, structuredOutput: true, cancellation: true)
+            capabilities: ProviderCapabilities(streaming: true, structuredOutput: true, cancellation: true, toolCalling: true)
         )
     }
 
@@ -141,11 +189,12 @@ public final class OpenRouterAdapter: AIProvider, @unchecked Sendable {
         }
         let body = OpenRouterRequest(
             model: configuration.modelID,
-            messages: request.messages.map { .init(role: $0.role.rawValue, content: $0.content) },
+            messages: request.messages.map(OpenRouterRequest.Message.init),
             stream: true,
             maxCompletionTokens: request.maximumOutputTokens,
             provider: provider,
-            responseFormat: responseFormat
+            responseFormat: responseFormat,
+            tools: request.tools.isEmpty ? nil : request.tools.map(OpenRouterRequest.Tool.init)
         )
         var urlRequest = URLRequest(url: configuration.baseURL.appendingPathComponent("chat/completions"))
         urlRequest.httpMethod = "POST"
@@ -158,7 +207,12 @@ public final class OpenRouterAdapter: AIProvider, @unchecked Sendable {
 
         let (bytes, response) = try await session.bytes(for: urlRequest)
         guard let http = response as? HTTPURLResponse else { throw AIProviderError.malformedStream }
-        guard (200..<300).contains(http.statusCode) else { throw HTTPErrorMapper.map(status: http.statusCode) }
+        guard (200..<300).contains(http.statusCode) else {
+            // The pinned route is required to support every parameter sent, so
+            // asking for tools it cannot serve leaves no endpoint at all.
+            if !request.tools.isEmpty, http.statusCode == 404 { throw AIProviderError.toolsUnsupported }
+            throw HTTPErrorMapper.map(status: http.statusCode)
+        }
         guard response.url?.scheme == "https", response.url?.host?.lowercased() == "openrouter.ai" else {
             throw AIProviderError.invalidConfiguration("OpenRouter redirected outside its approved HTTPS host.")
         }
@@ -167,6 +221,7 @@ public final class OpenRouterAdapter: AIProvider, @unchecked Sendable {
             let producer = Task {
                 var lineBuffer = UTF8LineBuffer()
                 var eventParser = SSEDataParser()
+                var toolCalls = OpenRouterToolCallAssembler()
                 var receivedDone = false
                 var completionMetadata = AICompletionMetadata(
                     modelID: configuration.modelID,
@@ -177,15 +232,15 @@ public final class OpenRouterAdapter: AIProvider, @unchecked Sendable {
                         try Task.checkCancellation()
                         if let line = try lineBuffer.append(byte),
                            let payload = eventParser.consume(line: line) {
-                            receivedDone = try Self.consume(payload: payload, expectedModel: configuration.modelID, expectedProvider: configuration.upstreamProvider, metadata: &completionMetadata, continuation: continuation) || receivedDone
+                            receivedDone = try Self.consume(payload: payload, expectedModel: configuration.modelID, expectedProvider: configuration.upstreamProvider, metadata: &completionMetadata, toolCalls: &toolCalls, continuation: continuation) || receivedDone
                         }
                     }
                     if let line = try lineBuffer.finish(),
                        let payload = eventParser.consume(line: line) {
-                        receivedDone = try Self.consume(payload: payload, expectedModel: configuration.modelID, expectedProvider: configuration.upstreamProvider, metadata: &completionMetadata, continuation: continuation) || receivedDone
+                        receivedDone = try Self.consume(payload: payload, expectedModel: configuration.modelID, expectedProvider: configuration.upstreamProvider, metadata: &completionMetadata, toolCalls: &toolCalls, continuation: continuation) || receivedDone
                     }
                     if let payload = eventParser.finish() {
-                        receivedDone = try Self.consume(payload: payload, expectedModel: configuration.modelID, expectedProvider: configuration.upstreamProvider, metadata: &completionMetadata, continuation: continuation) || receivedDone
+                        receivedDone = try Self.consume(payload: payload, expectedModel: configuration.modelID, expectedProvider: configuration.upstreamProvider, metadata: &completionMetadata, toolCalls: &toolCalls, continuation: continuation) || receivedDone
                     }
                     guard receivedDone else { throw AIProviderError.truncatedOutput }
                     continuation.finish()
@@ -200,8 +255,7 @@ public final class OpenRouterAdapter: AIProvider, @unchecked Sendable {
     }
 
     static func maxPrice(for request: AIRequest, ceiling: Decimal) -> OpenRouterMaxPrice {
-        var promptUpperBound = request.messages.reduce(0) { $0 + $1.content.utf8.count + 16 }
-        if let schema = request.structuredOutput, let encoded = try? JSONEncoder().encode(schema) { promptUpperBound += encoded.count }
+        let promptUpperBound = ProviderRequestValidator.promptUpperBound(of: request)
         // Divide the approved per-request ceiling across prompt, completion,
         // and any endpoint's fixed per-request price. OpenRouter's max_price
         // rates are USD per million tokens.
@@ -216,6 +270,7 @@ public final class OpenRouterAdapter: AIProvider, @unchecked Sendable {
         expectedModel: String,
         expectedProvider: String,
         metadata: inout AICompletionMetadata,
+        toolCalls: inout OpenRouterToolCallAssembler,
         continuation: AsyncThrowingStream<AIStreamEvent, Error>.Continuation
     ) throws -> Bool {
         if payload == "[DONE]" {
@@ -223,6 +278,8 @@ public final class OpenRouterAdapter: AIProvider, @unchecked Sendable {
                   metadata.upstreamProvider?.caseInsensitiveCompare(expectedProvider) == .orderedSame else {
                 throw AIProviderError.requestDoesNotMatchFrozenConfiguration
             }
+            // A tool call only counts once the model has finished writing it.
+            for call in try toolCalls.finish() { continuation.yield(.toolCall(call)) }
             continuation.yield(.completed(metadata))
             return true
         }
@@ -248,6 +305,7 @@ public final class OpenRouterAdapter: AIProvider, @unchecked Sendable {
             if let content = choice.delta?.content, !content.isEmpty {
                 continuation.yield(.textDelta(content))
             }
+            for fragment in choice.delta?.toolCalls ?? [] { toolCalls.add(fragment) }
         }
         if let usage = chunk.usage {
             continuation.yield(.usage(AIUsage(
@@ -262,7 +320,41 @@ public final class OpenRouterAdapter: AIProvider, @unchecked Sendable {
 }
 
 private struct OpenRouterRequest: Encodable {
-    struct Message: Encodable { let role: String; let content: String }
+    struct Message: Encodable {
+        struct ToolCall: Encodable {
+            struct Function: Encodable { let name: String; let arguments: String }
+            let id: String
+            let type = "function"
+            let function: Function
+        }
+        let role: String
+        let content: String
+        let toolCalls: [ToolCall]?
+        let toolCallID: String?
+        enum CodingKeys: String, CodingKey {
+            case role, content
+            case toolCalls = "tool_calls"
+            case toolCallID = "tool_call_id"
+        }
+
+        init(_ message: AIMessage) {
+            role = message.role.rawValue
+            content = message.content
+            toolCalls = message.toolCalls.isEmpty ? nil : message.toolCalls.map {
+                ToolCall(id: $0.id, function: .init(name: $0.name, arguments: $0.arguments))
+            }
+            toolCallID = message.toolCallID
+        }
+    }
+    struct Tool: Encodable {
+        struct Function: Encodable { let name: String; let description: String; let parameters: JSONValue }
+        let type = "function"
+        let function: Function
+
+        init(_ tool: AIToolDefinition) {
+            function = Function(name: tool.name, description: tool.description, parameters: tool.parameters)
+        }
+    }
     struct Provider: Encodable {
         let order: [String]
         let only: [String]
@@ -290,8 +382,9 @@ private struct OpenRouterRequest: Encodable {
     let maxCompletionTokens: Int
     let provider: Provider
     let responseFormat: ResponseFormat?
+    let tools: [Tool]?
     enum CodingKeys: String, CodingKey {
-        case model, messages, stream, provider
+        case model, messages, stream, provider, tools
         case maxCompletionTokens = "max_completion_tokens"
         case responseFormat = "response_format"
     }
@@ -299,7 +392,14 @@ private struct OpenRouterRequest: Encodable {
 
 private struct OpenRouterChunk: Decodable {
     struct Choice: Decodable {
-        struct Delta: Decodable { let content: String? }
+        struct Delta: Decodable {
+            let content: String?
+            let toolCalls: [OpenRouterToolCallAssembler.Fragment]?
+            enum CodingKeys: String, CodingKey {
+                case content
+                case toolCalls = "tool_calls"
+            }
+        }
         let delta: Delta?
     }
     struct Usage: Decodable {

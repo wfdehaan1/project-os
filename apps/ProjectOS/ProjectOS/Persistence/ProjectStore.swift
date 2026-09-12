@@ -117,13 +117,30 @@ final class ProjectStore: @unchecked Sendable {
         try queue.sync { try fetchAll("SELECT data FROM sources WHERE project_id = ?", bind: [projectID.uuidString], as: SourceRecord.self).sorted { $0.createdAt < $1.createdAt } }
     }
 
-    func addSource(projectID: UUID, label: String, text: String) throws -> SourceRecord {
+    /// Retains source text exactly as given. `origin` is set when the text was
+    /// kept from a web page, so a citation can be traced back to it.
+    func addSource(projectID: UUID, label: String, text: String, origin: SourceOrigin? = nil) throws -> SourceRecord {
         guard text.count <= 250_000 else { throw ProjectStoreError.encoding("Sources are limited to 250,000 characters.") }
         return try queue.sync {
             try ensureWritable(projectID)
-            let source = SourceRecord(id: UUID(), projectID: projectID, label: label, text: text, version: 1, createdAt: Date())
+            let source = SourceRecord(id: UUID(), projectID: projectID, label: label, text: text, version: 1, createdAt: Date(), origin: origin)
             try put(source, table: "sources", id: source.id, projectID: projectID)
             return source
+        }
+    }
+
+    /// Turns web research on or off for one conversation, as an explicit choice
+    /// that outlives this session's default.
+    func setWebResearch(_ enabled: Bool, conversationID: UUID, projectID: UUID) throws -> ConversationRecord {
+        try queue.sync {
+            try ensureWritable(projectID)
+            guard var conversation = try fetchOne("SELECT data FROM conversations WHERE id = ?", bind: [conversationID.uuidString], as: ConversationRecord.self),
+                  conversation.projectID == projectID else {
+                throw ProjectStoreError.notFound("Conversation")
+            }
+            conversation.webResearch = enabled
+            try put(conversation, table: "conversations", id: conversation.id, projectID: projectID)
+            return conversation
         }
     }
 
@@ -572,7 +589,7 @@ final class ProjectStore: @unchecked Sendable {
                 for record in snapshot.records {
                     switch record.kind {
                     case .source:
-                        let source = SourceRecord(id: record.id, projectID: project.id, label: record.fields["label"]?.stringValue ?? "Source", text: record.fields["text"]?.stringValue ?? "", version: record.version, createdAt: record.createdAt)
+                        let source = SourceRecord(id: record.id, projectID: project.id, label: record.fields["label"]?.stringValue ?? "Source", text: record.fields["text"]?.stringValue ?? "", version: record.version, createdAt: record.createdAt, origin: Self.archivedOrigin(record))
                         try put(source, table: "sources", id: source.id, projectID: project.id)
                     case .message:
                         let conversationID = record.parentID ?? record.references.first(where: { $0.role == "conversation" })?.targetID ?? UUID()
@@ -621,7 +638,9 @@ final class ProjectStore: @unchecked Sendable {
                         let job = InferenceJobRecord(id: record.id, contextID: contextID, projectID: project.id, sourceRevision: context.fields["sourceRevision"]?.intValue ?? 0, provider: context.fields["provider"]?.stringValue ?? "", model: context.fields["model"]?.stringValue ?? "", configuredUpstreamRoute: context.fields["configuredUpstreamRoute"]?.stringValue, purpose: context.fields["purpose"]?.stringValue ?? "", sourceIDs: sources, artifactIDs: artifacts, messageIDs: messages, createdAt: record.createdAt, status: status == .running ? .interrupted : status, inputTokens: record.fields["inputTokens"]?.intValue, outputTokens: record.fields["outputTokens"]?.intValue, cost: record.fields["cost"]?.stringValue.flatMap { Decimal(string: $0, locale: Locale(identifier: "en_US_POSIX")) }, currency: record.fields["currency"]?.stringValue, actualModel: record.fields["actualModel"]?.stringValue, actualUpstreamProvider: record.fields["actualUpstreamProvider"]?.stringValue)
                         try put(job, table: "jobs", id: job.id, projectID: project.id)
                     case .conversation:
-                        let conversation = ConversationRecord(id: record.id, projectID: project.id, title: record.fields["title"]?.stringValue ?? "Conversation", createdAt: record.createdAt, updatedAt: record.updatedAt, researchID: record.references.first(where: { $0.role == "research" })?.targetID)
+                        var webResearch: Bool?
+                        if case .boolean(let choice)? = record.fields["webResearch"] { webResearch = choice }
+                        let conversation = ConversationRecord(id: record.id, projectID: project.id, title: record.fields["title"]?.stringValue ?? "Conversation", createdAt: record.createdAt, updatedAt: record.updatedAt, researchID: record.references.first(where: { $0.role == "research" })?.targetID, webResearch: webResearch)
                         try put(conversation, table: "conversations", id: conversation.id, projectID: project.id)
                     case .relation, .context:
                         continue

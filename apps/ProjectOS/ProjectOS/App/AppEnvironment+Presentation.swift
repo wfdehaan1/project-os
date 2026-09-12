@@ -151,4 +151,19 @@ extension AppEnvironment {
             ? "Runs on this Mac with \(activeModelDescription). Project context stays local."
             : "Sends the previewed context to \(activeModelDescription). Billed separately by OpenRouter."
     }
+
+    /// Whether the selected conversation may research the web.
+    var usesWebResearch: Bool {
+        selectedConversation?.usesWebResearch ?? false
+    }
+
+    /// What web research means for this conversation, said before a question is
+    /// sent. Search terms leave this Mac even when the model itself does not.
+    var webResearchDisclosure: String {
+        let searching = "Web research is on. Search terms go to SearXNG at \(searxngURL), and on to the engines it uses; pages are downloaded from their own sites."
+        let keeping = "A page the model reads is not project material until you save it as a source."
+        return runsLocally
+            ? "\(searching) \(keeping)"
+            : "\(searching) Each search and page is another billed OpenRouter request. \(keeping)"
+    }
 }

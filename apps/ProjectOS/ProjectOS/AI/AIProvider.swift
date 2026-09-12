@@ -21,6 +21,9 @@ public enum AIJobPurpose: String, Codable, Sendable {
 public enum AIJobPhase: Int, Comparable, Sendable {
     case preparing
     case waiting
+    /// A reply with web research: the model searches and reads pages before
+    /// it answers.
+    case researching
     case receiving
     case checking
     case saving
@@ -34,15 +37,53 @@ public enum AIMessageRole: String, Codable, Sendable {
     case system
     case user
     case assistant
+    /// The result of one tool call, sent back to the model.
+    case tool
+}
+
+/// A tool the model asked to run, exactly as it asked for it.
+public struct AIToolCall: Codable, Equatable, Sendable {
+    public let id: String
+    public let name: String
+    /// The arguments as the model wrote them: a JSON object, in text.
+    public let arguments: String
+
+    public init(id: String, name: String, arguments: String) {
+        self.id = id
+        self.name = name
+        self.arguments = arguments
+    }
+}
+
+/// A tool offered to the model: its name, what it does, and a JSON schema for
+/// its arguments.
+public struct AIToolDefinition: Codable, Equatable, Sendable {
+    public let name: String
+    public let description: String
+    public let parameters: JSONValue
+
+    public init(name: String, description: String, parameters: JSONValue) {
+        self.name = name
+        self.description = description
+        self.parameters = parameters
+    }
 }
 
 public struct AIMessage: Codable, Equatable, Sendable {
     public let role: AIMessageRole
     public let content: String
+    /// The tools an assistant turn asked for; empty for any other turn.
+    public let toolCalls: [AIToolCall]
+    /// For a `.tool` turn, the call it answers and that call's tool.
+    public let toolCallID: String?
+    public let toolName: String?
 
-    public init(role: AIMessageRole, content: String) {
+    public init(role: AIMessageRole, content: String, toolCalls: [AIToolCall] = [], toolCallID: String? = nil, toolName: String? = nil) {
         self.role = role
         self.content = content
+        self.toolCalls = toolCalls
+        self.toolCallID = toolCallID
+        self.toolName = toolName
     }
 }
 
@@ -98,6 +139,8 @@ public struct AIRequest: Sendable {
     public let configurationID: UUID
     public let messages: [AIMessage]
     public let structuredOutput: StructuredOutputSchema?
+    /// Tools the model may ask for. Empty means it can only answer.
+    public let tools: [AIToolDefinition]
     public let maximumOutputTokens: Int
     public let approvedSpendingCeilingUSD: Decimal?
 
@@ -111,6 +154,7 @@ public struct AIRequest: Sendable {
         configurationID: UUID,
         messages: [AIMessage],
         structuredOutput: StructuredOutputSchema? = nil,
+        tools: [AIToolDefinition] = [],
         maximumOutputTokens: Int,
         approvedSpendingCeilingUSD: Decimal? = nil
     ) {
@@ -123,6 +167,7 @@ public struct AIRequest: Sendable {
         self.configurationID = configurationID
         self.messages = messages
         self.structuredOutput = structuredOutput
+        self.tools = tools
         self.maximumOutputTokens = maximumOutputTokens
         self.approvedSpendingCeilingUSD = approvedSpendingCeilingUSD
     }
@@ -140,6 +185,24 @@ public struct AIUsage: Codable, Equatable, Sendable {
         self.cost = cost
         self.currency = currency
     }
+
+    /// The combined usage of two requests. A figure either request did not
+    /// report stays unknown only if neither reported it.
+    public func adding(_ other: AIUsage) -> AIUsage {
+        func sum<T: AdditiveArithmetic>(_ lhs: T?, _ rhs: T?) -> T? {
+            switch (lhs, rhs) {
+            case (nil, nil): nil
+            case (let value?, nil), (nil, let value?): value
+            case (let lhs?, let rhs?): lhs + rhs
+            }
+        }
+        return AIUsage(
+            inputTokens: sum(inputTokens, other.inputTokens),
+            outputTokens: sum(outputTokens, other.outputTokens),
+            cost: sum(cost, other.cost),
+            currency: currency ?? other.currency
+        )
+    }
 }
 
 public struct AICompletionMetadata: Codable, Equatable, Sendable {
@@ -154,6 +217,8 @@ public struct AICompletionMetadata: Codable, Equatable, Sendable {
 
 public enum AIStreamEvent: Equatable, Sendable {
     case textDelta(String)
+    /// A complete tool call, emitted once the model has finished writing it.
+    case toolCall(AIToolCall)
     case usage(AIUsage)
     case completed(AICompletionMetadata)
 }
@@ -162,11 +227,15 @@ public struct ProviderCapabilities: Codable, Equatable, Sendable {
     public let streaming: Bool
     public let structuredOutput: Bool
     public let cancellation: Bool
+    /// The transport can offer tools. Whether the selected model can use them
+    /// is only known when it answers.
+    public let toolCalling: Bool
 
-    public init(streaming: Bool, structuredOutput: Bool, cancellation: Bool) {
+    public init(streaming: Bool, structuredOutput: Bool, cancellation: Bool, toolCalling: Bool = false) {
         self.streaming = streaming
         self.structuredOutput = structuredOutput
         self.cancellation = cancellation
+        self.toolCalling = toolCalling
     }
 }
 
@@ -234,6 +303,7 @@ public enum AIProviderError: Error, Equatable, Sendable {
     case rateLimited
     case billingRejected
     case unsupportedStructuredOutput
+    case toolsUnsupported
     case malformedStream
     case truncatedOutput
     case outputLimitReached
@@ -255,6 +325,7 @@ extension AIProviderError: LocalizedError {
         case .rateLimited: "The provider rate-limited this request. Retry manually later."
         case .billingRejected: "The provider rejected this request for billing or credit reasons. Review the provider account before retrying."
         case .unsupportedStructuredOutput: "The selected route does not support the required structured output parameters."
+        case .toolsUnsupported: "The selected model or route cannot use tools, which web research needs. Turn web research off for this conversation, or choose a model with tool support."
         case .malformedStream: "The provider returned a malformed stream. Partial output was retained."
         case .truncatedOutput: "The provider stream ended before a completion marker. Partial output was retained."
         case .outputLimitReached: "The model reached the maximum output tokens before finishing, so its answer is incomplete. Raise the limit in Settings or narrow the context, then retry."
@@ -283,19 +354,38 @@ enum ProviderRequestValidator {
         guard request.maximumOutputTokens <= descriptor.maximumOutputTokens else {
             throw AIProviderError.invalidConfiguration("The output budget exceeds the configured model limit.")
         }
+        guard request.tools.isEmpty || descriptor.capabilities.toolCalling else {
+            throw AIProviderError.toolsUnsupported
+        }
         guard let contextLimit = descriptor.contextWindowTokens else {
             throw AIProviderError.contextBoundUnknown
         }
+        let bound = upperBound(of: request)
+        guard bound <= contextLimit else {
+            throw AIProviderError.contextLimitExceeded(estimated: bound, limit: contextLimit)
+        }
+    }
 
-        // One UTF-8 byte per token is intentionally conservative and includes prompt framing.
-        var upperBound = request.messages.reduce(0) { $0 + $1.content.utf8.count + 16 }
+    /// Everything the request sends. One UTF-8 byte per token is intentionally
+    /// conservative and includes prompt framing.
+    static func promptUpperBound(of request: AIRequest) -> Int {
+        var bound = request.messages.reduce(0) { total, message in
+            total + message.content.utf8.count + 16 + message.toolCalls.reduce(0) {
+                $0 + $1.id.utf8.count + $1.name.utf8.count + $1.arguments.utf8.count + 16
+            }
+        }
         if let schema = request.structuredOutput,
            let encoded = try? JSONEncoder().encode(schema) {
-            upperBound += encoded.count
+            bound += encoded.count
         }
-        upperBound += request.maximumOutputTokens
-        guard upperBound <= contextLimit else {
-            throw AIProviderError.contextLimitExceeded(estimated: upperBound, limit: contextLimit)
+        if !request.tools.isEmpty, let encoded = try? JSONEncoder().encode(request.tools) {
+            bound += encoded.count
         }
+        return bound
+    }
+
+    /// The prompt plus the whole output budget.
+    static func upperBound(of request: AIRequest) -> Int {
+        promptUpperBound(of: request) + request.maximumOutputTokens
     }
 }
