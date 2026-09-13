@@ -50,7 +50,9 @@ extension AppEnvironment {
     func badgeCount(for destination: WorkspaceDestination) -> Int? {
         let count: Int
         switch destination {
-        case .overview, .settings, .changeLog:
+        // The map shows records counted elsewhere in the sidebar, so a count
+        // beside it would repeat rather than orient.
+        case .overview, .map, .settings, .changeLog:
             return nil
         case .conversation:
             count = conversations.count

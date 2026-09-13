@@ -16,6 +16,18 @@ struct ProjectOSApp: App {
                 Button("New Project") { environment.showCreateProject = true }
                     .keyboardShortcut("n", modifiers: .command)
             }
+            // Every destination shortcut also has a visible menu item, so the
+            // keyboard is never the only way to reach a surface.
+            CommandMenu("Go") {
+                ForEach(Array(WorkspaceNavigation.shortcutDestinations.enumerated()), id: \.element.id) { index, destination in
+                    Button(destination.title) { environment.show(destination) }
+                        .keyboardShortcut(
+                            KeyEquivalent(Character("\(index + 1)")),
+                            modifiers: .command
+                        )
+                        .disabled(environment.selectedProject == nil)
+                }
+            }
         }
 
         Settings {

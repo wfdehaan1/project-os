@@ -35,6 +35,7 @@ struct ProjectWorkspaceView: View {
     private var destinationView: some View {
         switch environment.destination {
         case .overview: OverviewView()
+        case .map: ProjectMapView()
         case .conversation: ConversationView()
         case .ledger(let kind): LedgerView(kind: kind)
         case .proposals: ProposalsView()

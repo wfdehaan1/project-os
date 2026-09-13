@@ -7,6 +7,8 @@ import Foundation
 /// an artifact kind therefore adds a sidebar row and nothing else.
 enum WorkspaceDestination: Hashable, Identifiable {
     case overview
+    /// The relationship graph over accepted state.
+    case map
     case conversation
     /// The state ledger. `nil` shows every accepted record.
     case ledger(ArtifactKind?)
@@ -18,6 +20,7 @@ enum WorkspaceDestination: Hashable, Identifiable {
     var id: String {
         switch self {
         case .overview: "overview"
+        case .map: "map"
         case .conversation: "conversation"
         case .ledger(let kind): "ledger.\(kind?.rawValue ?? "all")"
         case .proposals: "proposals"
@@ -30,6 +33,7 @@ enum WorkspaceDestination: Hashable, Identifiable {
     var title: String {
         switch self {
         case .overview: "Overview"
+        case .map: "Project Map"
         case .conversation: "Conversation"
         case .ledger(let kind): kind?.pluralName ?? "All records"
         case .proposals: "Proposals"
@@ -42,6 +46,7 @@ enum WorkspaceDestination: Hashable, Identifiable {
     var symbolName: String {
         switch self {
         case .overview: "house"
+        case .map: "point.3.connected.trianglepath.dotted"
         case .conversation: "bubble.left.and.bubble.right"
         case .ledger(let kind): kind?.symbolName ?? "square.stack.3d.up"
         case .proposals: "sparkles"
@@ -64,8 +69,22 @@ struct SidebarGroup: Identifiable {
 /// The grouping follows the design spine: where you are, what you are working
 /// on, what the project has accepted, and the record behind it.
 enum WorkspaceNavigation {
+    /// The destinations reachable with ⌘1 … ⌘8, in that order. Orientation and
+    /// accepted knowledge come first because those are what a person returning
+    /// to a project reaches for.
+    static let shortcutDestinations: [WorkspaceDestination] = [
+        .overview,
+        .map,
+        .conversation,
+        .ledger(.topic),
+        .ledger(.task),
+        .ledger(.decision),
+        .ledger(.research),
+        .ledger(.openQuestion),
+    ]
+
     static let groups: [SidebarGroup] = [
-        SidebarGroup(id: "orientation", title: nil, destinations: [.overview]),
+        SidebarGroup(id: "orientation", title: nil, destinations: [.overview, .map]),
         SidebarGroup(
             id: "active-work",
             title: "Active work",
