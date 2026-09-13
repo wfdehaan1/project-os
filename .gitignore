@@ -31,3 +31,5 @@ xcuserdata/
 
 # secrets
 .env
+# Local SearXNG instance config; settings.yml carries a server secret_key.
+searxng/
