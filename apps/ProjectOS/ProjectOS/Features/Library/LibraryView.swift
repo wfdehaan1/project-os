@@ -1,11 +1,91 @@
 import SwiftUI
 
-/// The Project Library.
+/// The Project Library window: a small sidebar and one main region.
+///
+/// The library carries its own navigation because Settings is global — it
+/// belongs to the app rather than to any one project, so it has to be reachable
+/// without opening a project first.
+struct LibraryView: View {
+    @EnvironmentObject private var environment: AppEnvironment
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        NavigationSplitView {
+            LibrarySidebar()
+                .navigationSplitViewColumnWidth(
+                    min: Spacing.sidebarCollapsed,
+                    ideal: Spacing.sidebarDefault,
+                    max: 320
+                )
+        } detail: {
+            destinationView
+                // The split view measures the detail at near-zero width when it
+                // works out the window's minimum size. A real minimum keeps that
+                // measurement sane, as it does in the project window.
+                .frame(minWidth: 480)
+                .background(theme.canvas)
+        }
+        .sheet(isPresented: $environment.showCreateProject) { CreateProjectSheet() }
+    }
+
+    @ViewBuilder
+    private var destinationView: some View {
+        switch environment.libraryDestination {
+        case .projects: ProjectsBrowser()
+        case .settings: LibrarySettingsView()
+        }
+    }
+}
+
+/// The wordmark plus the library's destinations.
+private struct LibrarySidebar: View {
+    @EnvironmentObject private var environment: AppEnvironment
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // The wordmark orients the window; each destination names what is
+            // on it.
+            Text("ProjectOS")
+                .font(TypeRole.label.weight(.semibold))
+                .foregroundStyle(theme.text)
+                .padding(.horizontal, Spacing.step3)
+                .padding(.vertical, Spacing.step3)
+            DecorativeDivider()
+            // A row's selection marker is vertically flexible, so the rows need
+            // a container that sizes them to their content rather than handing
+            // them a share of the sidebar's full height.
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.step1) {
+                    ForEach(LibraryDestination.allCases) { destination in
+                        SidebarRow(
+                            title: destination.title,
+                            symbolName: destination.symbolName,
+                            badge: environment.badgeCount(for: destination),
+                            isSelected: environment.libraryDestination == destination,
+                            identifier: "library.sidebar.\(destination.id)"
+                        ) {
+                            environment.show(destination)
+                        }
+                    }
+                }
+                .padding(.horizontal, Spacing.step2)
+                .padding(.vertical, Spacing.step3)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(theme.sidebar)
+        .overlay(alignment: .trailing) { DecorativeDivider(axis: .vertical) }
+    }
+}
+
+/// The projects themselves.
 ///
 /// Projects are recognisable without becoming dashboards: a card is a cover and
 /// a title, nothing more. Browsing, searching, and opening a project are all
 /// local and never look like they invoked inference.
-struct LibraryView: View {
+private struct ProjectsBrowser: View {
     @EnvironmentObject private var environment: AppEnvironment
     @Environment(\.theme) private var theme
     @State private var query = ""
@@ -26,18 +106,13 @@ struct LibraryView: View {
             content
         }
         .background(theme.canvas)
-        .sheet(isPresented: $environment.showCreateProject) { CreateProjectSheet() }
+        .navigationTitle("Project Library")
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: Spacing.step4) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: Spacing.step1) {
-                    // The wordmark orients the window; the surface title names
-                    // what is on it.
-                    Text("ProjectOS")
-                        .font(TypeRole.eyebrow)
-                        .foregroundStyle(theme.muted)
                     Text("Project Library")
                         .font(TypeRole.title)
                         .foregroundStyle(theme.text)
@@ -149,7 +224,9 @@ private struct ProjectCard: View {
     }
 }
 
-private struct CreateProjectSheet: View {
+/// Shared by the Project Library and the project window's switcher, so New
+/// Project behaves the same from either place.
+struct CreateProjectSheet: View {
     @EnvironmentObject private var environment: AppEnvironment
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme

@@ -26,6 +26,10 @@ struct ProjectWorkspaceView: View {
                 .frame(minWidth: 480)
                 .background(theme.canvas)
         }
+        // New Project is reachable from the switcher while a project is open, and
+        // the ⌘N command sets the same flag, so the sheet has to exist on this
+        // surface too — not only on the Project Library.
+        .sheet(isPresented: $environment.showCreateProject) { CreateProjectSheet() }
         .sheet(isPresented: $environment.showAddSource) { AddSourceSheet() }
         .sheet(isPresented: $environment.showOutcome) { OutcomeFormView() }
         .sheet(item: $environment.evidenceInspection) { SourceInspectorSheet(evidence: $0) }
@@ -71,9 +75,11 @@ private struct WorkspaceSidebar: View {
                             }
                             ForEach(group.destinations) { destination in
                                 SidebarRow(
-                                    destination: destination,
+                                    title: destination.title,
+                                    symbolName: destination.symbolName,
                                     badge: environment.badgeCount(for: destination),
-                                    isSelected: environment.destination == destination
+                                    isSelected: environment.destination == destination,
+                                    identifier: "sidebar.\(destination.id)"
                                 ) {
                                     environment.show(destination)
                                 }
@@ -116,89 +122,60 @@ private struct ProjectSwitcher: View {
                 Button(project.name) { environment.openProject(project) }
             }
             Divider()
+            Button("New Project") { environment.showCreateProject = true }
             Button("All Projects") { environment.closeProject() }
         } label: {
             HStack(spacing: Spacing.step2) {
-                RoundedRectangle(cornerRadius: 3)
+                // The marker stands for the project's theme, so it reads as a
+                // swatch with its own boundary rather than a bare dot.
+                RoundedRectangle(cornerRadius: 5)
                     .fill(theme.accent)
-                    .frame(width: 10, height: 10)
+                    .frame(width: 18, height: 18)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 5)
+                            .strokeBorder(theme.essentialBoundary, lineWidth: Stroke.hairline)
+                    }
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(environment.selectedProject?.name ?? "Project")
                         .font(TypeRole.label.weight(.semibold))
                         .foregroundStyle(theme.text)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                     Text(environment.themePreset.displayName)
                         .font(TypeRole.caption)
                         .foregroundStyle(theme.muted)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 }
                 Spacer(minLength: Spacing.step2)
-                Image(systemName: "chevron.up.chevron.down")
+                Image(systemName: "chevron.down")
                     .imageScale(.small)
                     .foregroundStyle(theme.muted)
             }
             .padding(.horizontal, Spacing.step2)
-            .padding(.vertical, Spacing.step2)
-            .contentShape(Rectangle())
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .background(theme.surface, in: RoundedRectangle(cornerRadius: Radius.md))
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.md)
-                .strokeBorder(theme.essentialBoundary.opacity(0.45), lineWidth: Stroke.hairline)
-        }
-        .accessibilityLabel("Switch project. Current project \(environment.selectedProject?.name ?? "none").")
-    }
-}
-
-/// One sidebar destination. The active row uses a selection fill, a selected
-/// boundary marker, and weight — never colour alone.
-private struct SidebarRow: View {
-    let destination: WorkspaceDestination
-    let badge: Int?
-    let isSelected: Bool
-    let select: () -> Void
-
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        Button(action: select) {
-            HStack(spacing: Spacing.step2) {
-                Rectangle()
-                    .fill(isSelected ? theme.selectedBoundary : .clear)
-                    .frame(width: 2.5)
-                    .accessibilityHidden(true)
-                Image(systemName: destination.symbolName)
-                    .imageScale(.small)
-                    .frame(width: 18)
-                    .foregroundStyle(isSelected ? theme.accent : theme.muted)
-                Text(destination.title)
-                    .font(isSelected ? TypeRole.label.weight(.semibold) : TypeRole.label)
-                    .foregroundStyle(theme.text)
-                    .lineLimit(1)
-                Spacer(minLength: Spacing.step2)
-                if let badge {
-                    Text("\(badge)")
-                        .font(TypeRole.caption)
-                        .foregroundStyle(theme.muted)
-                        .monospacedDigit()
-                }
+            .padding(.vertical, Spacing.step2 - 2)
+            // The row spans the sidebar, as the mockup's full-width switcher does.
+            .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
+            // The chrome lives on the label, so what is styled is what is drawn.
+            .background(theme.surface, in: RoundedRectangle(cornerRadius: Radius.md))
+            .overlay {
+                RoundedRectangle(cornerRadius: Radius.md)
+                    .strokeBorder(theme.essentialBoundary, lineWidth: Stroke.hairline)
             }
-            .padding(.trailing, Spacing.step2)
-            .padding(.vertical, Spacing.step2 - 1)
-            .background(isSelected ? theme.selection : .clear, in: RoundedRectangle(cornerRadius: Radius.md))
-            .contentShape(Rectangle())
+            .contentShape(RoundedRectangle(cornerRadius: Radius.md))
         }
+        // `.borderlessButton` renders native pull-down chrome on macOS 26: it
+        // draws its own leading chevron, ignores a hidden menu indicator, and
+        // discards this label. `.button` plus a plain button style draws the
+        // label as written.
+        .menuStyle(.button)
         .buttonStyle(.plain)
-        .help(destination.title)
-        .accessibilityIdentifier("sidebar.\(destination.id)")
-        .accessibilityLabel(destination.title)
-        // The count is a value, not part of the name, so the destination stays
-        // addressable by its own title.
-        .accessibilityValue(badge.map(String.init) ?? "")
-        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .menuIndicator(.hidden)
+        .accessibilityIdentifier("workspace.project-switcher")
+        .accessibilityLabel("Switch project. Current project \(environment.selectedProject?.name ?? "none").")
+        // Theme belongs in the value, so the control stays addressable by name.
+        .accessibilityValue(environment.themePreset.displayName)
     }
 }
 

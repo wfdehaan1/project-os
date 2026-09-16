@@ -7,6 +7,8 @@ final class AppEnvironment: ObservableObject {
     @Published var projects: [ProjectRecord] = []
     @Published var selectedProject: ProjectRecord?
     @Published var destination: WorkspaceDestination = .overview
+    /// Where the Project Library is, when no project is open.
+    @Published var libraryDestination: LibraryDestination = .projects
     @Published var sources: [SourceRecord] = []
     @Published var conversations: [ConversationRecord] = []
     @Published var selectedConversationID: UUID?
@@ -170,6 +172,9 @@ final class AppEnvironment: ObservableObject {
         activity = nil
         selectedProject = nil
         visitBaseline = nil
+        // Leaving a project returns to the projects themselves, not to whatever
+        // library page was open last.
+        libraryDestination = .projects
         try? reloadLibrary()
     }
 

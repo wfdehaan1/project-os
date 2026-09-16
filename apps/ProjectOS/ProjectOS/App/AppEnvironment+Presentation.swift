@@ -16,6 +16,21 @@ extension AppEnvironment {
         self.destination = destination
     }
 
+    /// Moves the Project Library to a destination.
+    func show(_ destination: LibraryDestination) {
+        guard libraryDestination != destination else { return }
+        libraryDestination = destination
+    }
+
+    /// The count shown beside a library destination. Settings is a single page,
+    /// so a count there would be noise rather than orientation.
+    func badgeCount(for destination: LibraryDestination) -> Int? {
+        switch destination {
+        case .projects: projects.isEmpty ? nil : projects.count
+        case .settings: nil
+        }
+    }
+
     // MARK: - Accepted state
 
     /// Records that still describe the project, excluding removed ones.
