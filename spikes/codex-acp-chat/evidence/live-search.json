@@ -1,0 +1,33 @@
+{
+  "scenario": "search",
+  "timestamp": "2026-09-16T14:34:27.827Z",
+  "elapsedMS": 14973,
+  "adapter": {
+    "name": "@agentclientprotocol/codex-acp",
+    "title": "Codex",
+    "version": "1.12.0"
+  },
+  "model": "gpt-6-astra[high]",
+  "stopReason": "end_turn",
+  "events": [
+    {
+      "update": "tool_call",
+      "id": "exec-f39517a8-4288-46b3-86e7-40642b87a2e4",
+      "kind": "search",
+      "title": "Web search",
+      "status": "in_progress",
+      "type": "webSearch"
+    },
+    {
+      "update": "tool_call_update",
+      "id": "exec-f39517a8-4288-46b3-86e7-40642b87a2e4",
+      "title": "Web search: site.energysavingtrust.org.uk heat pumps guide",
+      "status": "completed",
+      "type": "webSearch"
+    }
+  ],
+  "answer": "I’ll search for the official Energy Saving Trust heat-pump guidance.\n[Energy Saving Trust — Heat pumps: how they work, costs and savings](https://energysavingtrust.org.uk/advice/in-depth-guide-to-heat-pumps/)\n\nFor COPPER-417, missing project information includes location, insulation and glazing specifications, intended heating hours, electricity supply, and the heating allocation within the EUR 15,000 budget.",
+  "builtInWebSearch": true,
+  "resumedRecall": null,
+  "limitation": "Observed behavior only. ACP client rejection and runtime configuration do not establish complete OS containment."
+}

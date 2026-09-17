@@ -169,7 +169,7 @@ struct InferenceSettingsSection: View {
     /// and each conversation can decide for itself. This is only where the
     /// search service lives.
     private var webResearchCard: some View {
-        SectionCard(title: "Web research", subtitle: "SearXNG on this Mac, used by conversations with web research on.") {
+        SectionCard(title: "Web research", subtitle: "SearXNG on this Mac, used only by local Ollama conversations with web research on.") {
             VStack(alignment: .leading, spacing: Spacing.step3) {
                 SettingsRow(label: "SearXNG loopback URL") {
                     TextField("", text: $environment.searxngURL)

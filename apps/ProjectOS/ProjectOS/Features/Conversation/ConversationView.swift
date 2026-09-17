@@ -202,13 +202,13 @@ struct ConversationView: View {
             get: { environment.usesWebResearch },
             set: { environment.setWebResearch($0) }
         )) {
-            Label("Web research", systemImage: "globe")
+            Label(environment.provider == .ollama ? "Web research" : "Web research · local models only", systemImage: "globe")
                 .font(TypeRole.caption)
         }
         .toggleStyle(.switch)
         .controlSize(.mini)
-        .disabled(environment.isGenerating || environment.selectedConversationID == nil)
-        .help("Let the model search the web through your SearXNG and read the pages it finds.")
+        .disabled(environment.isGenerating || environment.selectedConversationID == nil || environment.provider != .ollama)
+        .help("Local Ollama models can search through your SearXNG and read pages. External agents use their own tools.")
         .accessibilityIdentifier("conversation.web-research-toggle")
     }
 }

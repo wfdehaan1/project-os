@@ -1,0 +1,17 @@
+{
+  "scenario": "proposal",
+  "timestamp": "2026-09-16T14:35:11.175Z",
+  "elapsedMS": 10729,
+  "adapter": {
+    "name": "@agentclientprotocol/codex-acp",
+    "title": "Codex",
+    "version": "1.12.0"
+  },
+  "model": "gpt-6-astra[high]",
+  "stopReason": "end_turn",
+  "events": [],
+  "answer": "{\"schemaVersion\":1,\"proposals\":[{\"temporaryID\":\"8f63cde9-7bd2-45ea-90a6-d1c0e59b7423\",\"operation\":\"create\",\"kind\":\"open_question\",\"targetID\":null,\"expectedTargetRevision\":null,\"title\":\"Which heating option should the garden office use?\",\"content\":\"Would a heat pump provide quiet, year-round comfort for the well-insulated garden office in the Netherlands, given the unresolved budget and installation feasibility?\",\"rationale\":null,\"decisionSubject\":null,\"state\":\"open\",\"certainty\":null,\"limitations\":null,\"evidence\":[{\"sourceType\":\"source\",\"referenceID\":\"A48D35E1-97D4-4F14-8CCC-000000000002\",\"version\":1,\"quote\":\"Synthetic garden-office project. I want a quiet, well-insulated garden office in the Netherlands. I prefer a heat pump if the evidence supports year-round comfort. Budget and installation feasibility remain undecided.\"}],\"relationships\":[],\"dependencyIDs\":[]}]}",
+  "builtInWebSearch": false,
+  "resumedRecall": null,
+  "limitation": "Observed behavior only. ACP client rejection and runtime configuration do not establish complete OS containment."
+}

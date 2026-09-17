@@ -289,6 +289,7 @@ final class AppEnvironment: ObservableObject {
     /// Turns web research on or off for the open conversation. The choice is
     /// remembered with the conversation, not with the session.
     func setWebResearch(_ enabled: Bool) {
+        guard provider == .ollama || !enabled else { return }
         guard let projectID = selectedProject?.id, let conversationID = selectedConversationID else { return }
         perform {
             let updated = try requireStore().setWebResearch(enabled, conversationID: conversationID, projectID: projectID)

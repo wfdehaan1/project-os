@@ -1,0 +1,17 @@
+{
+  "scenario": "resume",
+  "timestamp": "2026-09-16T14:37:12.794Z",
+  "elapsedMS": 4903,
+  "adapter": {
+    "name": "@agentclientprotocol/codex-acp",
+    "title": "Codex",
+    "version": "1.12.0"
+  },
+  "model": "gpt-6-astra[high]",
+  "stopReason": "end_turn",
+  "events": [],
+  "answer": "The experiment marker is COPPER-417, the garden-office floor area is 12 m², and the budget is EUR 15,000.",
+  "builtInWebSearch": false,
+  "resumedRecall": true,
+  "limitation": "Observed behavior only. ACP client rejection and runtime configuration do not establish complete OS containment."
+}
